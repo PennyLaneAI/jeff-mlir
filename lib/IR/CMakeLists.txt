@@ -1,0 +1,10 @@
+add_mlir_library(MLIRJeff
+    JeffDialect.cpp
+    JeffInterfaces.cpp
+    JeffOps.cpp
+
+    DEPENDS
+    MLIRJeffInterfacesIncGen
+    MLIRJeffOpsIncGen
+    MLIRJeffEnumsIncGen
+)
