@@ -16,25 +16,24 @@ standalone project which generates a custom `opt` tool.
 To do so, make sure you have an existing MLIR build.
 <details>
 <summary>If you don't ...</summary>
-Start by cloning the llvm-project submodule in the repo as follows (otherwise it is optional):
+You can get pre-built binaries from the [`munich-quantum-software/portable-mlir-toolchain`](https://github.com/munich-quantum-software/portable-mlir-toolchain) project via the installers from [`munich-quantum-software/setup-mlir`](https://github.com/munich-quantum-software/setup-mlir):
 
-```sh
-git submodule update --init --depth=1
+On Linux and macOS, use the following Bash command:
+
+```bash
+curl -LsSf https://github.com/munich-quantum-software/setup-mlir/releases/latest/download/setup-mlir.sh | bash -s -- -v 21.1.8 -p /path/to/installation
 ```
 
-Then, build the MLIR project for example with:
+On Windows, use the following PowerShell command:
 
-```sh
-cd external/llvm-project
-cmake -Bbuild -Sllvm -GNinja            \
-      -DCMAKE_BUILD_TYPE=Release        \
-      -DLLVM_ENABLE_PROJECTS="mlir"     \
-      -DLLVM_BUILD_EXAMPLES=OFF         \
-      -DLLVM_ENABLE_ASSERTIONS=ON       \
-      -DMLIR_ENABLE_BINDINGS_PYTHON=OFF
-cmake --build build --target check-mlir
-cd ../..
+```powershell
+powershell -ExecutionPolicy ByPass -c "& ([scriptblock]::Create((irm https://github.com/munich-quantum-software/setup-mlir/releases/latest/download/setup-mlir.ps1))) -llvm_version 21.1.8 -install_prefix /path/to/installation"
 ```
+
+Replace `/path/to/installation` with the path to your preferred installation directory.
+Then, set `MLIR_DIR` to `/path/to/installation/lib/cmake/mlir` in your CMake configuration step.
+
+Alternatively, you can build MLIR from source following the instructions in the [MLIR documentation](https://mlir.llvm.org/getting_started/).
 </details>
 <br>
 
@@ -43,9 +42,9 @@ From here, we can build the *jeff* dialect simply via:
 cmake -Bbuild -S. -GNinja && cmake --build build
 ```
 
-If CMake can't find the mlir build, it can be specified via `-DMLIR_DIR=...` during the config step,
-which must point to the cmake files in the build directory, for example
-`./external/llvm-project/build/lib/cmake/mlir`.
+If CMake can't find the MLIR build, it can be specified via `-DMLIR_DIR=...` during the config step,
+which must point to the cmake files in the build or installation directory, for example
+`/path/to/installation/lib/cmake/mlir`.
 
 The `jeff-opt` tool will be located in the build directory under `./build/lib/opt/jeff-opt`.
 
