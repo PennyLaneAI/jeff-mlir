@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 project(jeff-mlir DESCRIPTION "A jeff dialect in MLIR" LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
+if(NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD LESS 17)
+  set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
+endif()
 
 find_package(MLIR REQUIRED CONFIG)
 
