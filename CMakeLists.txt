@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.20...4.2)
 
 project(jeff-mlir DESCRIPTION "A jeff dialect in MLIR" LANGUAGES CXX C)
 
