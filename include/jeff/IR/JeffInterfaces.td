@@ -21,7 +21,7 @@ def QubitOperation : OpInterface<"QubitOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -32,7 +32,7 @@ def QuregOperation : OpInterface<"QuregOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -43,7 +43,7 @@ def QubitGate : OpInterface<"QubitGate"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -54,7 +54,7 @@ def MultipleCtrlQubitsGate : OpInterface<"MultipleCtrlQubitsGate", [QubitGate]> 
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -82,7 +82,7 @@ def MultiplePauliGate : OpInterface<"MultiplePauliGate", [QubitGate]> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -110,7 +110,7 @@ def MultipleQubitsGate : OpInterface<"MultipleQubitsGate", [QubitGate]> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -138,7 +138,7 @@ def MultipleParamsGate : OpInterface<"MultipleParamsGate", [QubitGate]> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -160,7 +160,7 @@ def WellKnownGate : OpInterface<"WellKnownGate"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -171,7 +171,7 @@ def IntOperation : OpInterface<"IntOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -182,7 +182,7 @@ def IntArrayOperation : OpInterface<"IntArrayOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -193,7 +193,7 @@ def FloatOperation : OpInterface<"FloatOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -204,7 +204,7 @@ def FloatArrayOperation : OpInterface<"FloatArrayOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -215,7 +215,7 @@ def SCFOperation : OpInterface<"SCFOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 

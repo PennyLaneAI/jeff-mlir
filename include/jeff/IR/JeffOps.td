@@ -1153,7 +1153,7 @@ def IntUnaryOperation : I32EnumAttr<"IntUnaryOperation",
         I32EnumAttrCase<"_not",   0>,
         I32EnumAttrCase<"_abs",   1>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1178,7 +1178,7 @@ def IntBinaryOperation : I32EnumAttr<"IntBinaryOperation",
         I32EnumAttrCase<"_shl",   15>,
         I32EnumAttrCase<"_shr",   16>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1191,7 +1191,7 @@ def IntComparisonOperation : I32EnumAttr<"IntComparisonOperation",
         I32EnumAttrCase<"_ltU",  3>,
         I32EnumAttrCase<"_lteU",  4>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1217,7 +1217,7 @@ def FloatUnaryOperation : I32EnumAttr<"FloatUnaryOperation",
         I32EnumAttrCase<"_acosh", 16>,
         I32EnumAttrCase<"_atanh", 17>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1232,7 +1232,7 @@ def FloatBinaryOperation : I32EnumAttr<"FloatBinaryOperation",
         I32EnumAttrCase<"_max",   5>,
         I32EnumAttrCase<"_min",   6>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1243,7 +1243,7 @@ def FloatComparisonOperation : I32EnumAttr<"FloatComparisonOperation",
         I32EnumAttrCase<"_lt",   1>,
         I32EnumAttrCase<"_lte",   2>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1253,7 +1253,7 @@ def FloatIsOperation : I32EnumAttr<"FloatIsOperation",
         I32EnumAttrCase<"_isNan",  0>,
         I32EnumAttrCase<"_isInf",  1>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 

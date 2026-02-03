@@ -72,4 +72,3 @@ TODO: Add instructions for setting up the dialect as an MLIR plugin.
 ## License
 
 This *jeff* dialect is **free** and **open source**, released under the Apache License, Version 2.0.
-

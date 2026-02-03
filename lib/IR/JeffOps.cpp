@@ -12,19 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <optional>
+#include "jeff/IR/JeffOps.h"
 
+#include "jeff/IR/JeffDialect.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
+
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 
-#include "jeff/IR/JeffDialect.h"
-#include "jeff/IR/JeffOps.h"
+#include <optional>
 
 using namespace mlir;
-using namespace jeff;
+using namespace mlir::jeff;
 
 //===----------------------------------------------------------------------===//
 // jeff op definitions.
