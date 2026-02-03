@@ -32,8 +32,26 @@ powershell -ExecutionPolicy ByPass -c "& ([scriptblock]::Create((irm https://git
 
 Replace `/path/to/installation` with the path to your preferred installation directory.
 Then, set `MLIR_DIR` to `/path/to/installation/lib/cmake/mlir` in your CMake configuration step.
+The project hosts a variety of pre-built binaries for different platforms and LLVM versions.
+Check out the [project page](https://github.com/munich-quantum-software/setup-mlir) for more details.
 
-Alternatively, you can build MLIR from source following the instructions in the [MLIR documentation](https://mlir.llvm.org/getting_started/).
+Alternatively, you can build MLIR from source following the instructions in the [MLIR documentation](https://mlir.llvm.org/getting_started/), which are summarized below.
+First, clone the repository:
+```sh
+git clone https://github.com/llvm/llvm-project.git external/llvm-project
+```
+Then, build and run the MLIR test suite:
+```sh
+cd external/llvm-project
+cmake -B build -S . -G Ninja            \
+      -DCMAKE_BUILD_TYPE=Release        \
+      -DLLVM_ENABLE_PROJECTS="mlir"     \
+      -DLLVM_BUILD_EXAMPLES=OFF         \
+      -DLLVM_ENABLE_ASSERTIONS=ON       \
+      -DMLIR_ENABLE_BINDINGS_PYTHON=OFF
+cmake --build build --target check-mlir
+```
+Finally, you can point the `MLIR_DIR` variable to `external/llvm-project/build/lib/cmake/mlir` in your CMake configuration step.
 </details>
 <br>
 
