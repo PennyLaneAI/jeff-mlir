@@ -14,17 +14,6 @@
 
 #pragma once
 
-// Suppress warnings about ambiguous reversed operators in MLIR
-// (see https://github.com/llvm/llvm-project/issues/45853)
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wambiguous-reversed-operator"
-#endif
-#include "mlir/Interfaces/InferTypeOpInterface.h"
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
 #include <optional>
 
 #include "llvm/ADT/StringRef.h"
@@ -35,6 +24,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Support/LogicalResult.h"
 
