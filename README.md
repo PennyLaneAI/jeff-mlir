@@ -16,7 +16,7 @@ standalone project which generates a custom `opt` tool.
 To do so, make sure you have an existing MLIR build.
 <details>
 <summary>If you don't ...</summary>
-You can get pre-built binaries from the [`munich-quantum-software/portable-mlir-toolchain`](https://github.com/munich-quantum-software/portable-mlir-toolchain) project via the installers from [`munich-quantum-software/setup-mlir`](https://github.com/munich-quantum-software/setup-mlir):
+You can get pre-built binaries from the [munich-quantum-software/portable-mlir-toolchain](https://github.com/munich-quantum-software/portable-mlir-toolchain) project via the installers from [munich-quantum-software/setup-mlir](https://github.com/munich-quantum-software/setup-mlir):
 
 On Linux and macOS, use the following Bash command:
 
