@@ -8,6 +8,7 @@
 #include <jeff.capnp.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/MLIRContext.h>
@@ -25,6 +26,31 @@ void convertAlloc(
   mlirValues[outputs[0]] = allocOp.getResult();
 }
 
+void convertCustom(
+    mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
+    jeff::QubitGate::Custom::Reader custom, ::capnp::Text::Reader name,
+    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader inputs,
+    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader outputs) {
+  const auto numQubits = custom.getNumQubits();
+  llvm::SmallVector<mlir::Value> qubits;
+  for (std::uint8_t i = 0; i < numQubits; ++i) {
+    qubits.push_back(mlirValues[inputs[i]]);
+  }
+  llvm::SmallVector<mlir::Value> controls;
+  for (std::uint8_t i = numQubits; i < inputs.size(); ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
+  }
+  auto op = builder.create<mlir::jeff::CustomOp>(
+      builder.getUnknownLoc(), qubits, controls, mlir::ValueRange{},
+      controls.size(), false, 1, name.cStr(), qubits.size(), 0);
+  for (std::uint8_t i = 0; i < numQubits; ++i) {
+    mlirValues[outputs[i]] = op.getOutQubits()[i];
+  }
+  for (std::uint8_t i = numQubits; i < outputs.size(); ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numQubits];
+  }
+}
+
 template <typename OpType>
 void createOneTargetZeroParameter(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
@@ -36,28 +62,28 @@ void createOneTargetZeroParameter(
       controls.push_back(mlirValues[inputs[i]]);
     }
   }
-  auto hOp =
+  auto op =
       builder.create<OpType>(builder.getUnknownLoc(), mlirValues[inputs[0]],
                              controls, controls.size(), false, 1);
-  mlirValues[outputs[0]] = hOp.getOutQubit();
+  mlirValues[outputs[0]] = op.getOutQubit();
   if (outputs.size() >= 1) {
     for (size_t i = 1; i < outputs.size(); ++i) {
-      mlirValues[outputs[i]] = hOp.getOutCtrlQubits()[i - 1];
+      mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - 1];
     }
   }
 }
 
-void convertCustom(
+void convertWellKnown(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    jeff::QubitGate::Custom::Reader custom, ::capnp::Text::Reader name,
+    jeff::WellKnownGate wellKnown,
     ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader inputs,
     ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader outputs) {
-  if (std::strcmp(name.cStr(), "H") == 0) {
+  if (wellKnown == jeff::WellKnownGate::H) {
     createOneTargetZeroParameter<mlir::jeff::HOp>(builder, mlirValues, inputs,
                                                   outputs);
     return;
   }
-  if (std::strcmp(name.cStr(), "X") == 0) {
+  if (wellKnown == jeff::WellKnownGate::X) {
     createOneTargetZeroParameter<mlir::jeff::XOp>(builder, mlirValues, inputs,
                                                   outputs);
     return;
@@ -83,6 +109,11 @@ void parseOperations(
           auto name = strings[custom.getName()];
           convertCustom(builder, mlirValues, custom, name,
                         operation.getInputs(), operation.getOutputs());
+        }
+        if (gate.isWellKnown()) {
+          auto wellKnown = gate.getWellKnown();
+          convertWellKnown(builder, mlirValues, wellKnown,
+                           operation.getInputs(), operation.getOutputs());
         }
       }
     }
