@@ -1,1 +1,9 @@
-add_mlir_library(MLIRJeffDeserialize Deserialize.cpp DEPENDS MLIRJeff)
+add_mlir_library(
+  MLIRJeffDeserialize
+  Deserialize.cpp
+  LINK_LIBS
+  MLIRJeff
+  MLIRFuncDialect
+  MLIRTensorDialect
+  CapnProto::capnp
+  DISABLE_INSTALL)

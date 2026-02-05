@@ -1577,9 +1577,9 @@ def IntArraySetIndexOp : IntArray_Op<"int_array_set_index", []> {
         1DTensorOf<[I1, I8, I16, I32, I64]>:$out_array
     );
 
-    // %3 = jeff.int_array_set_index (%0) %1 %2 : i64
+    // %3 = jeff.int_array_set_index %1 into %0[%2] : i64 `into` tensor<5xi64>[i32] -> tensor<5xi64>
     let assemblyFormat = [{
-        `(` $index `)` $in_array $value attr-dict `:` type($in_array) type($value) type(results)
+        $value `into` $in_array `[` $index `]`  attr-dict `:` type($value) `into` type($in_array) `[` type($index) `]` `->` type($out_array)
     }];
 }
 
