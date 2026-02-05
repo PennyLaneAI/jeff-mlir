@@ -4,11 +4,11 @@ target_link_libraries(
   jeff-test
   PRIVATE MLIRJeff
           MLIRJeffDeserialize
-          MLIRIR
-          MLIRSupport
+          MLIRControlFlowInterfaces
           MLIRDialect
           MLIRInferTypeOpInterface
-          MLIRControlFlowInterfaces
+          MLIRIR
+          MLIRSupport
           LLVMSupport
           CapnProto::capnp
           CapnProto::kj)
