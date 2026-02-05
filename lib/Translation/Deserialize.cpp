@@ -11,6 +11,7 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <mlir/IR/Builders.h>
+#include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OwningOpRef.h>
 #include <mlir/IR/Value.h>
@@ -97,12 +98,12 @@ void parseOperations(
     ::capnp::List<::capnp::Text, ::capnp::Kind::BLOB>::Reader strings) {
   for (auto operation : operations) {
     auto instruction = operation.getInstruction();
-    if (instruction.hasQubit()) {
+    if (instruction.isQubit()) {
       auto qubit = instruction.getQubit();
       if (qubit.isAlloc()) {
         convertAlloc(builder, mlirValues, operation.getOutputs());
       }
-      if (qubit.hasGate()) {
+      if (qubit.isGate()) {
         auto gate = qubit.getGate();
         if (gate.isCustom()) {
           auto custom = gate.getCustom();
@@ -115,6 +116,50 @@ void parseOperations(
           convertWellKnown(builder, mlirValues, wellKnown,
                            operation.getInputs(), operation.getOutputs());
         }
+      }
+      if (qubit.isMeasure()) {
+        auto measure = qubit.getMeasure();
+        auto op = builder.create<mlir::jeff::QubitMeasureOp>(
+            builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
+        mlirValues[operation.getOutputs()[0]] = op.getResult();
+      }
+    }
+    if (instruction.isInt()) {
+      auto intInstruction = instruction.getInt();
+      if (intInstruction.isConst32()) {
+        const auto const32 = intInstruction.getConst32();
+        auto intAttr = mlir::IntegerAttr::get(builder.getI32Type(), const32);
+        auto op = builder.create<mlir::jeff::IntConst32Op>(
+            builder.getUnknownLoc(), builder.getI32Type(), intAttr);
+        mlirValues[operation.getOutputs()[0]] = op.getConstant();
+      }
+    }
+    if (instruction.isIntArray()) {
+      auto intArray = instruction.getIntArray();
+      if (intArray.isConst8()) {
+        const auto const8 = intArray.getConst8();
+        llvm::SmallVector<int8_t> inArray;
+        inArray.reserve(const8.size());
+        for (auto value : const8) {
+          inArray.push_back(static_cast<int8_t>(value));
+        }
+        auto inArrayAttr =
+            mlir::DenseI8ArrayAttr::get(builder.getContext(), inArray);
+        auto tensorType = mlir::RankedTensorType::get(
+            {static_cast<int64_t>(inArray.size())}, builder.getI8Type());
+        auto op = builder.create<mlir::jeff::IntArrayConst8Op>(
+            builder.getUnknownLoc(), tensorType, inArrayAttr);
+        mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+      }
+      if (intArray.isSetIndex()) {
+        const auto setIndex = intArray.getSetIndex();
+        auto op = builder.create<mlir::jeff::IntArraySetIndexOp>(
+            builder.getUnknownLoc(),
+            mlirValues[operation.getInputs()[0]].getType(),
+            mlirValues[operation.getInputs()[0]],
+            mlirValues[operation.getInputs()[1]],
+            mlirValues[operation.getInputs()[2]]);
+        mlirValues[operation.getOutputs()[0]] = op.getOutArray();
       }
     }
   }

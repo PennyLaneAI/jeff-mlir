@@ -1570,7 +1570,7 @@ def IntArraySetIndexOp : IntArray_Op<"int_array_set_index", []> {
     let arguments = (ins
         1DTensorOf<[I1, I8, I16, I32, I64]>:$in_array,
         SupportedIntType:$value,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
