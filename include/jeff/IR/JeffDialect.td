@@ -33,7 +33,7 @@ def JeffDialect : Dialect {
     let name = "jeff";
 
     /// This is the C++ namespace that the dialect, and all sub-components, get placed in.
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     /// Use the default type printing/parsing hooks, otherwise we would explicitly define them.
     let useDefaultTypePrinterParser = 1;

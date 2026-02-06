@@ -14,10 +14,7 @@
 
 #pragma once
 
-#include <optional>
-
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
+#include "jeff/IR/JeffInterfaces.h"
 #include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
@@ -28,7 +25,10 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Support/LogicalResult.h"
 
-#include "jeff/IR/JeffInterfaces.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/ErrorHandling.h"
+
+#include <optional>
 
 //===----------------------------------------------------------------------===//
 // jeff trait declarations.

@@ -181,7 +181,7 @@ def PPROp : Gate_Op<"ppr", [AttrSizedOperandSegments, AttrSizedResultSegments, M
         }]>,
     ];
 
-    // %4, %5 = jeff.ppr (%0, %1) %2 ctrls(%3) : !quantum.bit ctrls !quantum.bit
+    // %4, %5 = jeff.ppr (%0, %1) %2 ctrls(%3) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `,` $pauli_gates `)` attr-dict $in_qubits ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubits) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -192,57 +192,57 @@ def CustomOp : Gate_Op<"custom", [AttrSizedOperandSegments, AttrSizedResultSegme
     let description = [{}];
 
     let arguments = (ins
-        Variadic<QubitType>:$in_qubits,
+        Variadic<QubitType>:$in_target_qubits,
         Variadic<QubitType>:$in_ctrl_qubits,
         Variadic<F32>:$params,
         I8Attr:$num_ctrls,
         I1Attr:$is_adjoint,
         I8Attr:$power,
         StrAttr:$name,
-        I8Attr:$num_qubits,
+        I8Attr:$num_targets,
         I8Attr:$num_params
     );
 
     let results = (outs
-        Variadic<QubitType>:$out_qubits,
+        Variadic<QubitType>:$out_target_qubits,
         Variadic<QubitType>:$out_ctrl_qubits
     );
 
     let builders = [
         OpBuilder<
         // Convenience builder for a gate with parameters and controls
-        // Note that number of out_qubits = number of in_qubits,
+        // Note that number of out_target_qubits = number of in_target_qubits,
         // and number of out_ctrl_qubits = number of in_ctrl_qubits
         (ins
-             "mlir::ValueRange":$in_qubits,
+             "mlir::ValueRange":$in_target_qubits,
              "mlir::ValueRange":$in_ctrl_qubits,
              "mlir::ValueRange":$params,
              "uint8_t":$num_ctrls,
              "bool":$is_adjoint,
              "uint8_t":$power,
              "mlir::StringRef":$name,
-             "uint8_t":$num_qubits,
+             "uint8_t":$num_targets,
              "uint8_t":$num_params
         ),[{
             CustomOp::build($_builder, $_state,
-            /*out_qubits=*/ mlir::TypeRange(in_qubits),
+            /*out_qubits=*/ mlir::TypeRange(in_target_qubits),
             /*out_ctrl_qubits=*/ mlir::TypeRange(in_ctrl_qubits),
-            /*in_qubits=*/ in_qubits,
+            /*in_target_qubits=*/ in_target_qubits,
             /*in_ctrl_qubits=*/ in_ctrl_qubits,
             /*params=*/ params,
             /*num_ctrls=*/ num_ctrls,
             /*is_adjoint=*/ is_adjoint,
             /*power=*/ power,
             /*name=*/ name,
-            /*num_qubits=*/ num_qubits,
+            /*num_targets=*/ num_targets,
             /*num_params=*/ num_params
             );
         }]>,
     ];
 
-    // %3, %4 = jeff.custom "Rot"(%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %3, %4 = jeff.custom "Rot"(%0) %1 ctrls(%2) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
-        $name `(` $params `)` attr-dict $in_qubits ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubits) (`ctrls` type($out_ctrl_qubits)^ )?
+        $name `(` $params `)` attr-dict $in_target_qubits ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_target_qubits) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
 }
 
@@ -291,7 +291,7 @@ def GPhaseOp : WellKnownGate_Op<"gphase", []> {
         }]>,
     ];
 
-    // %2 = jeff.gphase (%0) ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2 = jeff.gphase (%0) ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -338,7 +338,7 @@ def IOp : WellKnownGate_Op<"i", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.i %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2, %3 = jeff.i %0 ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -385,7 +385,7 @@ def XOp : WellKnownGate_Op<"x", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.x %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2, %3 = jeff.x %0 ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -432,7 +432,7 @@ def YOp : WellKnownGate_Op<"y", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.y %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2, %3 = jeff.y %0 ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -479,7 +479,7 @@ def ZOp : WellKnownGate_Op<"z", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.z %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2, %3 = jeff.z %0 ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -526,7 +526,7 @@ def SOp : WellKnownGate_Op<"s", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.s %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2, %3 = jeff.s %0 ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -573,7 +573,7 @@ def TOp : WellKnownGate_Op<"t", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.t %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2, %3 = jeff.t %0 ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -623,7 +623,7 @@ def R1Op : WellKnownGate_Op<"r1", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.r1 (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %3, %4 = jeff.r1 (%0) %1 ctrls(%2) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -673,7 +673,7 @@ def RxOp : WellKnownGate_Op<"rx", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.rx (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %3, %4 = jeff.rx (%0) %1 ctrls(%2) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -723,7 +723,7 @@ def RyOp : WellKnownGate_Op<"ry", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.ry (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %3, %4 = jeff.ry (%0) %1 ctrls(%2) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -773,7 +773,7 @@ def RzOp : WellKnownGate_Op<"rz", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.rz (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %3, %4 = jeff.rz (%0) %1 ctrls(%2) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -820,7 +820,7 @@ def HOp : WellKnownGate_Op<"h", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.h %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %2, %3 = jeff.h %0 ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -876,7 +876,7 @@ def UOp : WellKnownGate_Op<"u", []> {
         }]>,
     ];
 
-    // %5, %6 = jeff.u (%0, %1, %2) %3 ctrls(%4) : !quantum.bit ctrls !quantum.bit
+    // %5, %6 = jeff.u (%0, %1, %2) %3 ctrls(%4) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $theta `,` $phi `,` $lambda `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -928,7 +928,7 @@ def SwapOp : WellKnownGate_Op<"swap", []> {
         Variadic<QubitType>:$out_ctrl_qubits
     );
 
-    // %3, %4, %5 = jeff.swap %0 %1 ctrls(%2) : !quantum.bit !quantum.bit ctrls !quantum.bit
+    // %3, %4, %5 = jeff.swap %0 %1 ctrls(%2) : !jeff.qubit !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit_one $in_qubit_two ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit_one) type($out_qubit_two) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -1153,7 +1153,7 @@ def IntUnaryOperation : I32EnumAttr<"IntUnaryOperation",
         I32EnumAttrCase<"_not",   0>,
         I32EnumAttrCase<"_abs",   1>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1178,7 +1178,7 @@ def IntBinaryOperation : I32EnumAttr<"IntBinaryOperation",
         I32EnumAttrCase<"_shl",   15>,
         I32EnumAttrCase<"_shr",   16>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1191,7 +1191,7 @@ def IntComparisonOperation : I32EnumAttr<"IntComparisonOperation",
         I32EnumAttrCase<"_ltU",  3>,
         I32EnumAttrCase<"_lteU",  4>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1217,7 +1217,7 @@ def FloatUnaryOperation : I32EnumAttr<"FloatUnaryOperation",
         I32EnumAttrCase<"_acosh", 16>,
         I32EnumAttrCase<"_atanh", 17>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1232,7 +1232,7 @@ def FloatBinaryOperation : I32EnumAttr<"FloatBinaryOperation",
         I32EnumAttrCase<"_max",   5>,
         I32EnumAttrCase<"_min",   6>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1243,7 +1243,7 @@ def FloatComparisonOperation : I32EnumAttr<"FloatComparisonOperation",
         I32EnumAttrCase<"_lt",   1>,
         I32EnumAttrCase<"_lte",   2>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1253,7 +1253,7 @@ def FloatIsOperation : I32EnumAttr<"FloatIsOperation",
         I32EnumAttrCase<"_isNan",  0>,
         I32EnumAttrCase<"_isInf",  1>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1550,16 +1550,16 @@ def IntArrayGetIndexOp : IntArray_Op<"int_array_get_index", []> {
 
     let arguments = (ins
         1DTensorOf<[I1, I8, I16, I32, I64]>:$in_array,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
         SupportedIntType:$value
     );
 
-    // %2 = jeff.int_array_get_index (%0) %1 : i64
+    // %2 = jeff.int_array_get_index (%1) %0 : i32 tensor<5xi64> -> tensor<5xi64>
     let assemblyFormat = [{
-        `(` $index `)` $in_array attr-dict `:` type($in_array) type(results)
+        `(` $index `)` $in_array attr-dict `:` type($index) type($in_array) `->` type(results)
     }];
 }
 
@@ -1569,17 +1569,17 @@ def IntArraySetIndexOp : IntArray_Op<"int_array_set_index", []> {
 
     let arguments = (ins
         1DTensorOf<[I1, I8, I16, I32, I64]>:$in_array,
-        SupportedIntType:$value,
-        I32Attr:$index
+        I32:$index,
+        SupportedIntType:$value
     );
 
     let results = (outs
         1DTensorOf<[I1, I8, I16, I32, I64]>:$out_array
     );
 
-    // %3 = jeff.int_array_set_index (%0) %1 %2 : i64
+    // %3 = jeff.int_array_set_index (%1) %0 %2 : i32 tensor<5xi64> i64 -> tensor<5xi64>
     let assemblyFormat = [{
-        `(` $index `)` $in_array $value attr-dict `:` type($in_array) type($value) type(results)
+        `(` $index `)` $in_array $value attr-dict `:` type($index) type($in_array) type($value) `->` type($out_array)
     }];
 }
 
