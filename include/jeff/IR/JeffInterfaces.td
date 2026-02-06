@@ -117,17 +117,18 @@ def MultipleQubitsGate : OpInterface<"MultipleQubitsGate", [QubitGate]> {
     let verify = [{
         auto gate = mlir::cast<ConcreteOp>($_op);
 
-        auto provided_in_qubits = gate.getInQubits().size();
-        auto expected_qubits = gate.getNumQubits();
-        if (provided_in_qubits != expected_qubits) {
+        auto expected_target_qubits = gate.getNumTargets();
+
+        auto provided_in_target_qubits = gate.getInTargetQubits().size();
+        if (provided_in_target_qubits != expected_target_qubits) {
             return $_op->emitOpError(
-                "The number of provided input qubits does not match the expected amount");
+                "The number of provided input target qubits does not match the expected amount");
         }
 
-        auto provided_out_qubits = gate.getOutQubits().size();
-        if (provided_out_qubits != expected_qubits) {
+        auto provided_out_target_qubits = gate.getOutTargetQubits().size();
+        if (provided_out_target_qubits != expected_target_qubits) {
             return $_op->emitOpError(
-                "The number of provided output qubits does not match the expected amount");
+                "The number of provided output target qubits does not match the expected amount");
         }
 
         return mlir::success();

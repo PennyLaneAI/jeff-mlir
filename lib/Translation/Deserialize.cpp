@@ -42,24 +42,24 @@ void convertCustom(
     capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
     capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
   const auto custom = gate.getCustom();
-  const auto numQubits = custom.getNumQubits();
-  llvm::SmallVector<mlir::Value> qubits;
-  for (std::uint8_t i = 0; i < numQubits; ++i) {
-    qubits.push_back(mlirValues[inputs[i]]);
+  const auto numTargets = custom.getNumQubits() - gate.getControlQubits();
+  llvm::SmallVector<mlir::Value> targets;
+  for (std::uint8_t i = 0; i < numTargets; ++i) {
+    targets.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> controls;
-  for (std::uint8_t i = numQubits; i < inputs.size(); ++i) {
+  for (std::uint8_t i = numTargets; i < inputs.size(); ++i) {
     controls.push_back(mlirValues[inputs[i]]);
   }
   auto op = builder.create<mlir::jeff::CustomOp>(
-      builder.getUnknownLoc(), qubits, controls, mlir::ValueRange{},
+      builder.getUnknownLoc(), targets, controls, mlir::ValueRange{},
       static_cast<uint8_t>(controls.size()), gate.getAdjoint(), gate.getPower(),
-      name.cStr(), static_cast<uint8_t>(qubits.size()), custom.getNumParams());
-  for (std::uint8_t i = 0; i < numQubits; ++i) {
-    mlirValues[outputs[i]] = op.getOutQubits()[i];
+      name.cStr(), static_cast<uint8_t>(numTargets), custom.getNumParams());
+  for (std::uint8_t i = 0; i < numTargets; ++i) {
+    mlirValues[outputs[i]] = op.getOutTargetQubits()[i];
   }
-  for (std::uint8_t i = numQubits; i < outputs.size(); ++i) {
-    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numQubits];
+  for (std::uint8_t i = numTargets; i < outputs.size(); ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
   }
 }
 
