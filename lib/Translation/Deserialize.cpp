@@ -23,7 +23,7 @@ namespace {
 
 void convertAlloc(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader outputs) {
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
   auto allocOp =
       builder.create<mlir::jeff::QubitAllocOp>(builder.getUnknownLoc());
   mlirValues[outputs[0]] = allocOp.getResult();
@@ -31,16 +31,16 @@ void convertAlloc(
 
 void convertFree(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader inputs) {
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs) {
   builder.create<mlir::jeff::QubitFreeOp>(builder.getUnknownLoc(),
                                           mlirValues[inputs[0]]);
 }
 
 void convertCustom(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    jeff::QubitGate::Reader gate, ::capnp::Text::Reader name,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader inputs,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader outputs) {
+    jeff::QubitGate::Reader gate, capnp::Text::Reader name,
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
   const auto custom = gate.getCustom();
   const auto numQubits = custom.getNumQubits();
   llvm::SmallVector<mlir::Value> qubits;
@@ -67,8 +67,8 @@ template <typename OpType>
 void createOneTargetZeroParameter(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
     jeff::QubitGate::Reader gate,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader inputs,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader outputs) {
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
   const auto wellKnown = gate.getWellKnown();
   llvm::SmallVector<mlir::Value> controls;
   if (inputs.size() >= 1) {
@@ -91,8 +91,8 @@ void createOneTargetZeroParameter(
 void convertWellKnown(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
     jeff::QubitGate::Reader gate,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader inputs,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader outputs) {
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
   const auto wellKnown = gate.getWellKnown();
   switch (wellKnown) {
   case jeff::WellKnownGate::H:
@@ -112,17 +112,16 @@ void convertWellKnown(
 
 void convertMeasure(
     mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader inputs,
-    ::capnp::List<::uint32_t, ::capnp::Kind::PRIMITIVE>::Reader outputs) {
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
+    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
   auto op = builder.create<mlir::jeff::QubitMeasureOp>(builder.getUnknownLoc(),
                                                        mlirValues[inputs[0]]);
   mlirValues[outputs[0]] = op.getResult();
 }
 
-void convertQubit(
-    mlir::OpBuilder& builder, jeff::Op::Reader operation,
-    llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::capnp::Text, ::capnp::Kind::BLOB>::Reader strings) {
+void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  llvm::DenseMap<int, mlir::Value>& mlirValues,
+                  capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
   const auto instruction = operation.getInstruction();
   const auto qubit = instruction.getQubit();
   if (qubit.isAlloc()) {
@@ -230,14 +229,14 @@ void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 // Forward declaration
 void convertOperations(
     mlir::OpBuilder& builder,
-    ::capnp::List<jeff::Op, ::capnp::Kind::STRUCT>::Reader operations,
+    capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
     llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::capnp::Text, ::capnp::Kind::BLOB>::Reader strings);
+    capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings);
 
 void convertSwitch(
     mlir::OpBuilder& builder, jeff::Op::Reader operation,
     llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::capnp::Text, ::capnp::Kind::BLOB>::Reader strings) {
+    capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
   const auto instruction = operation.getInstruction();
   const auto scf = instruction.getScf();
   const auto _switch = scf.getSwitch();
@@ -300,10 +299,9 @@ void convertSwitch(
   }
 }
 
-void convertScf(
-    mlir::OpBuilder& builder, jeff::Op::Reader operation,
-    llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::capnp::Text, ::capnp::Kind::BLOB>::Reader strings) {
+void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                llvm::DenseMap<int, mlir::Value>& mlirValues,
+                capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
   const auto instruction = operation.getInstruction();
   const auto scf = instruction.getScf();
   if (scf.isSwitch()) {
@@ -317,9 +315,9 @@ void convertScf(
 
 void convertOperations(
     mlir::OpBuilder& builder,
-    ::capnp::List<jeff::Op, ::capnp::Kind::STRUCT>::Reader operations,
+    capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
     llvm::DenseMap<int, mlir::Value>& mlirValues,
-    ::capnp::List<::capnp::Text, ::capnp::Kind::BLOB>::Reader strings) {
+    capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
   for (auto operation : operations) {
     const auto instruction = operation.getInstruction();
     if (instruction.isQubit()) {
@@ -347,7 +345,7 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   if (fd < 0) {
     llvm::report_fatal_error("Could not open file");
   }
-  ::capnp::StreamFdMessageReader message(fd);
+  capnp::StreamFdMessageReader message(fd);
   jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
   // Get strings
