@@ -1550,16 +1550,16 @@ def IntArrayGetIndexOp : IntArray_Op<"int_array_get_index", []> {
 
     let arguments = (ins
         1DTensorOf<[I1, I8, I16, I32, I64]>:$in_array,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
         SupportedIntType:$value
     );
 
-    // %2 = jeff.int_array_get_index (%0) %1 : i64
+    // %2 = jeff.int_array_get_index (%1) %0 : i32 tensor<5xi64> -> tensor<5xi64>
     let assemblyFormat = [{
-        `(` $index `)` $in_array attr-dict `:` type($in_array) type(results)
+        `(` $index `)` $in_array attr-dict `:` type($index) type($in_array) `->` type(results)
     }];
 }
 
@@ -1569,17 +1569,17 @@ def IntArraySetIndexOp : IntArray_Op<"int_array_set_index", []> {
 
     let arguments = (ins
         1DTensorOf<[I1, I8, I16, I32, I64]>:$in_array,
-        SupportedIntType:$value,
-        I32:$index
+        I32:$index,
+        SupportedIntType:$value
     );
 
     let results = (outs
         1DTensorOf<[I1, I8, I16, I32, I64]>:$out_array
     );
 
-    // %3 = jeff.int_array_set_index %1 into %0[%2] : i64 `into` tensor<5xi64>[i32] -> tensor<5xi64>
+    // %3 = jeff.int_array_set_index (%1) %0 %2 : i32 tensor<5xi64> i64 -> tensor<5xi64>
     let assemblyFormat = [{
-        $value `into` $in_array `[` $index `]`  attr-dict `:` type($value) `into` type($in_array) `[` type($index) `]` `->` type($out_array)
+        `(` $index `)` $in_array $value attr-dict `:` type($index) type($in_array) type($value) `->` type($out_array)
     }];
 }
 

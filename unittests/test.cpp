@@ -19,14 +19,19 @@ int main() {
   context.loadDialect<mlir::jeff::JeffDialect, mlir::func::FuncDialect,
                       mlir::tensor::TensorDialect>();
 
-  std::cout << "Deserializing entangled_qs.jeff...\n";
-  auto module1 = deserialize(&context, "unittests/entangled_qs.jeff");
+  std::cout << "Deserializing entangled_calls.jeff...\n";
+  auto module1 = deserialize(&context, "unittests/entangled_calls.jeff");
   module1->print(llvm::outs());
   std::cout << "\n\n";
 
-  std::cout << "Deserializing python_optimization.jeff...\n";
-  auto module2 = deserialize(&context, "unittests/python_optimization.jeff");
+  std::cout << "Deserializing entangled_qs.jeff...\n";
+  auto module2 = deserialize(&context, "unittests/entangled_qs.jeff");
   module2->print(llvm::outs());
+  std::cout << "\n\n";
+
+  std::cout << "Deserializing python_optimization.jeff...\n";
+  auto module3 = deserialize(&context, "unittests/python_optimization.jeff");
+  module3->print(llvm::outs());
 
   return 0;
 }
