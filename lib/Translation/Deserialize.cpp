@@ -21,27 +21,33 @@
 
 namespace {
 
-void convertAlloc(
-    mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
+struct DeserializationData {
+  llvm::DenseMap<int, mlir::Value>& mlirValues;
+  llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs;
+  capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader& strings;
+};
+
+void convertAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  DeserializationData& data) {
   auto allocOp =
       builder.create<mlir::jeff::QubitAllocOp>(builder.getUnknownLoc());
-  mlirValues[outputs[0]] = allocOp.getResult();
+  data.mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
 }
 
-void convertFree(
-    mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs) {
-  builder.create<mlir::jeff::QubitFreeOp>(builder.getUnknownLoc(),
-                                          mlirValues[inputs[0]]);
+void convertFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                 DeserializationData& data) {
+  builder.create<mlir::jeff::QubitFreeOp>(
+      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
 }
 
-void convertCustom(
-    mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    jeff::QubitGate::Reader gate, capnp::Text::Reader name,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
+void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                   DeserializationData& data) {
+  auto& mlirValues = data.mlirValues;
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  const auto gate = operation.getInstruction().getQubit().getGate();
   const auto custom = gate.getCustom();
+  const auto name = data.strings[custom.getName()].cStr();
   const auto numTargets = custom.getNumQubits() - gate.getControlQubits();
   llvm::SmallVector<mlir::Value> targets;
   for (std::uint8_t i = 0; i < numTargets; ++i) {
@@ -54,7 +60,7 @@ void convertCustom(
   auto op = builder.create<mlir::jeff::CustomOp>(
       builder.getUnknownLoc(), targets, controls, mlir::ValueRange{},
       static_cast<uint8_t>(controls.size()), gate.getAdjoint(), gate.getPower(),
-      name.cStr(), static_cast<uint8_t>(numTargets), custom.getNumParams());
+      name, static_cast<uint8_t>(numTargets), custom.getNumParams());
   for (std::uint8_t i = 0; i < numTargets; ++i) {
     mlirValues[outputs[i]] = op.getOutTargetQubits()[i];
   }
@@ -64,12 +70,13 @@ void convertCustom(
 }
 
 template <typename OpType>
-void createOneTargetZeroParameter(
-    mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    jeff::QubitGate::Reader gate,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
-  const auto wellKnown = gate.getWellKnown();
+void createOneTargetZeroParameter(mlir::OpBuilder& builder,
+                                  jeff::Op::Reader operation,
+                                  DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  auto& mlirValues = data.mlirValues;
   llvm::SmallVector<mlir::Value> controls;
   if (inputs.size() >= 1) {
     for (size_t i = 1; i < inputs.size(); ++i) {
@@ -88,20 +95,16 @@ void createOneTargetZeroParameter(
   }
 }
 
-void convertWellKnown(
-    mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    jeff::QubitGate::Reader gate,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
-  const auto wellKnown = gate.getWellKnown();
+void convertWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
+  const auto wellKnown =
+      operation.getInstruction().getQubit().getGate().getWellKnown();
   switch (wellKnown) {
   case jeff::WellKnownGate::H:
-    createOneTargetZeroParameter<mlir::jeff::HOp>(builder, mlirValues, gate,
-                                                  inputs, outputs);
+    createOneTargetZeroParameter<mlir::jeff::HOp>(builder, operation, data);
     break;
   case jeff::WellKnownGate::X:
-    createOneTargetZeroParameter<mlir::jeff::XOp>(builder, mlirValues, gate,
-                                                  inputs, outputs);
+    createOneTargetZeroParameter<mlir::jeff::XOp>(builder, operation, data);
     break;
   default:
     llvm::errs() << "Cannot convert well-known gate "
@@ -110,37 +113,31 @@ void convertWellKnown(
   }
 }
 
-void convertMeasure(
-    mlir::OpBuilder& builder, llvm::DenseMap<int, mlir::Value>& mlirValues,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader inputs,
-    capnp::List<::uint32_t, capnp::Kind::PRIMITIVE>::Reader outputs) {
-  auto op = builder.create<mlir::jeff::QubitMeasureOp>(builder.getUnknownLoc(),
-                                                       mlirValues[inputs[0]]);
-  mlirValues[outputs[0]] = op.getResult();
+void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                    DeserializationData& data) {
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QubitMeasureOp>(
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
+  mlirValues[operation.getOutputs()[0]] = op.getResult();
 }
 
 void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  llvm::DenseMap<int, mlir::Value>& mlirValues,
-                  capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
+                  DeserializationData& data) {
   const auto instruction = operation.getInstruction();
   const auto qubit = instruction.getQubit();
   if (qubit.isAlloc()) {
-    convertAlloc(builder, mlirValues, operation.getOutputs());
+    convertAlloc(builder, operation, data);
   } else if (qubit.isFree()) {
-    convertFree(builder, mlirValues, operation.getInputs());
+    convertFree(builder, operation, data);
   } else if (qubit.isGate()) {
     const auto gate = qubit.getGate();
     if (gate.isCustom()) {
-      const auto name = strings[gate.getCustom().getName()];
-      convertCustom(builder, mlirValues, gate, name, operation.getInputs(),
-                    operation.getOutputs());
+      convertCustom(builder, operation, data);
     } else if (gate.isWellKnown()) {
-      convertWellKnown(builder, mlirValues, gate, operation.getInputs(),
-                       operation.getOutputs());
+      convertWellKnown(builder, operation, data);
     }
   } else if (qubit.isMeasure()) {
-    convertMeasure(builder, mlirValues, operation.getInputs(),
-                   operation.getOutputs());
+    convertMeasure(builder, operation, data);
   } else {
     llvm::errs() << "Cannot convert qubit instruction "
                  << static_cast<int>(qubit.which()) << "\n";
@@ -148,68 +145,57 @@ void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertIntConst8(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  const auto instruction = operation.getInstruction();
-  const auto intInstruction = instruction.getInt();
-  const auto const8 = intInstruction.getConst8();
-  auto intAttr = mlir::IntegerAttr::get(builder.getI8Type(), const8);
-  auto op = builder.create<mlir::jeff::IntConst8Op>(
-      builder.getUnknownLoc(), builder.getI8Type(), intAttr);
+template <typename ConstOp, typename IntType>
+void convertIntConstOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       IntType value, mlir::Type type,
+                       DeserializationData& data) {
+  auto& mlirValues = data.mlirValues;
+  auto intAttr = mlir::IntegerAttr::get(type, value);
+  auto op = builder.create<ConstOp>(builder.getUnknownLoc(), type, intAttr);
   mlirValues[operation.getOutputs()[0]] = op.getConstant();
 }
 
-void convertIntConst32(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                       llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  const auto instruction = operation.getInstruction();
-  const auto intInstruction = instruction.getInt();
-  const auto const32 = intInstruction.getConst32();
-  auto intAttr = mlir::IntegerAttr::get(builder.getI32Type(), const32);
-  auto op = builder.create<mlir::jeff::IntConst32Op>(
-      builder.getUnknownLoc(), builder.getI32Type(), intAttr);
-  mlirValues[operation.getOutputs()[0]] = op.getConstant();
-}
-
-void convertIntNot(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                   llvm::DenseMap<int, mlir::Value>& mlirValues) {
+void convertIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       mlir::jeff::IntUnaryOperation unaryOperation,
+                       DeserializationData& data) {
+  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::IntUnaryOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]],
-      mlir::jeff::IntUnaryOperation::_not);
+      unaryOperation);
   mlirValues[operation.getOutputs()[0]] = op.getB();
 }
 
-void convertIntAdd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                   llvm::DenseMap<int, mlir::Value>& mlirValues) {
+void convertIntBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                        mlir::jeff::IntBinaryOperation binaryOperation,
+                        DeserializationData& data) {
+  auto& mlirValues = data.mlirValues;
+  const auto inputs = operation.getInputs();
   auto op = builder.create<mlir::jeff::IntBinaryOp>(
-      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]],
-      mlirValues[operation.getInputs()[1]],
-      mlir::jeff::IntBinaryOperation::_add);
-  mlirValues[operation.getOutputs()[0]] = op.getC();
-}
-
-void convertIntShl(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                   llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  auto op = builder.create<mlir::jeff::IntBinaryOp>(
-      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]],
-      mlirValues[operation.getInputs()[1]],
-      mlir::jeff::IntBinaryOperation::_shl);
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
+      binaryOperation);
   mlirValues[operation.getOutputs()[0]] = op.getC();
 }
 
 void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  const auto instruction = operation.getInstruction();
-  const auto intInstruction = instruction.getInt();
+                DeserializationData& data) {
+  const auto intInstruction = operation.getInstruction().getInt();
   if (intInstruction.isConst8()) {
-    convertIntConst8(builder, operation, mlirValues);
+    convertIntConstOp<mlir::jeff::IntConst8Op, uint8_t>(
+        builder, operation, intInstruction.getConst8(), builder.getI8Type(),
+        data);
   } else if (intInstruction.isConst32()) {
-    convertIntConst32(builder, operation, mlirValues);
+    convertIntConstOp<mlir::jeff::IntConst32Op, uint32_t>(
+        builder, operation, intInstruction.getConst32(), builder.getI32Type(),
+        data);
   } else if (intInstruction.isNot()) {
-    convertIntNot(builder, operation, mlirValues);
+    convertIntUnaryOp(builder, operation, mlir::jeff::IntUnaryOperation::_not,
+                      data);
   } else if (intInstruction.isAdd()) {
-    convertIntAdd(builder, operation, mlirValues);
+    convertIntBinaryOp(builder, operation, mlir::jeff::IntBinaryOperation::_add,
+                       data);
   } else if (intInstruction.isShl()) {
-    convertIntShl(builder, operation, mlirValues);
+    convertIntBinaryOp(builder, operation, mlir::jeff::IntBinaryOperation::_shl,
+                       data);
   } else {
     llvm::errs() << "Cannot convert int instruction "
                  << static_cast<int>(intInstruction.which()) << "\n";
@@ -218,10 +204,8 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 }
 
 void convertIntArrayConst8(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                           llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  const auto instruction = operation.getInstruction();
-  const auto intArray = instruction.getIntArray();
-  const auto const8 = intArray.getConst8();
+                           DeserializationData& data) {
+  const auto const8 = operation.getInstruction().getIntArray().getConst8();
   llvm::SmallVector<int8_t> inArray;
   inArray.reserve(const8.size());
   for (auto value : const8) {
@@ -232,42 +216,46 @@ void convertIntArrayConst8(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       {static_cast<int64_t>(inArray.size())}, builder.getI8Type());
   auto op = builder.create<mlir::jeff::IntArrayConst8Op>(
       builder.getUnknownLoc(), tensorType, inArrayAttr);
-  mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+  data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();
 }
 
 void convertIntArrayGetIndex(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
-                             llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  auto tensorType = mlirValues[operation.getInputs()[0]].getType();
+                             DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto tensorType = mlirValues[inputs[0]].getType();
   auto entryType =
       llvm::cast<mlir::RankedTensorType>(tensorType).getElementType();
   auto op = builder.create<mlir::jeff::IntArrayGetIndexOp>(
-      builder.getUnknownLoc(), entryType, mlirValues[operation.getInputs()[0]],
-      mlirValues[operation.getInputs()[1]]);
-  mlirValues[operation.getOutputs()[0]] = op.getValue();
+      builder.getUnknownLoc(), entryType, mlirValues[inputs[0]],
+      mlirValues[inputs[1]]);
+  mlirValues[outputs[0]] = op.getValue();
 }
 
 void convertIntArraySetIndex(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
-                             llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  auto tensorType = mlirValues[operation.getInputs()[0]].getType();
+                             DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto tensorType = mlirValues[inputs[0]].getType();
   auto op = builder.create<mlir::jeff::IntArraySetIndexOp>(
-      builder.getUnknownLoc(), tensorType, mlirValues[operation.getInputs()[0]],
-      mlirValues[operation.getInputs()[1]],
-      mlirValues[operation.getInputs()[2]]);
-  mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+      builder.getUnknownLoc(), tensorType, mlirValues[inputs[0]],
+      mlirValues[inputs[1]], mlirValues[inputs[2]]);
+  mlirValues[outputs[0]] = op.getOutArray();
 }
 
 void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                     llvm::DenseMap<int, mlir::Value>& mlirValues) {
-  const auto instruction = operation.getInstruction();
-  const auto intArray = instruction.getIntArray();
+                     DeserializationData& data) {
+  const auto intArray = operation.getInstruction().getIntArray();
   if (intArray.isConst8()) {
-    convertIntArrayConst8(builder, operation, mlirValues);
+    convertIntArrayConst8(builder, operation, data);
   } else if (intArray.isGetIndex()) {
-    convertIntArrayGetIndex(builder, operation, mlirValues);
+    convertIntArrayGetIndex(builder, operation, data);
   } else if (intArray.isSetIndex()) {
-    convertIntArraySetIndex(builder, operation, mlirValues);
+    convertIntArraySetIndex(builder, operation, data);
   } else {
     llvm::errs() << "Cannot convert int array instruction "
                  << static_cast<int>(intArray.which()) << "\n";
@@ -279,19 +267,15 @@ void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertOperations(
     mlir::OpBuilder& builder,
     capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
-    llvm::DenseMap<int, mlir::Value>& mlirValues,
-    llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs,
-    capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings);
+    DeserializationData& data);
 
-void convertSwitch(
-    mlir::OpBuilder& builder, jeff::Op::Reader operation,
-    llvm::DenseMap<int, mlir::Value>& mlirValues,
-    llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs,
-    capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
+void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                   DeserializationData& data) {
+  auto& mlirValues = data.mlirValues;
   const auto instruction = operation.getInstruction();
   const auto scf = instruction.getScf();
-  const auto _switch = scf.getSwitch();
-  const auto branches = _switch.getBranches();
+  const auto switch_ = scf.getSwitch();
+  const auto branches = switch_.getBranches();
 
   llvm::SmallVector<mlir::Value> inValues;
   llvm::SmallVector<mlir::Type> outTypes;
@@ -306,21 +290,20 @@ void convertSwitch(
       builder.getUnknownLoc(), outTypes, mlirValues[operation.getInputs()[0]],
       inValues, branches.size());
 
-  if (_switch.hasDefault()) {
-    const auto& _default = _switch.getDefault();
-    for (size_t i = 0; i < _default.getSources().size(); ++i) {
-      mlirValues[_default.getSources()[i]] = inValues[i];
+  if (switch_.hasDefault()) {
+    const auto& default_ = switch_.getDefault();
+    for (size_t i = 0; i < default_.getSources().size(); ++i) {
+      mlirValues[default_.getSources()[i]] = inValues[i];
     }
     auto& defaultRegion = op.getDefault();
     auto& defaultBlock = defaultRegion.emplaceBlock();
     mlir::OpBuilder::InsertionGuard guard(builder);
     builder.setInsertionPointToStart(&defaultBlock);
-    convertOperations(builder, _default.getOperations(), mlirValues, mlirFuncs,
-                      strings);
+    convertOperations(builder, default_.getOperations(), data);
     llvm::SmallVector<mlir::Value> outValues;
-    outValues.reserve(_default.getTargets().size());
-    for (size_t i = 0; i < _default.getTargets().size(); ++i) {
-      outValues.push_back(mlirValues[_default.getTargets()[i]]);
+    outValues.reserve(default_.getTargets().size());
+    for (size_t i = 0; i < default_.getTargets().size(); ++i) {
+      outValues.push_back(mlirValues[default_.getTargets()[i]]);
     }
     builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), outValues);
   }
@@ -334,8 +317,7 @@ void convertSwitch(
     auto& branchBlock = branchRegion.emplaceBlock();
     mlir::OpBuilder::InsertionGuard guard(builder);
     builder.setInsertionPointToStart(&branchBlock);
-    convertOperations(builder, branches[i].getOperations(), mlirValues,
-                      mlirFuncs, strings);
+    convertOperations(builder, branches[i].getOperations(), data);
     llvm::SmallVector<mlir::Value> outValues;
     outValues.reserve(branch.getTargets().size());
     for (size_t j = 0; j < branch.getTargets().size(); ++j) {
@@ -352,13 +334,11 @@ void convertSwitch(
 }
 
 void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                llvm::DenseMap<int, mlir::Value>& mlirValues,
-                llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs,
-                capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
+                DeserializationData& data) {
   const auto instruction = operation.getInstruction();
   const auto scf = instruction.getScf();
   if (scf.isSwitch()) {
-    convertSwitch(builder, operation, mlirValues, mlirFuncs, strings);
+    convertSwitch(builder, operation, data);
   } else {
     llvm::errs() << "Cannot convert scf instruction "
                  << static_cast<int>(scf.which()) << "\n";
@@ -367,12 +347,11 @@ void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 }
 
 void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                 llvm::DenseMap<int, mlir::Value>& mlirValues,
-                 llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs,
-                 capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
+                 DeserializationData& data) {
+  auto& mlirValues = data.mlirValues;
   const auto instruction = operation.getInstruction();
   const auto jeffFunc = instruction.getFunc();
-  auto mlirFunc = mlirFuncs[jeffFunc.getFuncCall()];
+  auto mlirFunc = data.mlirFuncs[jeffFunc.getFuncCall()];
   llvm::SmallVector<mlir::Value> inputs;
   inputs.reserve(operation.getInputs().size());
   for (const auto input : operation.getInputs()) {
@@ -388,21 +367,19 @@ void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertOperations(
     mlir::OpBuilder& builder,
     capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
-    llvm::DenseMap<int, mlir::Value>& mlirValues,
-    llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs,
-    capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader strings) {
+    DeserializationData& data) {
   for (auto operation : operations) {
     const auto instruction = operation.getInstruction();
     if (instruction.isQubit()) {
-      convertQubit(builder, operation, mlirValues, strings);
+      convertQubit(builder, operation, data);
     } else if (instruction.isInt()) {
-      convertInt(builder, operation, mlirValues);
+      convertInt(builder, operation, data);
     } else if (instruction.isIntArray()) {
-      convertIntArray(builder, operation, mlirValues);
+      convertIntArray(builder, operation, data);
     } else if (instruction.isScf()) {
-      convertScf(builder, operation, mlirValues, mlirFuncs, strings);
+      convertScf(builder, operation, data);
     } else if (instruction.isFunc()) {
-      convertFunc(builder, operation, mlirValues, mlirFuncs, strings);
+      convertFunc(builder, operation, data);
     } else {
       llvm::errs() << "Cannot convert instruction "
                    << static_cast<int>(instruction.which()) << "\n";
@@ -411,11 +388,31 @@ void convertOperations(
   }
 }
 
+mlir::Type convertType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+  if (type.isInt()) {
+    if (type.getInt() == 1) {
+      return builder.getI1Type();
+    } else if (type.getInt() == 8) {
+      return builder.getI8Type();
+    } else if (type.getInt() == 32) {
+      return builder.getI32Type();
+    } else {
+      llvm::errs() << "Cannot convert int type "
+                   << static_cast<int>(type.getInt()) << "\n";
+      llvm::report_fatal_error("Unknown int type");
+    }
+  } else {
+    llvm::errs() << "Cannot convert type " << static_cast<int>(type.which())
+                 << "\n";
+    llvm::report_fatal_error("Unknown type");
+  }
+}
+
 void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
                      jeff::Module::Reader jeffModule,
                      llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs) {
   // Get strings
-  const auto strings = jeffModule.getStrings();
+  auto strings = jeffModule.getStrings();
 
   // Get entry point
   const auto entryPoint = jeffModule.getEntrypoint();
@@ -448,22 +445,8 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
   llvm::SmallVector<mlir::Type> sourceTypes;
   sourceTypes.reserve(sources.size());
   for (const auto source : sources) {
-    const auto type = jeffValues[source].getType();
-    if (type.isInt()) {
-      if (type.getInt() == 1) {
-        sourceTypes.push_back(builder.getI1Type());
-      } else if (type.getInt() == 8) {
-        sourceTypes.push_back(builder.getI8Type());
-      } else {
-        llvm::errs() << "Cannot convert source int type "
-                     << static_cast<int>(type.getInt()) << "\n";
-        llvm::report_fatal_error("Unknown source int type");
-      }
-    } else {
-      llvm::errs() << "Cannot convert source type "
-                   << static_cast<int>(type.which()) << "\n";
-      llvm::report_fatal_error("Unknown source type");
-    }
+    const auto jeffType = jeffValues[source].getType();
+    sourceTypes.push_back(convertType(builder, jeffType));
   }
 
   // Get targets
@@ -473,28 +456,8 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
   llvm::SmallVector<mlir::Type> targetTypes;
   targetTypes.reserve(targets.size());
   for (auto target : targets) {
-    if (target >= jeffValues.size()) {
-      llvm::outs() << "WARNING: Target index " << target << " out of bounds\n";
-      target = jeffValues.size() - 1;
-    }
-    const auto type = jeffValues[target].getType();
-    if (type.isInt()) {
-      if (type.getInt() == 1) {
-        targetTypes.push_back(builder.getI1Type());
-      } else if (type.getInt() == 8) {
-        targetTypes.push_back(builder.getI8Type());
-      } else if (type.getInt() == 32) {
-        targetTypes.push_back(builder.getI32Type());
-      } else {
-        llvm::errs() << "Cannot convert target int type "
-                     << static_cast<int>(type.getInt()) << "\n";
-        llvm::report_fatal_error("Unknown target int type");
-      }
-    } else {
-      llvm::errs() << "Cannot convert target type "
-                   << static_cast<int>(type.which()) << "\n";
-      llvm::report_fatal_error("Unknown target type");
-    }
+    const auto jeffType = jeffValues[target].getType();
+    targetTypes.push_back(convertType(builder, jeffType));
   }
 
   // Create function
@@ -522,7 +485,8 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
     mlirValues[sources[i]] = entryBlock.getArgument(i);
   }
 
-  convertOperations(builder, operations, mlirValues, mlirFuncs, strings);
+  auto data = DeserializationData{mlirValues, mlirFuncs, strings};
+  convertOperations(builder, operations, data);
 
   llvm::SmallVector<mlir::Value> results;
   results.reserve(body.getTargets().size());
