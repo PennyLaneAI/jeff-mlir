@@ -1,7 +1,7 @@
-## An MLIR dialect for the *jeff* exchange format
+## An MLIR dialect for the _jeff_ exchange format
 
-This repository is contains an MLIR dialect for the [*jeff* exchange format](https://github.com/unitaryfoundation/jeff).
-The purpose is to facilitate conversion to and from *jeff* for MLIR-based quantum compilers, and
+This repository is contains an MLIR dialect for the [_jeff_ exchange format](https://github.com/unitaryfoundation/jeff).
+The purpose is to facilitate conversion to and from _jeff_ for MLIR-based quantum compilers, and
 reuse certain components like the jeff serialization & deserialization.
 
 Right now, the project only contains the dialect definitions, (de)serialization is missing.
@@ -14,6 +14,7 @@ separately (out-of-tree). At the moment, the CMake script supports building the 
 standalone project which generates a custom `opt` tool.
 
 To do so, make sure you have an existing MLIR build.
+
 <details>
 <summary>If you don't ...</summary>
 
@@ -38,10 +39,13 @@ Check out the [project page](https://github.com/munich-quantum-software/setup-ml
 
 Alternatively, you can build MLIR from source following the instructions in the [MLIR documentation](https://mlir.llvm.org/getting_started/), which are summarized below.
 First, clone the repository:
+
 ```sh
 git clone https://github.com/llvm/llvm-project.git external/llvm-project
 ```
+
 Then, build and run the MLIR test suite:
+
 ```sh
 cd external/llvm-project
 cmake -B build -S . -G Ninja            \
@@ -52,11 +56,14 @@ cmake -B build -S . -G Ninja            \
       -DMLIR_ENABLE_BINDINGS_PYTHON=OFF
 cmake --build build --target check-mlir
 ```
+
 Finally, you can point the `MLIR_DIR` variable to `external/llvm-project/build/lib/cmake/mlir` in your CMake configuration step.
+
 </details>
 <br>
 
-From here, we can build the *jeff* dialect simply via:
+From here, we can build the _jeff_ dialect simply via:
+
 ```sh
 cmake -Bbuild -S. -GNinja && cmake --build build
 ```
@@ -71,4 +78,4 @@ TODO: Add instructions for setting up the dialect as an MLIR plugin.
 
 ## License
 
-This *jeff* dialect is **free** and **open source**, released under the Apache License, Version 2.0.
+This _jeff_ dialect is **free** and **open source**, released under the Apache License, Version 2.0.
