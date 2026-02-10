@@ -1921,7 +1921,7 @@ def ForOp : SCF_Op<"for", []> {
     );
 
     let assemblyFormat = [{
-        `(` $start `,` $stop `,` $step `)` $in_values attr-dict `:` type($start) type($stop) type($step) type($in_values) type($out_values) regions
+        `(` $start `,` $stop `,` $step `)` $in_values attr-dict regions `:` type($start) type($stop) type($step) type($in_values) `->` type($out_values)
     }];
 }
 
