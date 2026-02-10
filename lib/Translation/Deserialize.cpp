@@ -48,7 +48,7 @@ void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto custom = gate.getCustom();
   const auto name = data.strings[custom.getName()].cStr();
-  const auto numTargets = custom.getNumQubits() - gate.getControlQubits();
+  const auto numTargets = custom.getNumQubits();
   llvm::SmallVector<mlir::Value> targets;
   for (std::uint8_t i = 0; i < numTargets; ++i) {
     targets.push_back(mlirValues[inputs[i]]);
