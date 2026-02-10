@@ -1899,7 +1899,7 @@ def SwitchOp : SCF_Op<"switch", []> {
     );
 
     let assemblyFormat = [{
-        `(` $selection `)` $branches ($default^)? $in_values attr-dict `:` type($selection) type($in_values) type($out_values)
+        `(` $selection `)`  $in_values $branches (`default` $default^)? attr-dict `:` type($selection) type($in_values) type($out_values)
     }];
 }
 
@@ -1943,7 +1943,7 @@ def WhileOp : SCF_Op<"while", []> {
     );
 
     let assemblyFormat = [{
-        $in_values attr-dict `:` type($in_values) type($out_values) regions
+        $in_values attr-dict regions `:` type($in_values) type($out_values)
     }];
 }
 
@@ -1965,7 +1965,7 @@ def DoWhileOp : SCF_Op<"doWhile", []> {
     );
 
     let assemblyFormat = [{
-       $in_values attr-dict `:` type($in_values) type($out_values) regions
+       $in_values attr-dict regions `:` type($in_values) type($out_values)
     }];
 }
 
