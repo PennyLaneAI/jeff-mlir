@@ -145,15 +145,24 @@ void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-template <typename ConstOp, typename IntType>
-void convertIntConstOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                       IntType value, mlir::Type type,
-                       DeserializationData& data) {
-  auto& mlirValues = data.mlirValues;
-  auto intAttr = mlir::IntegerAttr::get(type, value);
-  auto op = builder.create<ConstOp>(builder.getUnknownLoc(), type, intAttr);
-  mlirValues[operation.getOutputs()[0]] = op.getConstant();
-}
+#define CONVERT_INT_CONST(BIT_WIDTH)                                           \
+  void convertIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                    \
+                                  jeff::Op::Reader operation,                  \
+                                  DeserializationData& data) {                 \
+    const auto instruction = operation.getInstruction();                       \
+    const auto intInstruction = instruction.getInt();                          \
+    const auto value = intInstruction.getConst##BIT_WIDTH();                   \
+    auto intAttr =                                                             \
+        mlir::IntegerAttr::get(builder.getI##BIT_WIDTH##Type(), value);        \
+    auto op = builder.create<mlir::jeff::IntConst##BIT_WIDTH##Op>(             \
+        builder.getUnknownLoc(), builder.getI##BIT_WIDTH##Type(), intAttr);    \
+    data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
+  }
+
+CONVERT_INT_CONST(8)
+CONVERT_INT_CONST(32)
+
+#undef CONVERT_INT_CONST
 
 void convertIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        mlir::jeff::IntUnaryOperation unaryOperation,
@@ -180,13 +189,9 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
   const auto intInstruction = operation.getInstruction().getInt();
   if (intInstruction.isConst8()) {
-    convertIntConstOp<mlir::jeff::IntConst8Op, uint8_t>(
-        builder, operation, intInstruction.getConst8(), builder.getI8Type(),
-        data);
+    convertIntConst8(builder, operation, data);
   } else if (intInstruction.isConst32()) {
-    convertIntConstOp<mlir::jeff::IntConst32Op, uint32_t>(
-        builder, operation, intInstruction.getConst32(), builder.getI32Type(),
-        data);
+    convertIntConst32(builder, operation, data);
   } else if (intInstruction.isNot()) {
     convertIntUnaryOp(builder, operation, mlir::jeff::IntUnaryOperation::_not,
                       data);
