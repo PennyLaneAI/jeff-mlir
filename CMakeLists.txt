@@ -34,13 +34,9 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/unitaryfoundation/jeff/
   GIT_TAG main)
 FetchContent_MakeAvailable(jeff)
-include_directories(${jeff_SOURCE_DIR}/impl/cpp/src/capnp)
-include_directories(${jeff_BINARY_DIR}/impl/cpp/src/capnp)
 
 # Get CapnProto
 find_package(CapnProto REQUIRED)
-include_directories(${CAPNP_INCLUDE_DIRS})
-add_definitions(${CAPNP_DEFINITIONS})
 
 add_subdirectory(include)
 add_subdirectory(lib)
