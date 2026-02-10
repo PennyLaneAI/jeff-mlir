@@ -100,8 +100,8 @@ def QubitMeasureNDOp : Qubit_Op<"qubit_measure_nd", []> {
     );
 
     let results = (outs
-        I1:$result,
-        QubitType:$out_qubit
+        QubitType:$out_qubit,
+        I1:$result
     );
 
     // %1, %2 = jeff.qubit_measure_nd %0 : i1, !jeff.qubit
@@ -194,7 +194,7 @@ def CustomOp : Gate_Op<"custom", [AttrSizedOperandSegments, AttrSizedResultSegme
     let arguments = (ins
         Variadic<QubitType>:$in_target_qubits,
         Variadic<QubitType>:$in_ctrl_qubits,
-        Variadic<F32>:$params,
+        Variadic<F64>:$params,
         I8Attr:$num_ctrls,
         I1Attr:$is_adjoint,
         I8Attr:$power,
@@ -945,7 +945,7 @@ def QuregAllocOp : Qubit_Op<"qureg_alloc", []> {
     let description = [{}];
 
     let arguments = (ins
-        I32Attr:$num_qubits
+        I32:$num_qubits
     );
 
     let results = (outs
@@ -992,7 +992,7 @@ def QuregExtractIndexOp : Qubit_Op<"qureg_extract_index", []> {
 
     let arguments = (ins
         QuregType:$in_qreg,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
@@ -1000,9 +1000,9 @@ def QuregExtractIndexOp : Qubit_Op<"qureg_extract_index", []> {
         QubitType:$out_qubit
     );
 
-    // %2, %3 = jeff.qureg_extract_index (%0) %1 : !jeff.qureg !jeff.qubit
+    // %2, %3 = jeff.qureg_extract_index (%1) %0
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg attr-dict `:` type(results)
+        `(` $index `)` $in_qreg attr-dict `:` type($index) `,` type($in_qreg) `->`  type($out_qreg) `,` type($out_qubit)
     }];
 }
 
@@ -1012,17 +1012,17 @@ def QuregInsertIndexOp : Qubit_Op<"qureg_insert_index", []> {
 
     let arguments = (ins
         QuregType:$in_qreg,
-        QubitType:$in_qubit,
-        I32Attr:$index
+        I32:$index,
+        QubitType:$in_qubit
     );
 
     let results = (outs
         QuregType:$out_qreg
     );
 
-    // %3 = jeff.qureg_insert_index (%0) %1 %2 : !jeff.qureg !jeff.qubit -> !jeff.qureg
+    // %3 = jeff.qureg_insert_index (%1) %0 %2
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg $in_qubit attr-dict `:` functional-type(operands, results)
+        `(` $index `)` $in_qreg $in_qubit attr-dict `:` type($index) `,` type($in_qreg) `,` type($in_qubit) `->`  type($out_qreg)
     }];
 }
 
@@ -1557,9 +1557,9 @@ def IntArrayGetIndexOp : IntArray_Op<"int_array_get_index", []> {
         SupportedIntType:$value
     );
 
-    // %2 = jeff.int_array_get_index (%1) %0 : i32 tensor<5xi64> -> tensor<5xi64>
+    // %2 = jeff.int_array_get_index (%1) %0
     let assemblyFormat = [{
-        `(` $index `)` $in_array attr-dict `:` type($index) type($in_array) `->` type(results)
+        `(` $index `)` $in_array attr-dict `:` type($index) `,` type($in_array) `->` type(results)
     }];
 }
 
@@ -1577,9 +1577,9 @@ def IntArraySetIndexOp : IntArray_Op<"int_array_set_index", []> {
         1DTensorOf<[I1, I8, I16, I32, I64]>:$out_array
     );
 
-    // %3 = jeff.int_array_set_index (%1) %0 %2 : i32 tensor<5xi64> i64 -> tensor<5xi64>
+    // %3 = jeff.int_array_set_index (%1) %0 %2
     let assemblyFormat = [{
-        `(` $index `)` $in_array $value attr-dict `:` type($index) type($in_array) type($value) `->` type($out_array)
+        `(` $index `)` $in_array $value attr-dict `:` type($index) `,` type($in_array) `,` type($value) `->` type($out_array)
     }];
 }
 
@@ -1805,16 +1805,16 @@ def FloatArrayGetIndexOp : FloatArray_Op<"float_array_get_index", []> {
 
     let arguments = (ins
         1DTensorOf<[F32, F64]>:$in_array,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
         SupportedFloatType:$value
     );
 
-    // %2 = jeff.float_array_get_index (%0) %1 : f64
+    // %2 = jeff.float_array_get_index (%1) %0
     let assemblyFormat = [{
-        `(` $index `)` $in_array attr-dict `:` type($in_array) type(results)
+        `(` $index `)` $in_array attr-dict `:` type($index) `,` type($in_array) `->` type(results)
     }];
 }
 
@@ -1824,17 +1824,17 @@ def FloatArraySetIndexOp : FloatArray_Op<"float_array_set_index", []> {
 
     let arguments = (ins
         1DTensorOf<[F32, F64]>:$in_array,
-        SupportedFloatType:$value,
-        I32Attr:$index
+        I32:$index,
+        SupportedFloatType:$value
     );
 
     let results = (outs
         1DTensorOf<[F32, F64]>:$out_array
     );
 
-    // %3 = jeff.float_array_set_index (%0) %1 %2 : f64
+    // %3 = jeff.float_array_set_index (%1) %0 %2
     let assemblyFormat = [{
-        `(` $index `)` $in_array $value attr-dict `:` type($in_array) type($value) type(results)
+        `(` $index `)` $in_array $value attr-dict `:` type($index) `,` type($in_array) `,` type($value) `->` type($out_array)
     }];
 }
 

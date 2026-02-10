@@ -18,19 +18,24 @@ int main() {
   context.loadDialect<mlir::jeff::JeffDialect, mlir::func::FuncDialect,
                       mlir::tensor::TensorDialect>();
 
-  llvm::outs() << "Deserializing entangled_calls.jeff...\n";
-  auto module1 = deserialize(&context, "unittests/entangled_calls.jeff");
+  llvm::outs() << "Deserializing catalyst_simple.jeff...\n";
+  auto module1 = deserialize(&context, "unittests/catalyst_simple.jeff");
   module1->print(llvm::outs());
   llvm::outs() << "\n\n";
 
-  llvm::outs() << "Deserializing entangled_qs.jeff...\n";
-  auto module2 = deserialize(&context, "unittests/entangled_qs.jeff");
+  llvm::outs() << "Deserializing entangled_calls.jeff...\n";
+  auto module2 = deserialize(&context, "unittests/entangled_calls.jeff");
   module2->print(llvm::outs());
   llvm::outs() << "\n\n";
 
-  llvm::outs() << "Deserializing python_optimization.jeff...\n";
-  auto module3 = deserialize(&context, "unittests/python_optimization.jeff");
+  llvm::outs() << "Deserializing entangled_qs.jeff...\n";
+  auto module3 = deserialize(&context, "unittests/entangled_qs.jeff");
   module3->print(llvm::outs());
+  llvm::outs() << "\n\n";
+
+  llvm::outs() << "Deserializing python_optimization.jeff...\n";
+  auto module4 = deserialize(&context, "unittests/python_optimization.jeff");
+  module4->print(llvm::outs());
 
   return 0;
 }

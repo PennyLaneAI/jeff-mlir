@@ -27,15 +27,15 @@ struct DeserializationData {
   capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader& strings;
 };
 
-void convertAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  DeserializationData& data) {
+void convertQubitAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       DeserializationData& data) {
   auto allocOp =
       builder.create<mlir::jeff::QubitAllocOp>(builder.getUnknownLoc());
   data.mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
 }
 
-void convertFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                 DeserializationData& data) {
+void convertQubitFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
   builder.create<mlir::jeff::QubitFreeOp>(
       builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
 }
@@ -48,23 +48,29 @@ void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto custom = gate.getCustom();
   const auto name = data.strings[custom.getName()].cStr();
+  const auto numControls = gate.getControlQubits();
   const auto numTargets = custom.getNumQubits();
+  const auto numQubits = numTargets + numControls;
+  const auto numParams = custom.getNumParams();
   llvm::SmallVector<mlir::Value> targets;
   for (std::uint8_t i = 0; i < numTargets; ++i) {
     targets.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> controls;
-  for (std::uint8_t i = numTargets; i < inputs.size(); ++i) {
+  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
     controls.push_back(mlirValues[inputs[i]]);
   }
+  llvm::SmallVector<mlir::Value> params;
+  for (std::uint8_t i = numQubits; i < numQubits + numParams; ++i) {
+    params.push_back(mlirValues[inputs[i]]);
+  }
   auto op = builder.create<mlir::jeff::CustomOp>(
-      builder.getUnknownLoc(), targets, controls, mlir::ValueRange{},
-      static_cast<uint8_t>(controls.size()), gate.getAdjoint(), gate.getPower(),
-      name, static_cast<uint8_t>(numTargets), custom.getNumParams());
+      builder.getUnknownLoc(), targets, controls, params, numControls,
+      gate.getAdjoint(), gate.getPower(), name, numTargets, numParams);
   for (std::uint8_t i = 0; i < numTargets; ++i) {
     mlirValues[outputs[i]] = op.getOutTargetQubits()[i];
   }
-  for (std::uint8_t i = numTargets; i < outputs.size(); ++i) {
+  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
     mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
   }
 }
@@ -121,14 +127,24 @@ void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[operation.getOutputs()[0]] = op.getResult();
 }
 
+void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QubitMeasureNDOp>(
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
+  mlirValues[outputs[0]] = op.getOutQubit();
+  mlirValues[outputs[1]] = op.getResult();
+}
+
 void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                   DeserializationData& data) {
   const auto instruction = operation.getInstruction();
   const auto qubit = instruction.getQubit();
   if (qubit.isAlloc()) {
-    convertAlloc(builder, operation, data);
+    convertQubitAlloc(builder, operation, data);
   } else if (qubit.isFree()) {
-    convertFree(builder, operation, data);
+    convertQubitFree(builder, operation, data);
   } else if (qubit.isGate()) {
     const auto gate = qubit.getGate();
     if (gate.isCustom()) {
@@ -138,6 +154,8 @@ void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     }
   } else if (qubit.isMeasure()) {
     convertMeasure(builder, operation, data);
+  } else if (qubit.isMeasureNd()) {
+    convertMeasureNd(builder, operation, data);
   } else {
     llvm::errs() << "Cannot convert qubit instruction "
                  << static_cast<int>(qubit.which()) << "\n";
@@ -145,12 +163,67 @@ void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
+void convertQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       DeserializationData& data) {
+  auto allocOp = builder.create<mlir::jeff::QuregAllocOp>(
+      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+  data.mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
+}
+
+void convertQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
+  builder.create<mlir::jeff::QuregFreeOp>(
+      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+}
+
+void convertQuregExtractIndex(mlir::OpBuilder& builder,
+                              jeff::Op::Reader operation,
+                              DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QuregExtractIndexOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]]);
+  mlirValues[outputs[0]] = op.getOutQreg();
+  mlirValues[outputs[1]] = op.getOutQubit();
+}
+
+void convertQuregInsertIndex(mlir::OpBuilder& builder,
+                             jeff::Op::Reader operation,
+                             DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QuregInsertIndexOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[2]],
+      mlirValues[inputs[1]]);
+  mlirValues[outputs[0]] = op.getOutQreg();
+}
+
+void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  DeserializationData& data) {
+  const auto instruction = operation.getInstruction();
+  const auto qureg = instruction.getQureg();
+  if (qureg.isAlloc()) {
+    convertQuregAlloc(builder, operation, data);
+  } else if (qureg.isFree()) {
+    convertQuregFree(builder, operation, data);
+  } else if (qureg.isExtractIndex()) {
+    convertQuregExtractIndex(builder, operation, data);
+  } else if (qureg.isInsertIndex()) {
+    convertQuregInsertIndex(builder, operation, data);
+  } else {
+    llvm::errs() << "Cannot convert qureg instruction "
+                 << static_cast<int>(qureg.which()) << "\n";
+    llvm::report_fatal_error("Unknown qureg instruction");
+  }
+}
+
 #define CONVERT_INT_CONST(BIT_WIDTH)                                           \
   void convertIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                    \
                                   jeff::Op::Reader operation,                  \
                                   DeserializationData& data) {                 \
-    const auto instruction = operation.getInstruction();                       \
-    const auto intInstruction = instruction.getInt();                          \
+    const auto intInstruction = operation.getInstruction().getInt();           \
     const auto value = intInstruction.getConst##BIT_WIDTH();                   \
     auto intAttr =                                                             \
         mlir::IntegerAttr::get(builder.getI##BIT_WIDTH##Type(), value);        \
@@ -205,6 +278,38 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     llvm::errs() << "Cannot convert int instruction "
                  << static_cast<int>(intInstruction.which()) << "\n";
     llvm::report_fatal_error("Unknown int instruction");
+  }
+}
+
+#define CONVERT_FLOAT_CONST(BIT_WIDTH)                                         \
+  void convertFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,                  \
+                                    jeff::Op::Reader operation,                \
+                                    DeserializationData& data) {               \
+    const auto floatInstruction = operation.getInstruction().getFloat();       \
+    const auto value = floatInstruction.getConst##BIT_WIDTH();                 \
+    auto floatAttr =                                                           \
+        mlir::FloatAttr::get(builder.getF##BIT_WIDTH##Type(), value);          \
+    auto op = builder.create<mlir::jeff::FloatConst##BIT_WIDTH##Op>(           \
+        builder.getUnknownLoc(), builder.getF##BIT_WIDTH##Type(), floatAttr);  \
+    data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
+  }
+
+CONVERT_FLOAT_CONST(32)
+CONVERT_FLOAT_CONST(64)
+
+#undef CONVERT_FLOAT_CONST
+
+void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  DeserializationData& data) {
+  const auto floatInstruction = operation.getInstruction().getFloat();
+  if (floatInstruction.isConst32()) {
+    convertFloatConst32(builder, operation, data);
+  } else if (floatInstruction.isConst64()) {
+    convertFloatConst64(builder, operation, data);
+  } else {
+    llvm::errs() << "Cannot convert float instruction "
+                 << static_cast<int>(floatInstruction.which()) << "\n";
+    llvm::report_fatal_error("Unknown float instruction");
   }
 }
 
@@ -377,10 +482,14 @@ void convertOperations(
     const auto instruction = operation.getInstruction();
     if (instruction.isQubit()) {
       convertQubit(builder, operation, data);
+    } else if (instruction.isQureg()) {
+      convertQureg(builder, operation, data);
     } else if (instruction.isInt()) {
       convertInt(builder, operation, data);
     } else if (instruction.isIntArray()) {
       convertIntArray(builder, operation, data);
+    } else if (instruction.isFloat()) {
+      convertFloat(builder, operation, data);
     } else if (instruction.isScf()) {
       convertScf(builder, operation, data);
     } else if (instruction.isFunc()) {
