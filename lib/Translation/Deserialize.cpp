@@ -527,19 +527,135 @@ CONVERT_FLOAT_CONST(64)
 
 #undef CONVERT_FLOAT_CONST
 
+void convertFloatUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                         mlir::jeff::FloatUnaryOperation unaryOperation,
+                         DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::FloatUnaryOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], unaryOperation);
+  mlirValues[outputs[0]] = op.getB();
+}
+
+void convertFloatBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          mlir::jeff::FloatBinaryOperation binaryOperation,
+                          DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::FloatBinaryOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
+      binaryOperation);
+  mlirValues[outputs[0]] = op.getC();
+}
+
+void convertFloatComparisonOp(
+    mlir::OpBuilder& builder, jeff::Op::Reader operation,
+    mlir::jeff::FloatComparisonOperation comparisonOperation,
+    DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::FloatComparisonOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
+      comparisonOperation);
+  mlirValues[outputs[0]] = op.getC();
+}
+
+void convertFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      mlir::jeff::FloatIsOperation isOperation,
+                      DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::FloatIsOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], isOperation);
+  mlirValues[outputs[0]] = op.getResult();
+}
+
+#define ADD_CONST_CASE(BIT_WIDTH)                                              \
+  if (floatInstruction.isConst##BIT_WIDTH()) {                                 \
+    convertFloatConst##BIT_WIDTH(builder, operation, data);                    \
+    return;                                                                    \
+  }
+
+#define ADD_UNARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                           \
+  if (floatInstruction.is##FUNCTION_SUFFIX()) {                                \
+    convertFloatUnaryOp(builder, operation,                                    \
+                        mlir::jeff::FloatUnaryOperation::_##ENUM_SUFFIX,       \
+                        data);                                                 \
+    return;                                                                    \
+  }
+
+#define ADD_BINARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                          \
+  if (floatInstruction.is##FUNCTION_SUFFIX()) {                                \
+    convertFloatBinaryOp(builder, operation,                                   \
+                         mlir::jeff::FloatBinaryOperation::_##ENUM_SUFFIX,     \
+                         data);                                                \
+    return;                                                                    \
+  }
+
+#define ADD_COMPARISON_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                      \
+  if (floatInstruction.is##FUNCTION_SUFFIX()) {                                \
+    convertFloatComparisonOp(                                                  \
+        builder, operation,                                                    \
+        mlir::jeff::FloatComparisonOperation::_##ENUM_SUFFIX, data);           \
+    return;                                                                    \
+  }
+
+#define ADD_IS_CASE(SUFFIX)                                                    \
+  if (floatInstruction.isIs##SUFFIX()) {                                       \
+    convertFloatIsOp(builder, operation,                                       \
+                     mlir::jeff::FloatIsOperation::_is##SUFFIX, data);         \
+    return;                                                                    \
+  }
+
 void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                   DeserializationData& data) {
   const auto floatInstruction = operation.getInstruction().getFloat();
-  if (floatInstruction.isConst32()) {
-    convertFloatConst32(builder, operation, data);
-  } else if (floatInstruction.isConst64()) {
-    convertFloatConst64(builder, operation, data);
-  } else {
-    llvm::errs() << "Cannot convert float instruction "
-                 << static_cast<int>(floatInstruction.which()) << "\n";
-    llvm::report_fatal_error("Unknown float instruction");
-  }
+  ADD_CONST_CASE(32)
+  ADD_CONST_CASE(64)
+  ADD_UNARY_CASE(Sqrt, sqrt)
+  ADD_UNARY_CASE(Abs, abs)
+  ADD_UNARY_CASE(Ceil, ceil)
+  ADD_UNARY_CASE(Floor, floor)
+  ADD_UNARY_CASE(Exp, exp)
+  ADD_UNARY_CASE(Log, log)
+  ADD_UNARY_CASE(Sin, sin)
+  ADD_UNARY_CASE(Cos, cos)
+  ADD_UNARY_CASE(Tan, tan)
+  ADD_UNARY_CASE(Asin, asin)
+  ADD_UNARY_CASE(Acos, acos)
+  ADD_UNARY_CASE(Atan, atan)
+  ADD_UNARY_CASE(Sinh, sinh)
+  ADD_UNARY_CASE(Cosh, cosh)
+  ADD_UNARY_CASE(Tanh, tanh)
+  ADD_UNARY_CASE(Asinh, asinh)
+  ADD_UNARY_CASE(Acosh, acosh)
+  ADD_UNARY_CASE(Atanh, atanh)
+  ADD_BINARY_CASE(Add, add)
+  ADD_BINARY_CASE(Sub, sub)
+  ADD_BINARY_CASE(Mul, mul)
+  ADD_BINARY_CASE(Pow, pow)
+  ADD_BINARY_CASE(Atan2, atan2)
+  ADD_BINARY_CASE(Max, max)
+  ADD_BINARY_CASE(Min, min)
+  ADD_COMPARISON_CASE(Eq, eq)
+  ADD_COMPARISON_CASE(Lt, lt)
+  ADD_COMPARISON_CASE(Lte, lte)
+  ADD_IS_CASE(Nan)
+  ADD_IS_CASE(Inf)
+  llvm::errs() << "Cannot convert float instruction "
+               << static_cast<int>(floatInstruction.which()) << "\n";
+  llvm::report_fatal_error("Unknown float instruction");
 }
+
+#undef ADD_CONST_CASE
+#undef ADD_UNARY_CASE
+#undef ADD_BINARY_CASE
+#undef ADD_COMPARISON_CASE
+#undef ADD_IS_CASE
 
 // --------------------------------------------------
 // SCF operations
