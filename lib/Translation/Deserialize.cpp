@@ -244,8 +244,11 @@ void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
   }
 
+CONVERT_INT_CONST(1)
 CONVERT_INT_CONST(8)
+CONVERT_INT_CONST(16)
 CONVERT_INT_CONST(32)
+CONVERT_INT_CONST(64)
 
 #undef CONVERT_INT_CONST
 
@@ -272,28 +275,88 @@ void convertIntBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getC();
 }
 
+void convertIntComparisonOp(
+    mlir::OpBuilder& builder, jeff::Op::Reader operation,
+    mlir::jeff::IntComparisonOperation comparisonOperation,
+    DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::IntComparisonOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
+      comparisonOperation);
+  mlirValues[outputs[0]] = op.getC();
+}
+
+#define ADD_CONST_CASE(BIT_WIDTH)                                              \
+  if (intInstruction.isConst##BIT_WIDTH()) {                                   \
+    convertIntConst##BIT_WIDTH(builder, operation, data);                      \
+    return;                                                                    \
+  }
+
+#define ADD_UNARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                           \
+  if (intInstruction.is##FUNCTION_SUFFIX()) {                                  \
+    convertIntUnaryOp(builder, operation,                                      \
+                      mlir::jeff::IntUnaryOperation::_##ENUM_SUFFIX, data);    \
+    return;                                                                    \
+  }
+
+#define ADD_BINARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                          \
+  if (intInstruction.is##FUNCTION_SUFFIX()) {                                  \
+    convertIntBinaryOp(builder, operation,                                     \
+                       mlir::jeff::IntBinaryOperation::_##ENUM_SUFFIX, data);  \
+    return;                                                                    \
+  }
+
+#define ADD_COMPARISON_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                      \
+  if (intInstruction.is##FUNCTION_SUFFIX()) {                                  \
+    convertIntComparisonOp(builder, operation,                                 \
+                           mlir::jeff::IntComparisonOperation::_##ENUM_SUFFIX, \
+                           data);                                              \
+    return;                                                                    \
+  }
+
 void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
   const auto intInstruction = operation.getInstruction().getInt();
-  if (intInstruction.isConst8()) {
-    convertIntConst8(builder, operation, data);
-  } else if (intInstruction.isConst32()) {
-    convertIntConst32(builder, operation, data);
-  } else if (intInstruction.isNot()) {
-    convertIntUnaryOp(builder, operation, mlir::jeff::IntUnaryOperation::_not,
-                      data);
-  } else if (intInstruction.isAdd()) {
-    convertIntBinaryOp(builder, operation, mlir::jeff::IntBinaryOperation::_add,
-                       data);
-  } else if (intInstruction.isShl()) {
-    convertIntBinaryOp(builder, operation, mlir::jeff::IntBinaryOperation::_shl,
-                       data);
-  } else {
-    llvm::errs() << "Cannot convert int instruction "
-                 << static_cast<int>(intInstruction.which()) << "\n";
-    llvm::report_fatal_error("Unknown int instruction");
-  }
+  ADD_CONST_CASE(1)
+  ADD_CONST_CASE(8)
+  ADD_CONST_CASE(16)
+  ADD_CONST_CASE(32)
+  ADD_CONST_CASE(64)
+  ADD_UNARY_CASE(Not, not)
+  ADD_UNARY_CASE(Abs, abs)
+  ADD_BINARY_CASE(Add, add)
+  ADD_BINARY_CASE(Sub, sub)
+  ADD_BINARY_CASE(Mul, mul)
+  ADD_BINARY_CASE(DivS, divS)
+  ADD_BINARY_CASE(DivU, divU)
+  ADD_BINARY_CASE(Pow, pow)
+  ADD_BINARY_CASE(And, and)
+  ADD_BINARY_CASE(Or, or)
+  ADD_BINARY_CASE(Xor, xor)
+  ADD_BINARY_CASE(MinS, minS)
+  ADD_BINARY_CASE(MinU, minU)
+  ADD_BINARY_CASE(MaxS, maxS)
+  ADD_BINARY_CASE(MaxU, maxU)
+  ADD_BINARY_CASE(RemS, remS)
+  ADD_BINARY_CASE(RemU, remU)
+  ADD_BINARY_CASE(Shl, shl)
+  ADD_BINARY_CASE(Shr, shr)
+  ADD_COMPARISON_CASE(Eq, eq)
+  ADD_COMPARISON_CASE(LtS, ltS)
+  ADD_COMPARISON_CASE(LteS, lteS)
+  ADD_COMPARISON_CASE(LtU, ltU)
+  ADD_COMPARISON_CASE(LteU, lteU)
+  llvm::errs() << "Cannot convert int instruction "
+               << static_cast<int>(intInstruction.which()) << "\n";
+  llvm::report_fatal_error("Unknown int instruction");
 }
+
+#undef ADD_CONST_CASE
+#undef ADD_UNARY_CASE
+#undef ADD_BINARY_CASE
+#undef ADD_COMPARISON_CASE
 
 // --------------------------------------------------
 // IntArray operations
