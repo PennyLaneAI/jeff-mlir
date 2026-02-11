@@ -26,3 +26,10 @@ repos:
         additional_dependencies: [pyyaml]
         types: [file]
         files: (\.cmake|CMakeLists.txt)(.in)?$
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+        require_serial: true
+        args: [--fix, --unsafe-fixes]
