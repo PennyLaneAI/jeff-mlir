@@ -1920,9 +1920,7 @@ def ForOp : SCF_Op<"for", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-        `(` $start `,` $stop `,` $step `)` $in_values attr-dict regions `:` type($start) type($stop) type($step) type($in_values) `->` type($out_values)
-    }];
+    let hasCustomAssemblyFormat = 1;
 }
 
 def WhileOp : SCF_Op<"while", []> {

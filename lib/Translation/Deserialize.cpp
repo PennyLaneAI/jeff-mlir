@@ -485,7 +485,9 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
     // Add sources to mlirValues
     for (size_t i = 1; i < for_.getSources().size(); ++i) {
-      mlirValues[for_.getSources()[i]] = inValues[i - 1];
+      auto arg = bodyBlock.addArgument(inValues[i - 1].getType(),
+                                       builder.getUnknownLoc());
+      mlirValues[for_.getSources()[i]] = arg;
     }
 
     convertOperations(builder, for_.getOperations(), data);
