@@ -36,13 +36,13 @@ using namespace mlir::jeff;
 
 namespace {
 
+// Adapted from
+// https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L480
 void printInitializationList(OpAsmPrinter& p,
                              Block::BlockArgListType blocksArgs,
                              ValueRange initializers, StringRef prefix = "") {
   assert(blocksArgs.size() == initializers.size() &&
          "expected same length of arguments and initializers");
-  if (initializers.empty())
-    return;
 
   p << prefix << '(';
   llvm::interleaveComma(llvm::zip(blocksArgs, initializers), p, [&](auto it) {
@@ -53,17 +53,45 @@ void printInitializationList(OpAsmPrinter& p,
 
 } // namespace
 
+void SwitchOp::print(OpAsmPrinter& p) {
+  p << '(' << getSelection() << ") ";
+
+  for (auto& branch : getBranches()) {
+    auto regionArgs = branch.getArguments();
+    printInitializationList(p, regionArgs, getInValues(), "args");
+    p << " -> (" << getInValues().getTypes() << ") ";
+    p.printRegion(branch, /*printEntryBlockArgs=*/false,
+                  /*printBlockTerminators=*/!getInValues().empty());
+  }
+
+  auto& default_ = getDefault();
+  if (!default_.empty()) {
+    p << " default ";
+    auto regionArgs = default_.getArguments();
+    printInitializationList(p, regionArgs, getInValues(), "args");
+    p << " -> (" << getInValues().getTypes() << ") ";
+    p.printRegion(default_, /*printEntryBlockArgs=*/false,
+                  /*printBlockTerminators=*/!getInValues().empty());
+  }
+
+  p.printOptionalAttrDict((*this)->getAttrs());
+}
+
+ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
+  llvm::report_fatal_error("SwitchOp::parse is not implemented yet");
+}
+
 // Adapted from
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L496
 void ForOp::print(OpAsmPrinter& p) {
   auto inductionVar = getBody().getArgument(0);
-  auto regionIterArgs = getBody().getArguments().drop_front(1);
+  auto regionArgs = getBody().getArguments().drop_front(1);
 
   p << " " << inductionVar << " = " << getStart() << " to " << getStop()
     << " step " << getStep();
 
-  printInitializationList(p, regionIterArgs, getInValues(), " args");
   if (!getInValues().empty()) {
+    printInitializationList(p, regionArgs, getInValues(), " args");
     p << " -> (" << getInValues().getTypes() << ')';
   }
 

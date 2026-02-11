@@ -399,40 +399,18 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       builder.getUnknownLoc(), outTypes, mlirValues[inputs[0]], inValues,
       branches.size());
 
-  if (switch_.hasDefault()) {
-    auto& defaultBlock = op.getDefault().emplaceBlock();
-    mlir::OpBuilder::InsertionGuard guard(builder);
-    builder.setInsertionPointToStart(&defaultBlock);
-
-    const auto& default_ = switch_.getDefault();
-
-    // Add sources to mlirValues
-    for (size_t i = 0; i < default_.getSources().size(); ++i) {
-      mlirValues[default_.getSources()[i]] = inValues[i];
-    }
-
-    convertOperations(builder, default_.getOperations(), data);
-
-    // Retrieve target values
-    llvm::SmallVector<mlir::Value> targetValues;
-    targetValues.reserve(default_.getTargets().size());
-    for (size_t i = 0; i < default_.getTargets().size(); ++i) {
-      targetValues.push_back(mlirValues[default_.getTargets()[i]]);
-    }
-
-    builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), targetValues);
-  }
-
   for (size_t i = 0; i < branches.size(); ++i) {
-    auto& branchBlock = op.getBranches()[i].emplaceBlock();
+    auto& block = op.getBranches()[i].emplaceBlock();
     mlir::OpBuilder::InsertionGuard guard(builder);
-    builder.setInsertionPointToStart(&branchBlock);
+    builder.setInsertionPointToStart(&block);
 
     const auto& branch = branches[i];
 
     // Add sources to mlirValues
     for (size_t j = 0; j < branch.getSources().size(); ++j) {
-      mlirValues[branch.getSources()[j]] = inValues[j];
+      auto arg =
+          block.addArgument(inValues[j].getType(), builder.getUnknownLoc());
+      mlirValues[branch.getSources()[j]] = arg;
     }
 
     convertOperations(builder, branches[i].getOperations(), data);
@@ -442,6 +420,32 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     targetValues.reserve(branch.getTargets().size());
     for (size_t j = 0; j < branch.getTargets().size(); ++j) {
       targetValues.push_back(mlirValues[branch.getTargets()[j]]);
+    }
+
+    builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), targetValues);
+  }
+
+  if (switch_.hasDefault()) {
+    auto& block = op.getDefault().emplaceBlock();
+    mlir::OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToStart(&block);
+
+    const auto& default_ = switch_.getDefault();
+
+    // Add sources to mlirValues
+    for (size_t i = 0; i < default_.getSources().size(); ++i) {
+      auto arg =
+          block.addArgument(inValues[i].getType(), builder.getUnknownLoc());
+      mlirValues[default_.getSources()[i]] = arg;
+    }
+
+    convertOperations(builder, default_.getOperations(), data);
+
+    // Retrieve target values
+    llvm::SmallVector<mlir::Value> targetValues;
+    targetValues.reserve(default_.getTargets().size());
+    for (size_t i = 0; i < default_.getTargets().size(); ++i) {
+      targetValues.push_back(mlirValues[default_.getTargets()[i]]);
     }
 
     builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), targetValues);

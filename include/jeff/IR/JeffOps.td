@@ -1898,9 +1898,7 @@ def SwitchOp : SCF_Op<"switch", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-        `(` $selection `)`  $in_values $branches (`default` $default^)? attr-dict `:` type($selection) type($in_values) type($out_values)
-    }];
+    let hasCustomAssemblyFormat = 1;
 }
 
 def ForOp : SCF_Op<"for", []> {
