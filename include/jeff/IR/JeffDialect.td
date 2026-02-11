@@ -58,8 +58,6 @@ def QuregType : Jeff_Type<"Qureg", "qureg"> {
 
 def SupportedIntType : AnyTypeOf<[I1, I8, I16, I32, I64]>;
 
-def SupportedIntArrayAttrType : AnyAttrOf<[DenseBoolArrayAttr, DenseI8ArrayAttr, DenseI16ArrayAttr, DenseI32ArrayAttr, DenseI64ArrayAttr]>;
-
 def SupportedFloatType : AnyTypeOf<[F32, F64]>;
 
 def SupportedFloatArrayAttrType : AnyAttrOf<[DenseF32ArrayAttr, DenseF64ArrayAttr]>;

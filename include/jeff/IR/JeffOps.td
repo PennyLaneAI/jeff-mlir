@@ -1531,7 +1531,7 @@ def IntArrayZeroOp : IntArray_Op<"int_array_zero", []> {
     let description = [{}];
 
     let arguments = (ins
-        I32Attr:$length
+        I32:$length
     );
 
     let results = (outs
@@ -1606,7 +1606,7 @@ def IntArrayCreateOp : IntArray_Op<"int_array_create", []> {
     let description = [{}];
 
     let arguments = (ins
-        SupportedIntArrayAttrType:$in_array
+        Variadic<SupportedIntType>:$in_array
     );
 
     let results = (outs
@@ -1615,7 +1615,7 @@ def IntArrayCreateOp : IntArray_Op<"int_array_create", []> {
 
     // %1 = jeff.int_array_create %0 : i64
     let assemblyFormat = [{
-        attr-dict `:` type(results)
+        $in_array attr-dict `:` type($in_array) `->` type(results)
     }];
 }
 

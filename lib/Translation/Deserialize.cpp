@@ -235,12 +235,12 @@ void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   void convertIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                    \
                                   jeff::Op::Reader operation,                  \
                                   DeserializationData& data) {                 \
-    const auto intInstruction = operation.getInstruction().getInt();           \
-    const auto value = intInstruction.getConst##BIT_WIDTH();                   \
-    auto intAttr =                                                             \
-        mlir::IntegerAttr::get(builder.getI##BIT_WIDTH##Type(), value);        \
+    const auto value =                                                         \
+        operation.getInstruction().getInt().getConst##BIT_WIDTH();             \
+    auto intType = builder.getI##BIT_WIDTH##Type();                            \
+    auto intAttr = mlir::IntegerAttr::get(intType, value);                     \
     auto op = builder.create<mlir::jeff::IntConst##BIT_WIDTH##Op>(             \
-        builder.getUnknownLoc(), builder.getI##BIT_WIDTH##Type(), intAttr);    \
+        builder.getUnknownLoc(), intType, intAttr);                            \
     data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
   }
 
@@ -252,22 +252,24 @@ CONVERT_INT_CONST(32)
 void convertIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        mlir::jeff::IntUnaryOperation unaryOperation,
                        DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
   auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::IntUnaryOp>(
-      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]],
-      unaryOperation);
-  mlirValues[operation.getOutputs()[0]] = op.getB();
+      builder.getUnknownLoc(), mlirValues[inputs[0]], unaryOperation);
+  mlirValues[outputs[0]] = op.getB();
 }
 
 void convertIntBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                         mlir::jeff::IntBinaryOperation binaryOperation,
                         DeserializationData& data) {
-  auto& mlirValues = data.mlirValues;
   const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::IntBinaryOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
       binaryOperation);
-  mlirValues[operation.getOutputs()[0]] = op.getC();
+  mlirValues[outputs[0]] = op.getC();
 }
 
 void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
@@ -297,20 +299,62 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 // IntArray operations
 // --------------------------------------------------
 
-void convertIntArrayConst8(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationData& data) {
-  const auto const8 = operation.getInstruction().getIntArray().getConst8();
-  llvm::SmallVector<int8_t> inArray;
-  inArray.reserve(const8.size());
-  for (auto value : const8) {
-    inArray.push_back(static_cast<int8_t>(value));
+  const auto values = operation.getInstruction().getIntArray().getConst8();
+  llvm::SmallVector<bool> inArray;
+  inArray.reserve(values.size());
+  for (auto value : values) {
+    inArray.push_back(static_cast<bool>(value));
   }
-  auto inArrayAttr = mlir::DenseI8ArrayAttr::get(builder.getContext(), inArray);
+  auto inArrayAttr =
+      mlir::DenseBoolArrayAttr::get(builder.getContext(), inArray);
   auto tensorType = mlir::RankedTensorType::get(
-      {static_cast<int64_t>(inArray.size())}, builder.getI8Type());
-  auto op = builder.create<mlir::jeff::IntArrayConst8Op>(
+      {static_cast<int64_t>(inArray.size())}, builder.getI1Type());
+  auto op = builder.create<mlir::jeff::IntArrayConst1Op>(
       builder.getUnknownLoc(), tensorType, inArrayAttr);
   data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+}
+
+#define CONVERT_INT_ARRAY_CONST(BIT_WIDTH)                                     \
+  void convertIntArrayConst##BIT_WIDTH(mlir::OpBuilder& builder,               \
+                                       jeff::Op::Reader operation,             \
+                                       DeserializationData& data) {            \
+    const auto values =                                                        \
+        operation.getInstruction().getIntArray().getConst##BIT_WIDTH();        \
+    llvm::SmallVector<int##BIT_WIDTH##_t> inArray;                             \
+    inArray.reserve(values.size());                                            \
+    for (auto value : values) {                                                \
+      inArray.push_back(static_cast<int##BIT_WIDTH##_t>(value));               \
+    }                                                                          \
+    auto inArrayAttr = mlir::DenseI##BIT_WIDTH##ArrayAttr::get(                \
+        builder.getContext(), inArray);                                        \
+    auto tensorType =                                                          \
+        mlir::RankedTensorType::get({static_cast<int64_t>(inArray.size())},    \
+                                    builder.getI##BIT_WIDTH##Type());          \
+    auto op = builder.create<mlir::jeff::IntArrayConst##BIT_WIDTH##Op>(        \
+        builder.getUnknownLoc(), tensorType, inArrayAttr);                     \
+    data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();             \
+  }
+
+CONVERT_INT_ARRAY_CONST(8)
+CONVERT_INT_ARRAY_CONST(16)
+CONVERT_INT_ARRAY_CONST(32)
+CONVERT_INT_ARRAY_CONST(64)
+
+#undef CONVERT_INT_ARRAY_CONST
+
+void convertIntArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                         DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  const auto zero = operation.getInstruction().getIntArray().getZero();
+  auto tensorType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                                builder.getIntegerType(zero));
+  auto op = builder.create<mlir::jeff::IntArrayZeroOp>(
+      builder.getUnknownLoc(), tensorType, mlirValues[inputs[0]]);
+  mlirValues[outputs[0]] = op.getOutArray();
 }
 
 void convertIntArrayGetIndex(mlir::OpBuilder& builder,
@@ -341,15 +385,56 @@ void convertIntArraySetIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutArray();
 }
 
+void convertIntArrayLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::IntArrayLengthOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]]);
+  mlirValues[outputs[0]] = op.getLength();
+}
+
+void convertIntArrayCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  llvm::SmallVector<mlir::Value> inArray;
+  inArray.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    inArray.push_back(mlirValues[inputs[i]]);
+  }
+  auto tensorType = mlir::RankedTensorType::get(
+      {static_cast<int64_t>(inputs.size())}, mlirValues[inputs[0]].getType());
+  auto op = builder.create<mlir::jeff::IntArrayConst1Op>(
+      builder.getUnknownLoc(), tensorType, inArray);
+  data.mlirValues[outputs[0]] = op.getOutArray();
+}
+
 void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                      DeserializationData& data) {
   const auto intArray = operation.getInstruction().getIntArray();
-  if (intArray.isConst8()) {
+  if (intArray.isConst1()) {
+    convertIntArrayConst1(builder, operation, data);
+  } else if (intArray.isConst8()) {
     convertIntArrayConst8(builder, operation, data);
+  } else if (intArray.isConst16()) {
+    convertIntArrayConst16(builder, operation, data);
+  } else if (intArray.isConst32()) {
+    convertIntArrayConst32(builder, operation, data);
+  } else if (intArray.isConst64()) {
+    convertIntArrayConst64(builder, operation, data);
+  } else if (intArray.isZero()) {
+    convertIntArrayZero(builder, operation, data);
   } else if (intArray.isGetIndex()) {
     convertIntArrayGetIndex(builder, operation, data);
   } else if (intArray.isSetIndex()) {
     convertIntArraySetIndex(builder, operation, data);
+  } else if (intArray.isLength()) {
+    convertIntArrayLength(builder, operation, data);
+  } else if (intArray.isCreate()) {
+    convertIntArrayCreate(builder, operation, data);
   } else {
     llvm::errs() << "Cannot convert int array instruction "
                  << static_cast<int>(intArray.which()) << "\n";
@@ -365,12 +450,12 @@ void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   void convertFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,                  \
                                     jeff::Op::Reader operation,                \
                                     DeserializationData& data) {               \
-    const auto floatInstruction = operation.getInstruction().getFloat();       \
-    const auto value = floatInstruction.getConst##BIT_WIDTH();                 \
-    auto floatAttr =                                                           \
-        mlir::FloatAttr::get(builder.getF##BIT_WIDTH##Type(), value);          \
+    const auto value =                                                         \
+        operation.getInstruction().getFloat().getConst##BIT_WIDTH();           \
+    auto floatType = builder.getF##BIT_WIDTH##Type();                          \
+    auto floatAttr = mlir::FloatAttr::get(floatType, value);                   \
     auto op = builder.create<mlir::jeff::FloatConst##BIT_WIDTH##Op>(           \
-        builder.getUnknownLoc(), builder.getF##BIT_WIDTH##Type(), floatAttr);  \
+        builder.getUnknownLoc(), floatType, floatAttr);                        \
     data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
   }
 
