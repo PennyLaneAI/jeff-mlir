@@ -27,6 +27,10 @@ struct DeserializationData {
   capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader& strings;
 };
 
+// --------------------------------------------------
+// Qubit operations
+// --------------------------------------------------
+
 void convertQubitAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        DeserializationData& data) {
   auto allocOp =
@@ -163,6 +167,10 @@ void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
+// --------------------------------------------------
+// Qureg operations
+// --------------------------------------------------
+
 void convertQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        DeserializationData& data) {
   auto allocOp = builder.create<mlir::jeff::QuregAllocOp>(
@@ -218,6 +226,10 @@ void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     llvm::report_fatal_error("Unknown qureg instruction");
   }
 }
+
+// --------------------------------------------------
+// Int operations
+// --------------------------------------------------
 
 #define CONVERT_INT_CONST(BIT_WIDTH)                                           \
   void convertIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                    \
@@ -281,37 +293,9 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-#define CONVERT_FLOAT_CONST(BIT_WIDTH)                                         \
-  void convertFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,                  \
-                                    jeff::Op::Reader operation,                \
-                                    DeserializationData& data) {               \
-    const auto floatInstruction = operation.getInstruction().getFloat();       \
-    const auto value = floatInstruction.getConst##BIT_WIDTH();                 \
-    auto floatAttr =                                                           \
-        mlir::FloatAttr::get(builder.getF##BIT_WIDTH##Type(), value);          \
-    auto op = builder.create<mlir::jeff::FloatConst##BIT_WIDTH##Op>(           \
-        builder.getUnknownLoc(), builder.getF##BIT_WIDTH##Type(), floatAttr);  \
-    data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
-  }
-
-CONVERT_FLOAT_CONST(32)
-CONVERT_FLOAT_CONST(64)
-
-#undef CONVERT_FLOAT_CONST
-
-void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  DeserializationData& data) {
-  const auto floatInstruction = operation.getInstruction().getFloat();
-  if (floatInstruction.isConst32()) {
-    convertFloatConst32(builder, operation, data);
-  } else if (floatInstruction.isConst64()) {
-    convertFloatConst64(builder, operation, data);
-  } else {
-    llvm::errs() << "Cannot convert float instruction "
-                 << static_cast<int>(floatInstruction.which()) << "\n";
-    llvm::report_fatal_error("Unknown float instruction");
-  }
-}
+// --------------------------------------------------
+// IntArray operations
+// --------------------------------------------------
 
 void convertIntArrayConst8(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationData& data) {
@@ -372,6 +356,46 @@ void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     llvm::report_fatal_error("Unknown int array instruction");
   }
 }
+
+// --------------------------------------------------
+// Float operations
+// --------------------------------------------------
+
+#define CONVERT_FLOAT_CONST(BIT_WIDTH)                                         \
+  void convertFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,                  \
+                                    jeff::Op::Reader operation,                \
+                                    DeserializationData& data) {               \
+    const auto floatInstruction = operation.getInstruction().getFloat();       \
+    const auto value = floatInstruction.getConst##BIT_WIDTH();                 \
+    auto floatAttr =                                                           \
+        mlir::FloatAttr::get(builder.getF##BIT_WIDTH##Type(), value);          \
+    auto op = builder.create<mlir::jeff::FloatConst##BIT_WIDTH##Op>(           \
+        builder.getUnknownLoc(), builder.getF##BIT_WIDTH##Type(), floatAttr);  \
+    data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
+  }
+
+CONVERT_FLOAT_CONST(32)
+CONVERT_FLOAT_CONST(64)
+
+#undef CONVERT_FLOAT_CONST
+
+void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  DeserializationData& data) {
+  const auto floatInstruction = operation.getInstruction().getFloat();
+  if (floatInstruction.isConst32()) {
+    convertFloatConst32(builder, operation, data);
+  } else if (floatInstruction.isConst64()) {
+    convertFloatConst64(builder, operation, data);
+  } else {
+    llvm::errs() << "Cannot convert float instruction "
+                 << static_cast<int>(floatInstruction.which()) << "\n";
+    llvm::report_fatal_error("Unknown float instruction");
+  }
+}
+
+// --------------------------------------------------
+// SCF operations
+// --------------------------------------------------
 
 // Forward declaration
 void convertOperations(
@@ -526,6 +550,10 @@ void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     llvm::report_fatal_error("Unknown scf instruction");
   }
 }
+
+// --------------------------------------------------
+// Func operations
+// --------------------------------------------------
 
 void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                  DeserializationData& data) {
