@@ -1025,6 +1025,104 @@ void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
+// --------------------------------------------------
+// Types
+// --------------------------------------------------
+
+mlir::Type convertIntType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+  switch (type.getInt()) {
+  case 1:
+    return builder.getI1Type();
+  case 8:
+    return builder.getI8Type();
+  case 16:
+    return builder.getI16Type();
+  case 32:
+    return builder.getI32Type();
+  case 64:
+    return builder.getI64Type();
+  default:
+    llvm::errs() << "Cannot convert int type "
+                 << static_cast<int>(type.getInt()) << "\n";
+    llvm::report_fatal_error("Unknown int type");
+  }
+}
+
+mlir::Type convertIntArrayType(mlir::OpBuilder& builder,
+                               jeff::Type::Reader type) {
+  switch (type.getIntArray()) {
+  case 1:
+    return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                       builder.getI1Type());
+  case 8:
+    return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                       builder.getI8Type());
+  case 16:
+    return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                       builder.getI16Type());
+  case 32:
+    return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                       builder.getI32Type());
+  case 64:
+    return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                       builder.getI64Type());
+  default:
+    llvm::errs() << "Cannot convert int array type "
+                 << static_cast<int>(type.getIntArray()) << "\n";
+    llvm::report_fatal_error("Unknown int array type");
+  }
+}
+
+mlir::Type convertFloatType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+  switch (type.getFloat()) {
+  case jeff::FloatPrecision::FLOAT32:
+    return builder.getF32Type();
+  case jeff::FloatPrecision::FLOAT64:
+    return builder.getF64Type();
+  default:
+    llvm::errs() << "Cannot convert float type "
+                 << static_cast<int>(type.getFloat()) << "\n";
+    llvm::report_fatal_error("Unknown float type");
+  }
+}
+
+mlir::Type convertFloatArrayType(mlir::OpBuilder& builder,
+                                 jeff::Type::Reader type) {
+  switch (type.getFloatArray()) {
+  case jeff::FloatPrecision::FLOAT32:
+    return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                       builder.getF32Type());
+  case jeff::FloatPrecision::FLOAT64:
+    return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
+                                       builder.getF64Type());
+  default:
+    llvm::errs() << "Cannot convert float array type "
+                 << static_cast<int>(type.getFloatArray()) << "\n";
+    llvm::report_fatal_error("Unknown float array type");
+  }
+}
+
+mlir::Type convertType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+  switch (type.which()) {
+  case jeff::Type::QUBIT:
+    return mlir::jeff::QubitType::get(builder.getContext());
+  case jeff::Type::QUREG:
+    return mlir::jeff::QuregType::get(builder.getContext());
+  case jeff::Type::INT:
+    return convertIntType(builder, type);
+  case jeff::Type::INT_ARRAY:
+    return convertIntArrayType(builder, type);
+  case jeff::Type::FLOAT:
+    return convertFloatType(builder, type);
+  case jeff::Type::FLOAT_ARRAY:
+    return convertFloatArrayType(builder, type);
+  default:
+    llvm::errs() << "Cannot convert type " << static_cast<int>(type.which())
+                 << "\n";
+    llvm::report_fatal_error("Unknown type");
+  }
+}
+
 void convertOperations(
     mlir::OpBuilder& builder,
     capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
@@ -1061,31 +1159,6 @@ void convertOperations(
                    << static_cast<int>(instruction.which()) << "\n";
       llvm::report_fatal_error("Unknown instruction");
     }
-  }
-}
-
-mlir::Type convertType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
-  switch (type.which()) {
-  case jeff::Type::QUBIT:
-    return mlir::jeff::QubitType::get(builder.getContext());
-  case jeff::Type::INT:
-    switch (type.getInt()) {
-    case 1:
-      return builder.getI1Type();
-    case 8:
-      return builder.getI8Type();
-    case 32:
-      return builder.getI32Type();
-    default:
-      llvm::errs() << "Cannot convert int type "
-                   << static_cast<int>(type.getInt()) << "\n";
-      llvm::report_fatal_error("Unknown int type");
-    }
-    break;
-  default:
-    llvm::errs() << "Cannot convert type " << static_cast<int>(type.which())
-                 << "\n";
-    llvm::report_fatal_error("Unknown type");
   }
 }
 
