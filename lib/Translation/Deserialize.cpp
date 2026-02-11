@@ -44,39 +44,22 @@ void convertQubitFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
 }
 
-void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                   DeserializationData& data) {
+void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                    DeserializationData& data) {
   auto& mlirValues = data.mlirValues;
-  const auto inputs = operation.getInputs();
+  auto op = builder.create<mlir::jeff::QubitMeasureOp>(
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
+  mlirValues[operation.getOutputs()[0]] = op.getResult();
+}
+
+void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
   const auto outputs = operation.getOutputs();
-  const auto gate = operation.getInstruction().getQubit().getGate();
-  const auto custom = gate.getCustom();
-  const auto name = data.strings[custom.getName()].cStr();
-  const auto numControls = gate.getControlQubits();
-  const auto numTargets = custom.getNumQubits();
-  const auto numQubits = numTargets + numControls;
-  const auto numParams = custom.getNumParams();
-  llvm::SmallVector<mlir::Value> targets;
-  for (std::uint8_t i = 0; i < numTargets; ++i) {
-    targets.push_back(mlirValues[inputs[i]]);
-  }
-  llvm::SmallVector<mlir::Value> controls;
-  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
-    controls.push_back(mlirValues[inputs[i]]);
-  }
-  llvm::SmallVector<mlir::Value> params;
-  for (std::uint8_t i = numQubits; i < numQubits + numParams; ++i) {
-    params.push_back(mlirValues[inputs[i]]);
-  }
-  auto op = builder.create<mlir::jeff::CustomOp>(
-      builder.getUnknownLoc(), targets, controls, params, numControls,
-      gate.getAdjoint(), gate.getPower(), name, numTargets, numParams);
-  for (std::uint8_t i = 0; i < numTargets; ++i) {
-    mlirValues[outputs[i]] = op.getOutTargetQubits()[i];
-  }
-  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
-    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
-  }
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QubitMeasureNDOp>(
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
+  mlirValues[outputs[0]] = op.getOutQubit();
+  mlirValues[outputs[1]] = op.getResult();
 }
 
 template <typename OpType>
@@ -123,44 +106,78 @@ void convertWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                    DeserializationData& data) {
+void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                   DeserializationData& data) {
   auto& mlirValues = data.mlirValues;
-  auto op = builder.create<mlir::jeff::QubitMeasureOp>(
-      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
-  mlirValues[operation.getOutputs()[0]] = op.getResult();
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  const auto custom = gate.getCustom();
+  const auto name = data.strings[custom.getName()].cStr();
+  const auto numControls = gate.getControlQubits();
+  const auto numTargets = custom.getNumQubits();
+  const auto numQubits = numTargets + numControls;
+  const auto numParams = custom.getNumParams();
+  llvm::SmallVector<mlir::Value> targets;
+  for (std::uint8_t i = 0; i < numTargets; ++i) {
+    targets.push_back(mlirValues[inputs[i]]);
+  }
+  llvm::SmallVector<mlir::Value> controls;
+  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
+  }
+  llvm::SmallVector<mlir::Value> params;
+  for (std::uint8_t i = numQubits; i < numQubits + numParams; ++i) {
+    params.push_back(mlirValues[inputs[i]]);
+  }
+  auto op = builder.create<mlir::jeff::CustomOp>(
+      builder.getUnknownLoc(), targets, controls, params, numControls,
+      gate.getAdjoint(), gate.getPower(), name, numTargets, numParams);
+  for (std::uint8_t i = 0; i < numTargets; ++i) {
+    mlirValues[outputs[i]] = op.getOutTargetQubits()[i];
+  }
+  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
+  }
 }
 
-void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationData& data) {
-  const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
-  auto op = builder.create<mlir::jeff::QubitMeasureNDOp>(
-      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
-  mlirValues[outputs[0]] = op.getOutQubit();
-  mlirValues[outputs[1]] = op.getResult();
+void convertGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                 DeserializationData& data) {
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  switch (gate.which()) {
+  case jeff::QubitGate::WELL_KNOWN:
+    convertWellKnown(builder, operation, data);
+    break;
+  case jeff::QubitGate::CUSTOM:
+    convertCustom(builder, operation, data);
+    break;
+  default:
+    llvm::errs() << "Cannot convert gate instruction "
+                 << static_cast<int>(gate.which()) << "\n";
+    llvm::report_fatal_error("Unknown gate instruction");
+  }
 }
 
 void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                   DeserializationData& data) {
-  const auto instruction = operation.getInstruction();
-  const auto qubit = instruction.getQubit();
-  if (qubit.isAlloc()) {
+  const auto qubit = operation.getInstruction().getQubit();
+  switch (qubit.which()) {
+  case jeff::QubitOp::ALLOC:
     convertQubitAlloc(builder, operation, data);
-  } else if (qubit.isFree()) {
+    break;
+  case jeff::QubitOp::FREE:
     convertQubitFree(builder, operation, data);
-  } else if (qubit.isGate()) {
-    const auto gate = qubit.getGate();
-    if (gate.isCustom()) {
-      convertCustom(builder, operation, data);
-    } else if (gate.isWellKnown()) {
-      convertWellKnown(builder, operation, data);
-    }
-  } else if (qubit.isMeasure()) {
+    break;
+  case jeff::QubitOp::MEASURE:
     convertMeasure(builder, operation, data);
-  } else if (qubit.isMeasureNd()) {
+    break;
+  case jeff::QubitOp::MEASURE_ND:
     convertMeasureNd(builder, operation, data);
-  } else {
+    break;
+  case jeff::QubitOp::GATE:
+    convertGate(builder, operation, data);
+    break;
+  default:
     llvm::errs() << "Cannot convert qubit instruction "
                  << static_cast<int>(qubit.which()) << "\n";
     llvm::report_fatal_error("Unknown qubit instruction");
@@ -176,12 +193,6 @@ void convertQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   auto allocOp = builder.create<mlir::jeff::QuregAllocOp>(
       builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
   data.mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
-}
-
-void convertQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationData& data) {
-  builder.create<mlir::jeff::QuregFreeOp>(
-      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
 }
 
 void convertQuregExtractIndex(mlir::OpBuilder& builder,
@@ -208,19 +219,30 @@ void convertQuregInsertIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutQreg();
 }
 
+void convertQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
+  builder.create<mlir::jeff::QuregFreeOp>(
+      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+}
+
 void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                   DeserializationData& data) {
   const auto instruction = operation.getInstruction();
   const auto qureg = instruction.getQureg();
-  if (qureg.isAlloc()) {
+  switch (qureg.which()) {
+  case jeff::QuregOp::ALLOC:
     convertQuregAlloc(builder, operation, data);
-  } else if (qureg.isFree()) {
-    convertQuregFree(builder, operation, data);
-  } else if (qureg.isExtractIndex()) {
+    break;
+  case jeff::QuregOp::EXTRACT_INDEX:
     convertQuregExtractIndex(builder, operation, data);
-  } else if (qureg.isInsertIndex()) {
+    break;
+  case jeff::QuregOp::INSERT_INDEX:
     convertQuregInsertIndex(builder, operation, data);
-  } else {
+    break;
+  case jeff::QuregOp::FREE:
+    convertQuregFree(builder, operation, data);
+    break;
+  default:
     llvm::errs() << "Cannot convert qureg instruction "
                  << static_cast<int>(qureg.which()) << "\n";
     llvm::report_fatal_error("Unknown qureg instruction");
@@ -289,68 +311,69 @@ void convertIntComparisonOp(
 }
 
 #define ADD_CONST_CASE(BIT_WIDTH)                                              \
-  if (intInstruction.isConst##BIT_WIDTH()) {                                   \
+  case jeff::IntOp::CONST##BIT_WIDTH:                                          \
     convertIntConst##BIT_WIDTH(builder, operation, data);                      \
-    return;                                                                    \
-  }
+    break;
 
-#define ADD_UNARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                           \
-  if (intInstruction.is##FUNCTION_SUFFIX()) {                                  \
+#define ADD_UNARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                      \
+  case jeff::IntOp::JEFF_ENUM_VALUE:                                           \
     convertIntUnaryOp(builder, operation,                                      \
-                      mlir::jeff::IntUnaryOperation::_##ENUM_SUFFIX, data);    \
-    return;                                                                    \
-  }
+                      mlir::jeff::IntUnaryOperation::_##MLIR_ENUM_SUFFIX,      \
+                      data);                                                   \
+    break;
 
-#define ADD_BINARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                          \
-  if (intInstruction.is##FUNCTION_SUFFIX()) {                                  \
+#define ADD_BINARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                     \
+  case jeff::IntOp::JEFF_ENUM_VALUE:                                           \
     convertIntBinaryOp(builder, operation,                                     \
-                       mlir::jeff::IntBinaryOperation::_##ENUM_SUFFIX, data);  \
-    return;                                                                    \
-  }
+                       mlir::jeff::IntBinaryOperation::_##MLIR_ENUM_SUFFIX,    \
+                       data);                                                  \
+    break;
 
-#define ADD_COMPARISON_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                      \
-  if (intInstruction.is##FUNCTION_SUFFIX()) {                                  \
-    convertIntComparisonOp(builder, operation,                                 \
-                           mlir::jeff::IntComparisonOperation::_##ENUM_SUFFIX, \
-                           data);                                              \
-    return;                                                                    \
-  }
+#define ADD_COMPARISON_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                 \
+  case jeff::IntOp::JEFF_ENUM_VALUE:                                           \
+    convertIntComparisonOp(                                                    \
+        builder, operation,                                                    \
+        mlir::jeff::IntComparisonOperation::_##MLIR_ENUM_SUFFIX, data);        \
+    break;
 
 void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
   const auto intInstruction = operation.getInstruction().getInt();
-  ADD_CONST_CASE(1)
-  ADD_CONST_CASE(8)
-  ADD_CONST_CASE(16)
-  ADD_CONST_CASE(32)
-  ADD_CONST_CASE(64)
-  ADD_UNARY_CASE(Not, not)
-  ADD_UNARY_CASE(Abs, abs)
-  ADD_BINARY_CASE(Add, add)
-  ADD_BINARY_CASE(Sub, sub)
-  ADD_BINARY_CASE(Mul, mul)
-  ADD_BINARY_CASE(DivS, divS)
-  ADD_BINARY_CASE(DivU, divU)
-  ADD_BINARY_CASE(Pow, pow)
-  ADD_BINARY_CASE(And, and)
-  ADD_BINARY_CASE(Or, or)
-  ADD_BINARY_CASE(Xor, xor)
-  ADD_BINARY_CASE(MinS, minS)
-  ADD_BINARY_CASE(MinU, minU)
-  ADD_BINARY_CASE(MaxS, maxS)
-  ADD_BINARY_CASE(MaxU, maxU)
-  ADD_BINARY_CASE(RemS, remS)
-  ADD_BINARY_CASE(RemU, remU)
-  ADD_BINARY_CASE(Shl, shl)
-  ADD_BINARY_CASE(Shr, shr)
-  ADD_COMPARISON_CASE(Eq, eq)
-  ADD_COMPARISON_CASE(LtS, ltS)
-  ADD_COMPARISON_CASE(LteS, lteS)
-  ADD_COMPARISON_CASE(LtU, ltU)
-  ADD_COMPARISON_CASE(LteU, lteU)
-  llvm::errs() << "Cannot convert int instruction "
-               << static_cast<int>(intInstruction.which()) << "\n";
-  llvm::report_fatal_error("Unknown int instruction");
+  switch (intInstruction.which()) {
+    ADD_CONST_CASE(1)
+    ADD_CONST_CASE(8)
+    ADD_CONST_CASE(16)
+    ADD_CONST_CASE(32)
+    ADD_CONST_CASE(64)
+    ADD_UNARY_CASE(NOT, not)
+    ADD_UNARY_CASE(ABS, abs)
+    ADD_BINARY_CASE(ADD, add)
+    ADD_BINARY_CASE(SUB, sub)
+    ADD_BINARY_CASE(MUL, mul)
+    ADD_BINARY_CASE(DIV_S, divS)
+    ADD_BINARY_CASE(DIV_U, divU)
+    ADD_BINARY_CASE(POW, pow)
+    ADD_BINARY_CASE(AND, and)
+    ADD_BINARY_CASE(OR, or)
+    ADD_BINARY_CASE(XOR, xor)
+    ADD_BINARY_CASE(MIN_S, minS)
+    ADD_BINARY_CASE(MIN_U, minU)
+    ADD_BINARY_CASE(MAX_S, maxS)
+    ADD_BINARY_CASE(MAX_U, maxU)
+    ADD_BINARY_CASE(REM_S, remS)
+    ADD_BINARY_CASE(REM_U, remU)
+    ADD_BINARY_CASE(SHL, shl)
+    ADD_BINARY_CASE(SHR, shr)
+    ADD_COMPARISON_CASE(EQ, eq)
+    ADD_COMPARISON_CASE(LT_S, ltS)
+    ADD_COMPARISON_CASE(LTE_S, lteS)
+    ADD_COMPARISON_CASE(LT_U, ltU)
+    ADD_COMPARISON_CASE(LTE_U, lteU)
+  default:
+    llvm::errs() << "Cannot convert int instruction "
+                 << static_cast<int>(intInstruction.which()) << "\n";
+    llvm::report_fatal_error("Unknown int instruction");
+  }
 }
 
 #undef ADD_CONST_CASE
@@ -364,7 +387,7 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationData& data) {
-  const auto values = operation.getInstruction().getIntArray().getConst8();
+  const auto values = operation.getInstruction().getIntArray().getConst1();
   llvm::SmallVector<bool> inArray;
   inArray.reserve(values.size());
   for (auto value : values) {
@@ -478,27 +501,38 @@ void convertIntArrayCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                      DeserializationData& data) {
   const auto intArray = operation.getInstruction().getIntArray();
-  if (intArray.isConst1()) {
+  switch (intArray.which()) {
+  case jeff::IntArrayOp::CONST1:
     convertIntArrayConst1(builder, operation, data);
-  } else if (intArray.isConst8()) {
+    break;
+  case jeff::IntArrayOp::CONST8:
     convertIntArrayConst8(builder, operation, data);
-  } else if (intArray.isConst16()) {
+    break;
+  case jeff::IntArrayOp::CONST16:
     convertIntArrayConst16(builder, operation, data);
-  } else if (intArray.isConst32()) {
+    break;
+  case jeff::IntArrayOp::CONST32:
     convertIntArrayConst32(builder, operation, data);
-  } else if (intArray.isConst64()) {
+    break;
+  case jeff::IntArrayOp::CONST64:
     convertIntArrayConst64(builder, operation, data);
-  } else if (intArray.isZero()) {
+    break;
+  case jeff::IntArrayOp::ZERO:
     convertIntArrayZero(builder, operation, data);
-  } else if (intArray.isGetIndex()) {
+    break;
+  case jeff::IntArrayOp::GET_INDEX:
     convertIntArrayGetIndex(builder, operation, data);
-  } else if (intArray.isSetIndex()) {
+    break;
+  case jeff::IntArrayOp::SET_INDEX:
     convertIntArraySetIndex(builder, operation, data);
-  } else if (intArray.isLength()) {
+    break;
+  case jeff::IntArrayOp::LENGTH:
     convertIntArrayLength(builder, operation, data);
-  } else if (intArray.isCreate()) {
+    break;
+  case jeff::IntArrayOp::CREATE:
     convertIntArrayCreate(builder, operation, data);
-  } else {
+    break;
+  default:
     llvm::errs() << "Cannot convert int array instruction "
                  << static_cast<int>(intArray.which()) << "\n";
     llvm::report_fatal_error("Unknown int array instruction");
@@ -575,80 +609,79 @@ void convertFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 }
 
 #define ADD_CONST_CASE(BIT_WIDTH)                                              \
-  if (floatInstruction.isConst##BIT_WIDTH()) {                                 \
+  case jeff::FloatOp::CONST##BIT_WIDTH:                                        \
     convertFloatConst##BIT_WIDTH(builder, operation, data);                    \
-    return;                                                                    \
-  }
+    break;
 
-#define ADD_UNARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                           \
-  if (floatInstruction.is##FUNCTION_SUFFIX()) {                                \
+#define ADD_UNARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                      \
+  case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
     convertFloatUnaryOp(builder, operation,                                    \
-                        mlir::jeff::FloatUnaryOperation::_##ENUM_SUFFIX,       \
+                        mlir::jeff::FloatUnaryOperation::_##MLIR_ENUM_SUFFIX,  \
                         data);                                                 \
-    return;                                                                    \
-  }
+    break;
 
-#define ADD_BINARY_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                          \
-  if (floatInstruction.is##FUNCTION_SUFFIX()) {                                \
-    convertFloatBinaryOp(builder, operation,                                   \
-                         mlir::jeff::FloatBinaryOperation::_##ENUM_SUFFIX,     \
-                         data);                                                \
-    return;                                                                    \
-  }
+#define ADD_BINARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                     \
+  case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
+    convertFloatBinaryOp(                                                      \
+        builder, operation,                                                    \
+        mlir::jeff::FloatBinaryOperation::_##MLIR_ENUM_SUFFIX, data);          \
+    break;
 
-#define ADD_COMPARISON_CASE(FUNCTION_SUFFIX, ENUM_SUFFIX)                      \
-  if (floatInstruction.is##FUNCTION_SUFFIX()) {                                \
+#define ADD_COMPARISON_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                 \
+  case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
     convertFloatComparisonOp(                                                  \
         builder, operation,                                                    \
-        mlir::jeff::FloatComparisonOperation::_##ENUM_SUFFIX, data);           \
-    return;                                                                    \
-  }
+        mlir::jeff::FloatComparisonOperation::_##MLIR_ENUM_SUFFIX, data);      \
+    break;
 
-#define ADD_IS_CASE(SUFFIX)                                                    \
-  if (floatInstruction.isIs##SUFFIX()) {                                       \
+#define ADD_IS_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                         \
+  case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
     convertFloatIsOp(builder, operation,                                       \
-                     mlir::jeff::FloatIsOperation::_is##SUFFIX, data);         \
-    return;                                                                    \
-  }
+                     mlir::jeff::FloatIsOperation::_is##MLIR_ENUM_SUFFIX,      \
+                     data);                                                    \
+    break;
 
 void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                   DeserializationData& data) {
   const auto floatInstruction = operation.getInstruction().getFloat();
-  ADD_CONST_CASE(32)
-  ADD_CONST_CASE(64)
-  ADD_UNARY_CASE(Sqrt, sqrt)
-  ADD_UNARY_CASE(Abs, abs)
-  ADD_UNARY_CASE(Ceil, ceil)
-  ADD_UNARY_CASE(Floor, floor)
-  ADD_UNARY_CASE(Exp, exp)
-  ADD_UNARY_CASE(Log, log)
-  ADD_UNARY_CASE(Sin, sin)
-  ADD_UNARY_CASE(Cos, cos)
-  ADD_UNARY_CASE(Tan, tan)
-  ADD_UNARY_CASE(Asin, asin)
-  ADD_UNARY_CASE(Acos, acos)
-  ADD_UNARY_CASE(Atan, atan)
-  ADD_UNARY_CASE(Sinh, sinh)
-  ADD_UNARY_CASE(Cosh, cosh)
-  ADD_UNARY_CASE(Tanh, tanh)
-  ADD_UNARY_CASE(Asinh, asinh)
-  ADD_UNARY_CASE(Acosh, acosh)
-  ADD_UNARY_CASE(Atanh, atanh)
-  ADD_BINARY_CASE(Add, add)
-  ADD_BINARY_CASE(Sub, sub)
-  ADD_BINARY_CASE(Mul, mul)
-  ADD_BINARY_CASE(Pow, pow)
-  ADD_BINARY_CASE(Atan2, atan2)
-  ADD_BINARY_CASE(Max, max)
-  ADD_BINARY_CASE(Min, min)
-  ADD_COMPARISON_CASE(Eq, eq)
-  ADD_COMPARISON_CASE(Lt, lt)
-  ADD_COMPARISON_CASE(Lte, lte)
-  ADD_IS_CASE(Nan)
-  ADD_IS_CASE(Inf)
-  llvm::errs() << "Cannot convert float instruction "
-               << static_cast<int>(floatInstruction.which()) << "\n";
-  llvm::report_fatal_error("Unknown float instruction");
+  switch (floatInstruction.which()) {
+    ADD_CONST_CASE(32)
+    ADD_CONST_CASE(64)
+    ADD_UNARY_CASE(SQRT, sqrt)
+    ADD_UNARY_CASE(ABS, abs)
+    ADD_UNARY_CASE(CEIL, ceil)
+    ADD_UNARY_CASE(FLOOR, floor)
+    ADD_UNARY_CASE(EXP, exp)
+    ADD_UNARY_CASE(LOG, log)
+    ADD_UNARY_CASE(SIN, sin)
+    ADD_UNARY_CASE(COS, cos)
+    ADD_UNARY_CASE(TAN, tan)
+    ADD_UNARY_CASE(ASIN, asin)
+    ADD_UNARY_CASE(ACOS, acos)
+    ADD_UNARY_CASE(ATAN, atan)
+    ADD_UNARY_CASE(SINH, sinh)
+    ADD_UNARY_CASE(COSH, cosh)
+    ADD_UNARY_CASE(TANH, tanh)
+    ADD_UNARY_CASE(ASINH, asinh)
+    ADD_UNARY_CASE(ACOSH, acosh)
+    ADD_UNARY_CASE(ATANH, atanh)
+    ADD_BINARY_CASE(ADD, add)
+    ADD_BINARY_CASE(SUB, sub)
+    ADD_BINARY_CASE(MUL, mul)
+    ADD_BINARY_CASE(POW, pow)
+    ADD_BINARY_CASE(ATAN2, atan2)
+    ADD_BINARY_CASE(MAX, max)
+    ADD_BINARY_CASE(MIN, min)
+    ADD_COMPARISON_CASE(EQ, eq)
+    ADD_COMPARISON_CASE(LT, lt)
+    ADD_COMPARISON_CASE(LTE, lte)
+    ADD_IS_CASE(IS_NAN, Nan)
+    ADD_IS_CASE(IS_INF, Inf)
+  default:
+    llvm::errs() << "Cannot convert float instruction "
+                 << static_cast<int>(floatInstruction.which()) << "\n";
+    llvm::report_fatal_error("Unknown float instruction");
+  }
 }
 
 #undef ADD_CONST_CASE
@@ -781,21 +814,29 @@ void convertFloatArrayCreate(mlir::OpBuilder& builder,
 void convertFloatArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        DeserializationData& data) {
   const auto floatArray = operation.getInstruction().getFloatArray();
-  if (floatArray.isConst32()) {
+  switch (floatArray.which()) {
+  case jeff::FloatArrayOp::CONST32:
     convertFloatArrayConst32(builder, operation, data);
-  } else if (floatArray.isConst64()) {
+    break;
+  case jeff::FloatArrayOp::CONST64:
     convertFloatArrayConst64(builder, operation, data);
-  } else if (floatArray.isZero()) {
+    break;
+  case jeff::FloatArrayOp::ZERO:
     convertFloatArrayZero(builder, operation, data);
-  } else if (floatArray.isGetIndex()) {
+    break;
+  case jeff::FloatArrayOp::GET_INDEX:
     convertFloatArrayGetIndex(builder, operation, data);
-  } else if (floatArray.isSetIndex()) {
+    break;
+  case jeff::FloatArrayOp::SET_INDEX:
     convertFloatArraySetIndex(builder, operation, data);
-  } else if (floatArray.isLength()) {
+    break;
+  case jeff::FloatArrayOp::LENGTH:
     convertFloatArrayLength(builder, operation, data);
-  } else if (floatArray.isCreate()) {
+    break;
+  case jeff::FloatArrayOp::CREATE:
     convertFloatArrayCreate(builder, operation, data);
-  } else {
+    break;
+  default:
     llvm::errs() << "Cannot convert float array instruction "
                  << static_cast<int>(floatArray.which()) << "\n";
     llvm::report_fatal_error("Unknown float array instruction");
@@ -947,13 +988,15 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
-  const auto instruction = operation.getInstruction();
-  const auto scf = instruction.getScf();
-  if (scf.isSwitch()) {
+  const auto scf = operation.getInstruction().getScf();
+  switch (scf.which()) {
+  case jeff::ScfOp::SWITCH:
     convertSwitch(builder, operation, data);
-  } else if (scf.isFor()) {
+    break;
+  case jeff::ScfOp::FOR:
     convertFor(builder, operation, data);
-  } else {
+    break;
+  default:
     llvm::errs() << "Cannot convert scf instruction "
                  << static_cast<int>(scf.which()) << "\n";
     llvm::report_fatal_error("Unknown scf instruction");
@@ -988,21 +1031,32 @@ void convertOperations(
     DeserializationData& data) {
   for (auto operation : operations) {
     const auto instruction = operation.getInstruction();
-    if (instruction.isQubit()) {
+    switch (instruction.which()) {
+    case jeff::Op::Instruction::QUBIT:
       convertQubit(builder, operation, data);
-    } else if (instruction.isQureg()) {
+      break;
+    case jeff::Op::Instruction::QUREG:
       convertQureg(builder, operation, data);
-    } else if (instruction.isInt()) {
+      break;
+    case jeff::Op::Instruction::INT:
       convertInt(builder, operation, data);
-    } else if (instruction.isIntArray()) {
+      break;
+    case jeff::Op::Instruction::INT_ARRAY:
       convertIntArray(builder, operation, data);
-    } else if (instruction.isFloat()) {
+      break;
+    case jeff::Op::Instruction::FLOAT:
       convertFloat(builder, operation, data);
-    } else if (instruction.isScf()) {
+      break;
+    case jeff::Op::Instruction::FLOAT_ARRAY:
+      convertFloatArray(builder, operation, data);
+      break;
+    case jeff::Op::Instruction::SCF:
       convertScf(builder, operation, data);
-    } else if (instruction.isFunc()) {
+      break;
+    case jeff::Op::Instruction::FUNC:
       convertFunc(builder, operation, data);
-    } else {
+      break;
+    default:
       llvm::errs() << "Cannot convert instruction "
                    << static_cast<int>(instruction.which()) << "\n";
       llvm::report_fatal_error("Unknown instruction");
@@ -1011,21 +1065,24 @@ void convertOperations(
 }
 
 mlir::Type convertType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
-  if (type.isQubit()) {
+  switch (type.which()) {
+  case jeff::Type::QUBIT:
     return mlir::jeff::QubitType::get(builder.getContext());
-  } else if (type.isInt()) {
-    if (type.getInt() == 1) {
+  case jeff::Type::INT:
+    switch (type.getInt()) {
+    case 1:
       return builder.getI1Type();
-    } else if (type.getInt() == 8) {
+    case 8:
       return builder.getI8Type();
-    } else if (type.getInt() == 32) {
+    case 32:
       return builder.getI32Type();
-    } else {
+    default:
       llvm::errs() << "Cannot convert int type "
                    << static_cast<int>(type.getInt()) << "\n";
       llvm::report_fatal_error("Unknown int type");
     }
-  } else {
+    break;
+  default:
     llvm::errs() << "Cannot convert type " << static_cast<int>(type.which())
                  << "\n";
     llvm::report_fatal_error("Unknown type");
