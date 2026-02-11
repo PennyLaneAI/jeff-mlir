@@ -470,7 +470,7 @@ void convertIntArrayCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inputs.size())}, mlirValues[inputs[0]].getType());
-  auto op = builder.create<mlir::jeff::IntArrayConst1Op>(
+  auto op = builder.create<mlir::jeff::IntArrayCreateOp>(
       builder.getUnknownLoc(), tensorType, inArray);
   data.mlirValues[outputs[0]] = op.getOutArray();
 }
@@ -656,6 +656,151 @@ void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 #undef ADD_BINARY_CASE
 #undef ADD_COMPARISON_CASE
 #undef ADD_IS_CASE
+
+// --------------------------------------------------
+// FloatArray operations
+// --------------------------------------------------
+
+void convertFloatArrayConst32(mlir::OpBuilder& builder,
+                              jeff::Op::Reader operation,
+                              DeserializationData& data) {
+  const auto values = operation.getInstruction().getFloatArray().getConst32();
+  llvm::SmallVector<float> inArray;
+  inArray.reserve(values.size());
+  for (auto value : values) {
+    inArray.push_back(static_cast<float>(value));
+  }
+  auto inArrayAttr =
+      mlir::DenseF32ArrayAttr::get(builder.getContext(), inArray);
+  auto tensorType = mlir::RankedTensorType::get(
+      {static_cast<int64_t>(inArray.size())}, builder.getF32Type());
+  auto op = builder.create<mlir::jeff::FloatArrayConst32Op>(
+      builder.getUnknownLoc(), tensorType, inArrayAttr);
+  data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+}
+
+void convertFloatArrayConst64(mlir::OpBuilder& builder,
+                              jeff::Op::Reader operation,
+                              DeserializationData& data) {
+  const auto values = operation.getInstruction().getFloatArray().getConst64();
+  llvm::SmallVector<double> inArray;
+  inArray.reserve(values.size());
+  for (auto value : values) {
+    inArray.push_back(static_cast<double>(value));
+  }
+  auto inArrayAttr =
+      mlir::DenseF64ArrayAttr::get(builder.getContext(), inArray);
+  auto tensorType = mlir::RankedTensorType::get(
+      {static_cast<int64_t>(inArray.size())}, builder.getF64Type());
+  auto op = builder.create<mlir::jeff::FloatArrayConst64Op>(
+      builder.getUnknownLoc(), tensorType, inArrayAttr);
+  data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+}
+
+void convertFloatArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  const auto zero = operation.getInstruction().getFloatArray().getZero();
+  mlir::Type floatType;
+  switch (zero) {
+  case jeff::FloatPrecision::FLOAT32:
+    floatType = builder.getF32Type();
+    break;
+  case jeff::FloatPrecision::FLOAT64:
+    floatType = builder.getF64Type();
+    break;
+  default:
+    llvm::report_fatal_error("Invalid bit width");
+  }
+  auto tensorType =
+      mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, floatType);
+  auto op = builder.create<mlir::jeff::FloatArrayZeroOp>(
+      builder.getUnknownLoc(), tensorType, mlirValues[inputs[0]]);
+  mlirValues[outputs[0]] = op.getOutArray();
+}
+
+void convertFloatArrayGetIndex(mlir::OpBuilder& builder,
+                               jeff::Op::Reader operation,
+                               DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto tensorType = mlirValues[inputs[0]].getType();
+  auto entryType =
+      llvm::cast<mlir::RankedTensorType>(tensorType).getElementType();
+  auto op = builder.create<mlir::jeff::FloatArrayGetIndexOp>(
+      builder.getUnknownLoc(), entryType, mlirValues[inputs[0]],
+      mlirValues[inputs[1]]);
+  mlirValues[outputs[0]] = op.getValue();
+}
+
+void convertFloatArraySetIndex(mlir::OpBuilder& builder,
+                               jeff::Op::Reader operation,
+                               DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto tensorType = mlirValues[inputs[0]].getType();
+  auto op = builder.create<mlir::jeff::FloatArraySetIndexOp>(
+      builder.getUnknownLoc(), tensorType, mlirValues[inputs[0]],
+      mlirValues[inputs[1]], mlirValues[inputs[2]]);
+  mlirValues[outputs[0]] = op.getOutArray();
+}
+
+void convertFloatArrayLength(mlir::OpBuilder& builder,
+                             jeff::Op::Reader operation,
+                             DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::FloatArrayLengthOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]]);
+  mlirValues[outputs[0]] = op.getLength();
+}
+
+void convertFloatArrayCreate(mlir::OpBuilder& builder,
+                             jeff::Op::Reader operation,
+                             DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  llvm::SmallVector<mlir::Value> inArray;
+  inArray.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    inArray.push_back(mlirValues[inputs[i]]);
+  }
+  auto tensorType = mlir::RankedTensorType::get(
+      {static_cast<int64_t>(inputs.size())}, mlirValues[inputs[0]].getType());
+  auto op = builder.create<mlir::jeff::FloatArrayCreateOp>(
+      builder.getUnknownLoc(), tensorType, inArray);
+  data.mlirValues[outputs[0]] = op.getOutArray();
+}
+
+void convertFloatArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       DeserializationData& data) {
+  const auto floatArray = operation.getInstruction().getFloatArray();
+  if (floatArray.isConst32()) {
+    convertFloatArrayConst32(builder, operation, data);
+  } else if (floatArray.isConst64()) {
+    convertFloatArrayConst64(builder, operation, data);
+  } else if (floatArray.isZero()) {
+    convertFloatArrayZero(builder, operation, data);
+  } else if (floatArray.isGetIndex()) {
+    convertFloatArrayGetIndex(builder, operation, data);
+  } else if (floatArray.isSetIndex()) {
+    convertFloatArraySetIndex(builder, operation, data);
+  } else if (floatArray.isLength()) {
+    convertFloatArrayLength(builder, operation, data);
+  } else if (floatArray.isCreate()) {
+    convertFloatArrayCreate(builder, operation, data);
+  } else {
+    llvm::errs() << "Cannot convert float array instruction "
+                 << static_cast<int>(floatArray.which()) << "\n";
+    llvm::report_fatal_error("Unknown float array instruction");
+  }
+}
 
 // --------------------------------------------------
 // SCF operations
