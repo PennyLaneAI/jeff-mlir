@@ -1,14 +1,13 @@
 #include "jeff/IR/JeffDialect.h"
 #include "jeff/Translation/Deserialize.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/IR/BuiltinOps.h>
-#include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
-#include <mlir/InitAllDialects.h>
 #include <vector>
 
 namespace fs = std::filesystem;

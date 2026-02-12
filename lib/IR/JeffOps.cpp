@@ -14,14 +14,17 @@
 
 #include "jeff/IR/JeffOps.h"
 
-#include "jeff/IR/JeffDialect.h"
-
-#include <llvm/ADT/StringSet.h>
-#include <llvm/ADT/TypeSwitch.h>
+#include <cassert>
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/LogicalResult.h>
+#include <mlir/IR/Block.h>
 #include <mlir/IR/Builders.h>
+#include <mlir/IR/OpDefinition.h>
 #include <mlir/IR/OpImplementation.h>
-#include <optional>
+#include <mlir/IR/OperationSupport.h>
+#include <mlir/IR/ValueRange.h>
 
 using namespace mlir;
 using namespace mlir::jeff;
@@ -40,7 +43,8 @@ namespace {
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L480
 void printInitializationList(OpAsmPrinter& p,
                              Block::BlockArgListType blocksArgs,
-                             ValueRange initializers, StringRef prefix = "") {
+                             ValueRange initializers,
+                             llvm::StringRef prefix = "") {
   assert(blocksArgs.size() == initializers.size() &&
          "expected same length of arguments and initializers");
 
@@ -64,20 +68,21 @@ void SwitchOp::print(OpAsmPrinter& p) {
                   /*printBlockTerminators=*/!getInValues().empty());
   }
 
-  auto& default_ = getDefault();
-  if (!default_.empty()) {
+  auto& defaultRegion = getDefault();
+  if (!defaultRegion.empty()) {
     p << " default ";
-    auto regionArgs = default_.getArguments();
+    auto regionArgs = defaultRegion.getArguments();
     printInitializationList(p, regionArgs, getInValues(), "args");
     p << " -> (" << getInValues().getTypes() << ") ";
-    p.printRegion(default_, /*printEntryBlockArgs=*/false,
+    p.printRegion(defaultRegion, /*printEntryBlockArgs=*/false,
                   /*printBlockTerminators=*/!getInValues().empty());
   }
 
   p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
+ParseResult SwitchOp::parse(OpAsmParser& /*parser*/,
+                            OperationState& /*result*/) {
   llvm::report_fatal_error("SwitchOp::parse is not implemented yet");
 }
 
@@ -107,7 +112,7 @@ void ForOp::print(OpAsmPrinter& p) {
   p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult ForOp::parse(OpAsmParser& parser, OperationState& result) {
+ParseResult ForOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
   llvm::report_fatal_error("ForOp::parse is not implemented yet");
 }
 

@@ -1,18 +1,24 @@
 #include "jeff/IR/JeffDialect.h"
 #include "jeff/IR/JeffOps.h"
 
-#include <capnp/message.h>
+#include <capnp/common.h>
+#include <capnp/list.h>
 #include <capnp/serialize.h>
+#include <cstddef>
+#include <cstdint>
 #include <fcntl.h>
-#include <iostream>
 #include <jeff.capnp.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/StringRef.h>
+#include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/IR/Attributes.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinAttributes.h>
+#include <mlir/IR/BuiltinOps.h>
+#include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OwningOpRef.h>
@@ -22,9 +28,9 @@
 namespace {
 
 struct DeserializationData {
-  llvm::DenseMap<int, mlir::Value>& mlirValues;
-  llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs;
-  capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader& strings;
+  llvm::DenseMap<uint32_t, mlir::Value>* mlirValues{};
+  llvm::DenseMap<uint32_t, mlir::func::FuncOp>* mlirFuncs{};
+  capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader* strings{};
 };
 
 // --------------------------------------------------
@@ -33,26 +39,29 @@ struct DeserializationData {
 
 void convertQubitAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   auto allocOp =
       builder.create<mlir::jeff::QubitAllocOp>(builder.getUnknownLoc());
-  data.mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
+  mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
 }
 
 void convertQubitFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                       DeserializationData& data) {
-  builder.create<mlir::jeff::QubitFreeOp>(
-      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+  auto& mlirValues = *data.mlirValues;
+  builder.create<mlir::jeff::QubitFreeOp>(builder.getUnknownLoc(),
+                                          mlirValues[operation.getInputs()[0]]);
 }
 
 void convertQubitFreeZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                           DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   builder.create<mlir::jeff::QubitFreeZeroOp>(
-      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
 }
 
 void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                     DeserializationData& data) {
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   auto op = builder.create<mlir::jeff::QubitMeasureOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
   mlirValues[operation.getOutputs()[0]] = op.getResult();
@@ -61,7 +70,7 @@ void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                       DeserializationData& data) {
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   auto op = builder.create<mlir::jeff::QubitMeasureNDOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
   mlirValues[outputs[0]] = op.getOutQubit();
@@ -71,7 +80,7 @@ void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertReset(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                   DeserializationData& data) {
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   auto op = builder.create<mlir::jeff::QubitResetOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
   mlirValues[outputs[0]] = op.getOutQubit();
@@ -83,7 +92,7 @@ void convertOneTargetZeroParameter(mlir::OpBuilder& builder,
                                    DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto numControls = gate.getControlQubits();
   llvm::SmallVector<mlir::Value> controls;
@@ -106,7 +115,7 @@ void convertOneTargetOneParameter(mlir::OpBuilder& builder,
                                   DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto numControls = gate.getControlQubits();
   llvm::SmallVector<mlir::Value> controls;
@@ -128,7 +137,7 @@ void convertU(mlir::OpBuilder& builder, jeff::Op::Reader operation,
               DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto numControls = gate.getControlQubits();
   llvm::SmallVector<mlir::Value> controls;
@@ -152,7 +161,7 @@ void convertSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                  DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto numControls = gate.getControlQubits();
   llvm::SmallVector<mlir::Value> controls;
@@ -174,7 +183,7 @@ void convertGPhase(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                    DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
+  auto& mlirValues = *data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto numControls = gate.getControlQubits();
   llvm::SmallVector<mlir::Value> controls;
@@ -247,54 +256,55 @@ void convertWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                    DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
+  auto& strings = *data.strings;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto custom = gate.getCustom();
-  const auto name = data.strings[custom.getName()].cStr();
+  const auto name = strings[custom.getName()].cStr();
   const auto numControls = gate.getControlQubits();
   const auto numTargets = custom.getNumQubits();
   const auto numQubits = numTargets + numControls;
   const auto numParams = custom.getNumParams();
   llvm::SmallVector<mlir::Value> targets;
-  for (std::uint8_t i = 0; i < numTargets; ++i) {
+  for (uint8_t i = 0; i < numTargets; ++i) {
     targets.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> controls;
-  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
+  for (uint8_t i = numTargets; i < numQubits; ++i) {
     controls.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> params;
-  for (std::uint8_t i = numQubits; i < numQubits + numParams; ++i) {
+  for (uint8_t i = numQubits; i < numQubits + numParams; ++i) {
     params.push_back(mlirValues[inputs[i]]);
   }
   auto op = builder.create<mlir::jeff::CustomOp>(
       builder.getUnknownLoc(), targets, controls, params, numControls,
       gate.getAdjoint(), gate.getPower(), name, numTargets, numParams);
-  for (std::uint8_t i = 0; i < numTargets; ++i) {
+  for (uint8_t i = 0; i < numTargets; ++i) {
     mlirValues[outputs[i]] = op.getOutTargetQubits()[i];
   }
-  for (std::uint8_t i = numTargets; i < numQubits; ++i) {
+  for (uint8_t i = numTargets; i < numQubits; ++i) {
     mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
   }
 }
 
 void convertPpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto pauliString = gate.getPpr().getPauliString();
   const auto numTargets = pauliString.size();
   const auto numControls = gate.getControlQubits();
   llvm::SmallVector<mlir::Value> targets;
-  for (std::uint8_t i = 0; i < numTargets; ++i) {
+  for (uint8_t i = 0; i < numTargets; ++i) {
     targets.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> controls;
-  for (std::uint8_t i = numTargets; i < numTargets + numControls; ++i) {
+  for (uint8_t i = numTargets; i < numTargets + numControls; ++i) {
     controls.push_back(mlirValues[inputs[i]]);
   }
   auto rotation = mlirValues[inputs[numTargets + numControls]];
@@ -307,6 +317,12 @@ void convertPpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   auto op = builder.create<mlir::jeff::PPROp>(
       builder.getUnknownLoc(), targets, controls, rotation, numControls,
       gate.getAdjoint(), gate.getPower(), pauliStringArrayAttr);
+  for (uint8_t i = 0; i < numTargets; ++i) {
+    mlirValues[outputs[i]] = op.getOutQubits()[i];
+  }
+  for (uint8_t i = numTargets; i < numTargets + numControls; ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
+  }
 }
 
 void convertGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
@@ -367,23 +383,25 @@ void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   auto allocOp = builder.create<mlir::jeff::QuregAllocOp>(
-      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
-  data.mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
+  mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
 }
 
 void convertQuregFreeZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                           DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   builder.create<mlir::jeff::QuregFreeZeroOp>(
-      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
 }
 
 void convertQuregExtractIndex(mlir::OpBuilder& builder,
                               jeff::Op::Reader operation,
                               DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::QuregExtractIndexOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]]);
   mlirValues[outputs[0]] = op.getOutQreg();
@@ -393,9 +411,9 @@ void convertQuregExtractIndex(mlir::OpBuilder& builder,
 void convertQuregInsertIndex(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
                              DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::QuregInsertIndexOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[2]],
       mlirValues[inputs[1]]);
@@ -405,9 +423,9 @@ void convertQuregInsertIndex(mlir::OpBuilder& builder,
 void convertQuregExtractSlice(mlir::OpBuilder& builder,
                               jeff::Op::Reader operation,
                               DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::QuregExtractSliceOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
       mlirValues[inputs[2]]);
@@ -418,9 +436,9 @@ void convertQuregExtractSlice(mlir::OpBuilder& builder,
 void convertQuregInsertSlice(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
                              DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::QuregInsertSliceOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[2]],
       mlirValues[inputs[1]]);
@@ -429,9 +447,9 @@ void convertQuregInsertSlice(mlir::OpBuilder& builder,
 
 void convertQuregLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                         DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::QuregLengthOp>(builder.getUnknownLoc(),
                                                       mlirValues[inputs[0]]);
   mlirValues[outputs[0]] = op.getOutQreg();
@@ -440,9 +458,9 @@ void convertQuregLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertQuregSplit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::QuregSplitOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]]);
   mlirValues[outputs[0]] = op.getOutQregOne();
@@ -451,9 +469,9 @@ void convertQuregSplit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertQuregJoin(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                       DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::QuregJoinOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]]);
   mlirValues[outputs[0]] = op.getOutQreg();
@@ -461,13 +479,13 @@ void convertQuregJoin(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertQuregCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                         DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   llvm::SmallVector<mlir::Value> inQreg;
   inQreg.reserve(inputs.size());
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    inQreg.push_back(mlirValues[inputs[i]]);
+  for (auto input : inputs) {
+    inQreg.push_back(mlirValues[input]);
   }
   auto op = builder.create<mlir::jeff::QuregCreateOp>(builder.getUnknownLoc(),
                                                       inQreg);
@@ -476,8 +494,9 @@ void convertQuregCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                       DeserializationData& data) {
-  builder.create<mlir::jeff::QuregFreeOp>(
-      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+  auto& mlirValues = *data.mlirValues;
+  builder.create<mlir::jeff::QuregFreeOp>(builder.getUnknownLoc(),
+                                          mlirValues[operation.getInputs()[0]]);
 }
 
 void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
@@ -533,13 +552,14 @@ void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   void convertIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                    \
                                   jeff::Op::Reader operation,                  \
                                   DeserializationData& data) {                 \
+    auto& mlirValues = *data.mlirValues;                                       \
     const auto value =                                                         \
         operation.getInstruction().getInt().getConst##BIT_WIDTH();             \
     auto intType = builder.getI##BIT_WIDTH##Type();                            \
     auto intAttr = mlir::IntegerAttr::get(intType, value);                     \
     auto op = builder.create<mlir::jeff::IntConst##BIT_WIDTH##Op>(             \
         builder.getUnknownLoc(), intType, intAttr);                            \
-    data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
+    mlirValues[operation.getOutputs()[0]] = op.getConstant();                  \
   }
 
 CONVERT_INT_CONST(1)
@@ -553,9 +573,9 @@ CONVERT_INT_CONST(64)
 void convertIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                        mlir::jeff::IntUnaryOperation unaryOperation,
                        DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::IntUnaryOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], unaryOperation);
   mlirValues[outputs[0]] = op.getB();
@@ -564,9 +584,9 @@ void convertIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertIntBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                         mlir::jeff::IntBinaryOperation binaryOperation,
                         DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::IntBinaryOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
       binaryOperation);
@@ -577,9 +597,9 @@ void convertIntComparisonOp(
     mlir::OpBuilder& builder, jeff::Op::Reader operation,
     mlir::jeff::IntComparisonOperation comparisonOperation,
     DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::IntComparisonOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
       comparisonOperation);
@@ -614,8 +634,8 @@ void convertIntComparisonOp(
 
 void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
-  const auto intInstruction = operation.getInstruction().getInt();
-  switch (intInstruction.which()) {
+  const auto intInstr = operation.getInstruction().getInt();
+  switch (intInstr.which()) {
     ADD_CONST_CASE(1)
     ADD_CONST_CASE(8)
     ADD_CONST_CASE(16)
@@ -647,7 +667,7 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     ADD_COMPARISON_CASE(LTE_U, lteU)
   default:
     llvm::errs() << "Cannot convert int instruction "
-                 << static_cast<int>(intInstruction.which()) << "\n";
+                 << static_cast<int>(intInstr.which()) << "\n";
     llvm::report_fatal_error("Unknown int instruction");
   }
 }
@@ -663,6 +683,7 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto values = operation.getInstruction().getIntArray().getConst1();
   llvm::SmallVector<bool> inArray;
   inArray.reserve(values.size());
@@ -675,13 +696,14 @@ void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       {static_cast<int64_t>(inArray.size())}, builder.getI1Type());
   auto op = builder.create<mlir::jeff::IntArrayConst1Op>(
       builder.getUnknownLoc(), tensorType, inArrayAttr);
-  data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+  mlirValues[operation.getOutputs()[0]] = op.getOutArray();
 }
 
 #define CONVERT_INT_ARRAY_CONST(BIT_WIDTH)                                     \
   void convertIntArrayConst##BIT_WIDTH(mlir::OpBuilder& builder,               \
                                        jeff::Op::Reader operation,             \
                                        DeserializationData& data) {            \
+    auto& mlirValues = *data.mlirValues;                                       \
     const auto values =                                                        \
         operation.getInstruction().getIntArray().getConst##BIT_WIDTH();        \
     llvm::SmallVector<int##BIT_WIDTH##_t> inArray;                             \
@@ -696,7 +718,7 @@ void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                                     builder.getI##BIT_WIDTH##Type());          \
     auto op = builder.create<mlir::jeff::IntArrayConst##BIT_WIDTH##Op>(        \
         builder.getUnknownLoc(), tensorType, inArrayAttr);                     \
-    data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();             \
+    mlirValues[operation.getOutputs()[0]] = op.getOutArray();                  \
   }
 
 CONVERT_INT_ARRAY_CONST(8)
@@ -708,9 +730,9 @@ CONVERT_INT_ARRAY_CONST(64)
 
 void convertIntArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                          DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   const auto zero = operation.getInstruction().getIntArray().getZero();
   auto tensorType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
                                                 builder.getIntegerType(zero));
@@ -722,9 +744,9 @@ void convertIntArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertIntArrayGetIndex(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
                              DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto tensorType = mlirValues[inputs[0]].getType();
   auto entryType =
       llvm::cast<mlir::RankedTensorType>(tensorType).getElementType();
@@ -737,9 +759,9 @@ void convertIntArrayGetIndex(mlir::OpBuilder& builder,
 void convertIntArraySetIndex(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
                              DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto tensorType = mlirValues[inputs[0]].getType();
   auto op = builder.create<mlir::jeff::IntArraySetIndexOp>(
       builder.getUnknownLoc(), tensorType, mlirValues[inputs[0]],
@@ -749,9 +771,9 @@ void convertIntArraySetIndex(mlir::OpBuilder& builder,
 
 void convertIntArrayLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::IntArrayLengthOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]]);
   mlirValues[outputs[0]] = op.getLength();
@@ -759,13 +781,13 @@ void convertIntArrayLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertIntArrayCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   llvm::SmallVector<mlir::Value> inArray;
   inArray.reserve(inputs.size());
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    inArray.push_back(mlirValues[inputs[i]]);
+  for (auto input : inputs) {
+    inArray.push_back(mlirValues[input]);
   }
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inputs.size())}, mlirValues[inputs[0]].getType());
@@ -823,13 +845,14 @@ void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   void convertFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,                  \
                                     jeff::Op::Reader operation,                \
                                     DeserializationData& data) {               \
+    auto& mlirValues = *data.mlirValues;                                       \
     const auto value =                                                         \
         operation.getInstruction().getFloat().getConst##BIT_WIDTH();           \
     auto floatType = builder.getF##BIT_WIDTH##Type();                          \
     auto floatAttr = mlir::FloatAttr::get(floatType, value);                   \
     auto op = builder.create<mlir::jeff::FloatConst##BIT_WIDTH##Op>(           \
         builder.getUnknownLoc(), floatType, floatAttr);                        \
-    data.mlirValues[operation.getOutputs()[0]] = op.getConstant();             \
+    mlirValues[operation.getOutputs()[0]] = op.getConstant();                  \
   }
 
 CONVERT_FLOAT_CONST(32)
@@ -840,9 +863,9 @@ CONVERT_FLOAT_CONST(64)
 void convertFloatUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                          mlir::jeff::FloatUnaryOperation unaryOperation,
                          DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::FloatUnaryOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], unaryOperation);
   mlirValues[outputs[0]] = op.getB();
@@ -851,9 +874,9 @@ void convertFloatUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertFloatBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                           mlir::jeff::FloatBinaryOperation binaryOperation,
                           DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::FloatBinaryOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
       binaryOperation);
@@ -864,9 +887,9 @@ void convertFloatComparisonOp(
     mlir::OpBuilder& builder, jeff::Op::Reader operation,
     mlir::jeff::FloatComparisonOperation comparisonOperation,
     DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::FloatComparisonOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
       comparisonOperation);
@@ -876,9 +899,9 @@ void convertFloatComparisonOp(
 void convertFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                       mlir::jeff::FloatIsOperation isOperation,
                       DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::FloatIsOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]], isOperation);
   mlirValues[outputs[0]] = op.getResult();
@@ -919,8 +942,8 @@ void convertFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                   DeserializationData& data) {
-  const auto floatInstruction = operation.getInstruction().getFloat();
-  switch (floatInstruction.which()) {
+  const auto floatInstr = operation.getInstruction().getFloat();
+  switch (floatInstr.which()) {
     ADD_CONST_CASE(32)
     ADD_CONST_CASE(64)
     ADD_UNARY_CASE(SQRT, sqrt)
@@ -955,7 +978,7 @@ void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     ADD_IS_CASE(IS_INF, Inf)
   default:
     llvm::errs() << "Cannot convert float instruction "
-                 << static_cast<int>(floatInstruction.which()) << "\n";
+                 << static_cast<int>(floatInstr.which()) << "\n";
     llvm::report_fatal_error("Unknown float instruction");
   }
 }
@@ -973,6 +996,7 @@ void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertFloatArrayConst32(mlir::OpBuilder& builder,
                               jeff::Op::Reader operation,
                               DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto values = operation.getInstruction().getFloatArray().getConst32();
   llvm::SmallVector<float> inArray;
   inArray.reserve(values.size());
@@ -985,12 +1009,13 @@ void convertFloatArrayConst32(mlir::OpBuilder& builder,
       {static_cast<int64_t>(inArray.size())}, builder.getF32Type());
   auto op = builder.create<mlir::jeff::FloatArrayConst32Op>(
       builder.getUnknownLoc(), tensorType, inArrayAttr);
-  data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+  mlirValues[operation.getOutputs()[0]] = op.getOutArray();
 }
 
 void convertFloatArrayConst64(mlir::OpBuilder& builder,
                               jeff::Op::Reader operation,
                               DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto values = operation.getInstruction().getFloatArray().getConst64();
   llvm::SmallVector<double> inArray;
   inArray.reserve(values.size());
@@ -1003,14 +1028,14 @@ void convertFloatArrayConst64(mlir::OpBuilder& builder,
       {static_cast<int64_t>(inArray.size())}, builder.getF64Type());
   auto op = builder.create<mlir::jeff::FloatArrayConst64Op>(
       builder.getUnknownLoc(), tensorType, inArrayAttr);
-  data.mlirValues[operation.getOutputs()[0]] = op.getOutArray();
+  mlirValues[operation.getOutputs()[0]] = op.getOutArray();
 }
 
 void convertFloatArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   const auto zero = operation.getInstruction().getFloatArray().getZero();
   mlir::Type floatType;
   switch (zero) {
@@ -1033,9 +1058,9 @@ void convertFloatArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 void convertFloatArrayGetIndex(mlir::OpBuilder& builder,
                                jeff::Op::Reader operation,
                                DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto tensorType = mlirValues[inputs[0]].getType();
   auto entryType =
       llvm::cast<mlir::RankedTensorType>(tensorType).getElementType();
@@ -1048,9 +1073,9 @@ void convertFloatArrayGetIndex(mlir::OpBuilder& builder,
 void convertFloatArraySetIndex(mlir::OpBuilder& builder,
                                jeff::Op::Reader operation,
                                DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto tensorType = mlirValues[inputs[0]].getType();
   auto op = builder.create<mlir::jeff::FloatArraySetIndexOp>(
       builder.getUnknownLoc(), tensorType, mlirValues[inputs[0]],
@@ -1061,9 +1086,9 @@ void convertFloatArraySetIndex(mlir::OpBuilder& builder,
 void convertFloatArrayLength(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
                              DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   auto op = builder.create<mlir::jeff::FloatArrayLengthOp>(
       builder.getUnknownLoc(), mlirValues[inputs[0]]);
   mlirValues[outputs[0]] = op.getLength();
@@ -1072,13 +1097,13 @@ void convertFloatArrayLength(mlir::OpBuilder& builder,
 void convertFloatArrayCreate(mlir::OpBuilder& builder,
                              jeff::Op::Reader operation,
                              DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto& mlirValues = data.mlirValues;
   llvm::SmallVector<mlir::Value> inArray;
   inArray.reserve(inputs.size());
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    inArray.push_back(mlirValues[inputs[i]]);
+  for (auto input : inputs) {
+    inArray.push_back(mlirValues[input]);
   }
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inputs.size())}, mlirValues[inputs[0]].getType());
@@ -1131,10 +1156,10 @@ void convertOperations(
 
 void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                    DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
-  auto& mlirValues = data.mlirValues;
-  const auto switch_ = operation.getInstruction().getScf().getSwitch();
-  const auto branches = switch_.getBranches();
+  const auto switchInstr = operation.getInstruction().getScf().getSwitch();
+  const auto branches = switchInstr.getBranches();
 
   llvm::SmallVector<mlir::Value> inValues;
   llvm::SmallVector<mlir::Type> outTypes;
@@ -1175,27 +1200,27 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), targetValues);
   }
 
-  if (switch_.hasDefault()) {
+  if (switchInstr.hasDefault()) {
     auto& block = op.getDefault().emplaceBlock();
     mlir::OpBuilder::InsertionGuard guard(builder);
     builder.setInsertionPointToStart(&block);
 
-    const auto& default_ = switch_.getDefault();
+    const auto& defaultRegion = switchInstr.getDefault();
 
     // Add sources to mlirValues
-    for (size_t i = 0; i < default_.getSources().size(); ++i) {
+    for (size_t i = 0; i < defaultRegion.getSources().size(); ++i) {
       auto arg =
           block.addArgument(inValues[i].getType(), builder.getUnknownLoc());
-      mlirValues[default_.getSources()[i]] = arg;
+      mlirValues[defaultRegion.getSources()[i]] = arg;
     }
 
-    convertOperations(builder, default_.getOperations(), data);
+    convertOperations(builder, defaultRegion.getOperations(), data);
 
     // Retrieve target values
     llvm::SmallVector<mlir::Value> targetValues;
-    targetValues.reserve(default_.getTargets().size());
-    for (size_t i = 0; i < default_.getTargets().size(); ++i) {
-      targetValues.push_back(mlirValues[default_.getTargets()[i]]);
+    targetValues.reserve(defaultRegion.getTargets().size());
+    for (size_t i = 0; i < defaultRegion.getTargets().size(); ++i) {
+      targetValues.push_back(mlirValues[defaultRegion.getTargets()[i]]);
     }
 
     builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), targetValues);
@@ -1210,9 +1235,9 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
+  auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
-  auto& mlirValues = data.mlirValues;
-  const auto for_ = operation.getInstruction().getScf().getFor();
+  const auto forInstr = operation.getInstruction().getScf().getFor();
 
   llvm::SmallVector<mlir::Value> inValues;
   llvm::SmallVector<mlir::Type> outTypes;
@@ -1235,21 +1260,21 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     // Add induction variable to mlirValues
     auto i = bodyBlock.addArgument(mlirValues[inputs[0]].getType(),
                                    builder.getUnknownLoc());
-    mlirValues[for_.getSources()[0]] = i;
+    mlirValues[forInstr.getSources()[0]] = i;
 
     // Add sources to mlirValues
-    for (size_t i = 1; i < for_.getSources().size(); ++i) {
+    for (size_t i = 1; i < forInstr.getSources().size(); ++i) {
       auto arg = bodyBlock.addArgument(inValues[i - 1].getType(),
                                        builder.getUnknownLoc());
-      mlirValues[for_.getSources()[i]] = arg;
+      mlirValues[forInstr.getSources()[i]] = arg;
     }
 
-    convertOperations(builder, for_.getOperations(), data);
+    convertOperations(builder, forInstr.getOperations(), data);
 
     llvm::SmallVector<mlir::Value> outValues;
-    outValues.reserve(for_.getTargets().size());
-    for (size_t i = 0; i < for_.getTargets().size(); ++i) {
-      outValues.push_back(mlirValues[for_.getTargets()[i]]);
+    outValues.reserve(forInstr.getTargets().size());
+    for (size_t i = 0; i < forInstr.getTargets().size(); ++i) {
+      outValues.push_back(mlirValues[forInstr.getTargets()[i]]);
     }
 
     builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), outValues);
@@ -1285,10 +1310,10 @@ void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                  DeserializationData& data) {
-  auto& mlirValues = data.mlirValues;
-  const auto instruction = operation.getInstruction();
-  const auto jeffFunc = instruction.getFunc();
-  auto mlirFunc = data.mlirFuncs[jeffFunc.getFuncCall()];
+  auto& mlirValues = *data.mlirValues;
+  auto& mlirFuncs = *data.mlirFuncs;
+  const auto jeffFunc = operation.getInstruction().getFunc();
+  auto mlirFunc = mlirFuncs[jeffFunc.getFuncCall()];
   llvm::SmallVector<mlir::Value> inputs;
   inputs.reserve(operation.getInputs().size());
   for (const auto input : operation.getInputs()) {
@@ -1440,7 +1465,7 @@ void convertOperations(
 
 void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
                      jeff::Module::Reader jeffModule,
-                     llvm::DenseMap<int, mlir::func::FuncOp>& mlirFuncs) {
+                     llvm::DenseMap<uint32_t, mlir::func::FuncOp>& mlirFuncs) {
   // Get strings
   auto strings = jeffModule.getStrings();
 
@@ -1453,7 +1478,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
   // Get values
   const auto jeffValues = definition.getValues();
 
-  llvm::DenseMap<int, mlir::Value> mlirValues;
+  llvm::DenseMap<uint32_t, mlir::Value> mlirValues;
   mlirValues.reserve(jeffValues.size());
 
   // Get function body
@@ -1515,7 +1540,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
     mlirValues[sources[i]] = entryBlock.getArgument(i);
   }
 
-  auto data = DeserializationData{mlirValues, mlirFuncs, strings};
+  auto data = DeserializationData{&mlirValues, &mlirFuncs, &strings};
   convertOperations(builder, operations, data);
 
   llvm::SmallVector<mlir::Value> results;
@@ -1533,7 +1558,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
                                               const std::string& path) {
   // Get Jeff module from file
-  const auto fd = open(path.c_str(), O_RDONLY);
+  const auto fd = open(path.c_str(), O_RDONLY, 0);
   if (fd < 0) {
     llvm::report_fatal_error("Could not open file");
   }
@@ -1553,7 +1578,7 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   }
   const auto functions = jeffModule.getFunctions();
 
-  llvm::DenseMap<int, mlir::func::FuncOp> mlirFuncs;
+  llvm::DenseMap<uint32_t, mlir::func::FuncOp> mlirFuncs;
   mlirFuncs.reserve(functions.size());
 
   for (const auto function : functions) {

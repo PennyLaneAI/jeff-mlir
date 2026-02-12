@@ -14,10 +14,12 @@
 
 #include "jeff/IR/JeffDialect.h"
 
+// IWYU pragma: begin_keep
 #include "jeff/IR/JeffOps.h"
-#include "mlir/IR/DialectImplementation.h" // needed for generated type parser
 
-#include "llvm/ADT/TypeSwitch.h" // needed for generated type parser
+#include <llvm/ADT/TypeSwitch.h>           // needed for generated type parser
+#include <mlir/IR/DialectImplementation.h> // needed for generated type parser
+// IWYU pragma: end_keep
 
 using namespace mlir;
 using namespace mlir::jeff;
