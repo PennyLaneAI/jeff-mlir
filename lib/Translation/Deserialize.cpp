@@ -1529,6 +1529,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
     attributes.emplace_back(builder.getStringAttr("entry_point"));
     const auto jeffVersion = std::to_string(jeffModule.getVersion());
     attributes.emplace_back(builder.getStrArrayAttr({"version", jeffVersion}));
+    // TODO: Add more metadata
     func->setAttr("passthrough", builder.getArrayAttr(attributes));
   }
 
