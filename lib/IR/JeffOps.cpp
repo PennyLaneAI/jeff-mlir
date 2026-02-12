@@ -58,22 +58,28 @@ void printInitializationList(OpAsmPrinter& p,
 } // namespace
 
 void SwitchOp::print(OpAsmPrinter& p) {
-  p << '(' << getSelection() << ") ";
+  p << '(' << getSelection() << ")";
+  p << " : " << getSelection().getType();
+  p << " -> (" << getInValues().getTypes() << ") ";
 
-  for (auto& branch : getBranches()) {
+  for (size_t i = 0; i < getBranches().size(); ++i) {
+    p.printNewline();
+    p << "case " << i << ' ';
+    auto& branch = getBranches()[i];
     auto regionArgs = branch.getArguments();
     printInitializationList(p, regionArgs, getInValues(), "args");
-    p << " -> (" << getInValues().getTypes() << ") ";
+    p << ' ';
     p.printRegion(branch, /*printEntryBlockArgs=*/false,
                   /*printBlockTerminators=*/!getInValues().empty());
   }
 
   auto& defaultRegion = getDefault();
   if (!defaultRegion.empty()) {
-    p << " default ";
+    p.printNewline();
+    p << "default ";
     auto regionArgs = defaultRegion.getArguments();
     printInitializationList(p, regionArgs, getInValues(), "args");
-    p << " -> (" << getInValues().getTypes() << ") ";
+    p << ' ';
     p.printRegion(defaultRegion, /*printEntryBlockArgs=*/false,
                   /*printBlockTerminators=*/!getInValues().empty());
   }
