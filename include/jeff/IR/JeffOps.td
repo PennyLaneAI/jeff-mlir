@@ -141,10 +141,11 @@ def PPROp : Gate_Op<"ppr", [AttrSizedOperandSegments, AttrSizedResultSegments, M
     let arguments = (ins
         Variadic<QubitType>:$in_qubits,
         Variadic<QubitType>:$in_ctrl_qubits,
-        F32:$rotation,
+        F64:$rotation,
         I8Attr:$num_ctrls,
         I1Attr:$is_adjoint,
         I8Attr:$power,
+        // TODO: Use I32EnumAttr instead of DenseI32ArrayAttr
         DenseI32ArrayAttr:$pauli_gates
     );
 
@@ -293,7 +294,7 @@ def GPhaseOp : WellKnownGate_Op<"gphase", []> {
 
     // %2 = jeff.gphase (%0) ctrls(%1) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
-        `(` $rotation `)` attr-dict ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` (`ctrls` type($out_ctrl_qubits)^ )?
+        `(` $rotation `)` attr-dict ( `ctrls` `(` $in_ctrl_qubits^ `)` )? (`:` `ctrls` type($out_ctrl_qubits)^ )?
     }];
 }
 
