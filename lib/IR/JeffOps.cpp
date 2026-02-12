@@ -15,16 +15,17 @@
 #include "jeff/IR/JeffOps.h"
 
 #include <cassert>
+#include <cstddef>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/ErrorHandling.h>
-#include <llvm/Support/LogicalResult.h>
 #include <mlir/IR/Block.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/OpDefinition.h>
 #include <mlir/IR/OpImplementation.h>
 #include <mlir/IR/OperationSupport.h>
 #include <mlir/IR/ValueRange.h>
+#include <mlir/Support/LogicalResult.h>
 
 using namespace mlir;
 using namespace mlir::jeff;
@@ -62,10 +63,11 @@ void SwitchOp::print(OpAsmPrinter& p) {
   p << " : " << getSelection().getType();
   p << " -> (" << getInValues().getTypes() << ") ";
 
-  for (size_t i = 0; i < getBranches().size(); ++i) {
+  auto branches = getBranches();
+  for (size_t i = 0; i < branches.size(); ++i) {
     p.printNewline();
     p << "case " << i << ' ';
-    auto& branch = getBranches()[i];
+    auto& branch = branches[i];
     auto regionArgs = branch.getArguments();
     printInitializationList(p, regionArgs, getInValues(), "args");
     p << ' ';

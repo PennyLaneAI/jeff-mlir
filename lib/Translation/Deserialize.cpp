@@ -265,27 +265,27 @@ void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   const auto name = strings[custom.getName()].cStr();
   const auto numControls = gate.getControlQubits();
   const auto numTargets = custom.getNumQubits();
-  const auto numQubits = numTargets + numControls;
+  const auto numQubits = static_cast<uint32_t>(numTargets + numControls);
   const auto numParams = custom.getNumParams();
   llvm::SmallVector<mlir::Value> targets;
-  for (uint8_t i = 0; i < numTargets; ++i) {
+  for (uint32_t i = 0; i < numTargets; ++i) {
     targets.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> controls;
-  for (uint8_t i = numTargets; i < numQubits; ++i) {
+  for (uint32_t i = numTargets; i < numQubits; ++i) {
     controls.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> params;
-  for (uint8_t i = numQubits; i < numQubits + numParams; ++i) {
+  for (uint32_t i = numQubits; i < numQubits + numParams; ++i) {
     params.push_back(mlirValues[inputs[i]]);
   }
   auto op = builder.create<mlir::jeff::CustomOp>(
       builder.getUnknownLoc(), targets, controls, params, numControls,
       gate.getAdjoint(), gate.getPower(), name, numTargets, numParams);
-  for (uint8_t i = 0; i < numTargets; ++i) {
+  for (uint32_t i = 0; i < numTargets; ++i) {
     mlirValues[outputs[i]] = op.getOutTargetQubits()[i];
   }
-  for (uint8_t i = numTargets; i < numQubits; ++i) {
+  for (uint32_t i = numTargets; i < numQubits; ++i) {
     mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
   }
 }
@@ -299,15 +299,16 @@ void convertPpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   const auto pauliString = gate.getPpr().getPauliString();
   const auto numTargets = pauliString.size();
   const auto numControls = gate.getControlQubits();
+  const auto numQubits = static_cast<uint32_t>(numTargets + numControls);
   llvm::SmallVector<mlir::Value> targets;
-  for (uint8_t i = 0; i < numTargets; ++i) {
+  for (uint32_t i = 0; i < numTargets; ++i) {
     targets.push_back(mlirValues[inputs[i]]);
   }
   llvm::SmallVector<mlir::Value> controls;
-  for (uint8_t i = numTargets; i < numTargets + numControls; ++i) {
+  for (uint32_t i = numTargets; i < numQubits; ++i) {
     controls.push_back(mlirValues[inputs[i]]);
   }
-  auto rotation = mlirValues[inputs[numTargets + numControls]];
+  auto rotation = mlirValues[inputs[numQubits]];
   llvm::SmallVector<int32_t> pauliStringVector;
   for (auto pauli : pauliString) {
     pauliStringVector.push_back(static_cast<int32_t>(pauli));
@@ -317,10 +318,10 @@ void convertPpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   auto op = builder.create<mlir::jeff::PPROp>(
       builder.getUnknownLoc(), targets, controls, rotation, numControls,
       gate.getAdjoint(), gate.getPower(), pauliStringArrayAttr);
-  for (uint8_t i = 0; i < numTargets; ++i) {
+  for (uint32_t i = 0; i < numTargets; ++i) {
     mlirValues[outputs[i]] = op.getOutQubits()[i];
   }
-  for (uint8_t i = numTargets; i < numTargets + numControls; ++i) {
+  for (uint32_t i = numTargets; i < numQubits; ++i) {
     mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - numTargets];
   }
 }
