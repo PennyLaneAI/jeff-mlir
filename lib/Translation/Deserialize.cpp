@@ -44,6 +44,12 @@ void convertQubitFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
 }
 
+void convertQubitFreeZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          DeserializationData& data) {
+  builder.create<mlir::jeff::QubitFreeZeroOp>(
+      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+}
+
 void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                     DeserializationData& data) {
   auto& mlirValues = data.mlirValues;
@@ -62,29 +68,126 @@ void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[1]] = op.getResult();
 }
 
+void convertReset(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  DeserializationData& data) {
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QubitResetOp>(
+      builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
+  mlirValues[outputs[0]] = op.getOutQubit();
+}
+
 template <typename OpType>
-void createOneTargetZeroParameter(mlir::OpBuilder& builder,
-                                  jeff::Op::Reader operation,
-                                  DeserializationData& data) {
+void convertOneTargetZeroParameter(mlir::OpBuilder& builder,
+                                   jeff::Op::Reader operation,
+                                   DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  const auto gate = operation.getInstruction().getQubit().getGate();
   auto& mlirValues = data.mlirValues;
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  const auto numControls = gate.getControlQubits();
   llvm::SmallVector<mlir::Value> controls;
-  if (inputs.size() >= 1) {
-    for (size_t i = 1; i < inputs.size(); ++i) {
-      controls.push_back(mlirValues[inputs[i]]);
-    }
+  for (uint8_t i = 1; i < 1 + numControls; ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
   }
   auto op =
       builder.create<OpType>(builder.getUnknownLoc(), mlirValues[inputs[0]],
                              controls, static_cast<uint8_t>(controls.size()),
                              gate.getAdjoint(), gate.getPower());
   mlirValues[outputs[0]] = op.getOutQubit();
-  if (outputs.size() >= 1) {
-    for (size_t i = 1; i < outputs.size(); ++i) {
-      mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - 1];
-    }
+  for (uint8_t i = 1; i < 1 + numControls; ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - 1];
+  }
+}
+
+template <typename OpType>
+void convertOneTargetOneParameter(mlir::OpBuilder& builder,
+                                  jeff::Op::Reader operation,
+                                  DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  const auto numControls = gate.getControlQubits();
+  llvm::SmallVector<mlir::Value> controls;
+  for (uint8_t i = 1; i < 1 + numControls; ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
+  }
+  auto rotation = mlirValues[inputs[1 + numControls]];
+  auto op = builder.create<OpType>(builder.getUnknownLoc(),
+                                   mlirValues[inputs[0]], rotation, controls,
+                                   static_cast<uint8_t>(controls.size()),
+                                   gate.getAdjoint(), gate.getPower());
+  mlirValues[outputs[0]] = op.getOutQubit();
+  for (uint8_t i = 1; i < 1 + numControls; ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - 1];
+  }
+}
+
+void convertU(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+              DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  const auto numControls = gate.getControlQubits();
+  llvm::SmallVector<mlir::Value> controls;
+  for (uint8_t i = 1; i < 1 + numControls; ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
+  }
+  auto theta = mlirValues[inputs[1 + numControls]];
+  auto phi = mlirValues[inputs[2 + numControls]];
+  auto lambda = mlirValues[inputs[3 + numControls]];
+  auto op = builder.create<mlir::jeff::UOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], theta, phi, lambda,
+      controls, static_cast<uint8_t>(controls.size()), gate.getAdjoint(),
+      gate.getPower());
+  mlirValues[outputs[0]] = op.getOutQubit();
+  for (uint8_t i = 1; i < 1 + numControls; ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - 1];
+  }
+}
+
+void convertSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                 DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  const auto numControls = gate.getControlQubits();
+  llvm::SmallVector<mlir::Value> controls;
+  for (uint8_t i = 2; i < 2 + numControls; ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
+  }
+  auto op = builder.create<mlir::jeff::SwapOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
+      controls, static_cast<uint8_t>(controls.size()), gate.getAdjoint(),
+      gate.getPower());
+  mlirValues[outputs[0]] = op.getOutQubitOne();
+  mlirValues[outputs[1]] = op.getOutQubitTwo();
+  for (uint8_t i = 2; i < 2 + numControls; ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i - 2];
+  }
+}
+
+void convertGPhase(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                   DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  const auto numControls = gate.getControlQubits();
+  llvm::SmallVector<mlir::Value> controls;
+  for (uint8_t i = 0; i < numControls; ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
+  }
+  auto rotation = mlirValues[inputs[numControls]];
+  auto op = builder.create<mlir::jeff::GPhaseOp>(
+      builder.getUnknownLoc(), rotation, controls,
+      static_cast<uint8_t>(controls.size()), gate.getAdjoint(),
+      gate.getPower());
+  for (uint8_t i = 0; i < numControls; ++i) {
+    mlirValues[outputs[i]] = op.getOutCtrlQubits()[i];
   }
 }
 
@@ -93,11 +196,47 @@ void convertWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   const auto wellKnown =
       operation.getInstruction().getQubit().getGate().getWellKnown();
   switch (wellKnown) {
-  case jeff::WellKnownGate::H:
-    createOneTargetZeroParameter<mlir::jeff::HOp>(builder, operation, data);
-    break;
   case jeff::WellKnownGate::X:
-    createOneTargetZeroParameter<mlir::jeff::XOp>(builder, operation, data);
+    convertOneTargetZeroParameter<mlir::jeff::XOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::Y:
+    convertOneTargetZeroParameter<mlir::jeff::YOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::Z:
+    convertOneTargetZeroParameter<mlir::jeff::ZOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::S:
+    convertOneTargetZeroParameter<mlir::jeff::SOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::T:
+    convertOneTargetZeroParameter<mlir::jeff::TOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::R1:
+    convertOneTargetOneParameter<mlir::jeff::R1Op>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::RX:
+    convertOneTargetOneParameter<mlir::jeff::RxOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::RY:
+    convertOneTargetOneParameter<mlir::jeff::RyOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::RZ:
+    convertOneTargetOneParameter<mlir::jeff::RzOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::H:
+    convertOneTargetZeroParameter<mlir::jeff::HOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::U:
+    convertU(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::SWAP:
+    convertSwap(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::I:
+    convertOneTargetZeroParameter<mlir::jeff::IOp>(builder, operation, data);
+    break;
+  case jeff::WellKnownGate::GPHASE:
+    convertGPhase(builder, operation, data);
     break;
   default:
     llvm::errs() << "Cannot convert well-known gate "
@@ -108,9 +247,9 @@ void convertWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                    DeserializationData& data) {
-  auto& mlirValues = data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto custom = gate.getCustom();
   const auto name = data.strings[custom.getName()].cStr();
@@ -141,6 +280,35 @@ void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
+void convertPpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  const auto gate = operation.getInstruction().getQubit().getGate();
+  const auto pauliString = gate.getPpr().getPauliString();
+  const auto numTargets = pauliString.size();
+  const auto numControls = gate.getControlQubits();
+  llvm::SmallVector<mlir::Value> targets;
+  for (std::uint8_t i = 0; i < numTargets; ++i) {
+    targets.push_back(mlirValues[inputs[i]]);
+  }
+  llvm::SmallVector<mlir::Value> controls;
+  for (std::uint8_t i = numTargets; i < numTargets + numControls; ++i) {
+    controls.push_back(mlirValues[inputs[i]]);
+  }
+  auto rotation = mlirValues[inputs[numTargets + numControls]];
+  llvm::SmallVector<int32_t> pauliStringVector;
+  for (auto pauli : pauliString) {
+    pauliStringVector.push_back(static_cast<int32_t>(pauli));
+  }
+  auto pauliStringArrayAttr =
+      mlir::DenseI32ArrayAttr::get(builder.getContext(), pauliStringVector);
+  auto op = builder.create<mlir::jeff::PPROp>(
+      builder.getUnknownLoc(), targets, controls, rotation, numControls,
+      gate.getAdjoint(), gate.getPower(), pauliStringArrayAttr);
+}
+
 void convertGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                  DeserializationData& data) {
   const auto gate = operation.getInstruction().getQubit().getGate();
@@ -150,6 +318,9 @@ void convertGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     break;
   case jeff::QubitGate::CUSTOM:
     convertCustom(builder, operation, data);
+    break;
+  case jeff::QubitGate::PPR:
+    convertPpr(builder, operation, data);
     break;
   default:
     llvm::errs() << "Cannot convert gate instruction "
@@ -168,11 +339,17 @@ void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   case jeff::QubitOp::FREE:
     convertQubitFree(builder, operation, data);
     break;
+  case jeff::QubitOp::FREE_ZERO:
+    convertQubitFreeZero(builder, operation, data);
+    break;
   case jeff::QubitOp::MEASURE:
     convertMeasure(builder, operation, data);
     break;
   case jeff::QubitOp::MEASURE_ND:
     convertMeasureNd(builder, operation, data);
+    break;
+  case jeff::QubitOp::RESET:
+    convertReset(builder, operation, data);
     break;
   case jeff::QubitOp::GATE:
     convertGate(builder, operation, data);
