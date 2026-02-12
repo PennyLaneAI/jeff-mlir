@@ -22,11 +22,11 @@ jobs:
       - name: Install capnp
         run: |
           curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
-            tar zxf capnproto-c++-1.1.0.tar.gz
-            cd capnproto-c++-1.1.0
-            ./configure
-            make -j6 check
-            sudo make install
+          tar zxf capnproto-c++-1.1.0.tar.gz
+          cd capnproto-c++-1.1.0
+          ./configure
+          make -j6 check
+          sudo make install
       - name: Set up MLIR
         uses: munich-quantum-software/setup-mlir@97da765dfa9dc8e055611ca934fe51bcade8140c # v1.1.0
         with:

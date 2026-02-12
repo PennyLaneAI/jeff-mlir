@@ -1,0 +1,75 @@
+name: Lint
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CLANG_VERSION: 21
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install capnp
+        run: |
+          curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
+          tar zxf capnproto-c++-1.1.0.tar.gz
+          cd capnproto-c++-1.1.0
+          ./configure
+          make -j6 check
+          sudo make install
+      - name: Set up Clang ${{ env.CLANG_VERSION }}
+        env:
+          TEMP_DIR: ${{ runner.temp }}
+        run: |
+          clang_version=${{ env.CLANG_VERSION }}
+          sudo apt-get update
+          wget https://apt.llvm.org/llvm.sh -O "$TEMP_DIR/llvm_install.sh"
+          chmod +x "$TEMP_DIR/llvm_install.sh"
+          if sudo "$TEMP_DIR/llvm_install.sh" "$clang_version"; then
+            sudo apt-get install -y clang-"$clang_version" \
+                                    clang-format-"$clang_version" \
+                                    clang-tidy-"$clang_version" \
+                                    clang-tools-"$clang_version" \
+            || exit 1
+          else
+            echo "Installation from script failed."
+            exit 1
+          fi
+          echo "CC=clang-$clang_version" >> $GITHUB_ENV
+          echo "CXX=clang++-$clang_version" >> $GITHUB_ENV
+      - name: Set up MLIR
+        uses: munich-quantum-software/setup-mlir@97da765dfa9dc8e055611ca934fe51bcade8140c # v1.1.0
+        with:
+          llvm-version: 21.1.8
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Build
+        run: cmake --build build --config Debug
+      - name: Run cpp-linter
+        uses: cpp-linter/cpp-linter-action@b6edc0625e3941baa1797f4b4326adeab6890c97 # v2.16.7
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          database: build
+          ignore: "build|include"
+          step-summary: true
+          style: ""
+          thread-comments: ${{ github.event_name == 'pull_request' && 'update' }}
+          tidy-checks: ""
+          version: ${{ env.CLANG_VERSION }}
+      - if: steps.linter.outputs.checks-failed > 0
+        run: echo "Linter found errors" && exit 1
