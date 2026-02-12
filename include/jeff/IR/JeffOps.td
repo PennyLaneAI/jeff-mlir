@@ -1032,8 +1032,8 @@ def QuregExtractSliceOp : Qubit_Op<"qureg_extract_slice", []> {
 
     let arguments = (ins
         QuregType:$in_qreg,
-        I32Attr:$start,
-        I32Attr:$length
+        I32:$start,
+        I32:$length
     );
 
     let results = (outs
@@ -1041,9 +1041,9 @@ def QuregExtractSliceOp : Qubit_Op<"qureg_extract_slice", []> {
         QuregType:$new_qreg
     );
 
-    // %3, %4 = jeff.qureg_extract_slice (%0, %1) %2 : !jeff.qureg !jeff.qureg
+    // %3, %4 = jeff.qureg_extract_slice (%1, %2) %0
     let assemblyFormat = [{
-        `(` $start `,` $length `)` $in_qreg attr-dict `:` type(results)
+        `(` $start `,` $length `)` $in_qreg attr-dict `:` type($start) `,` type($length) `,` type($in_qreg) `->` type(results)
     }];
 }
 
@@ -1053,17 +1053,17 @@ def QuregInsertSliceOp : Qubit_Op<"qureg_insert_slice", []> {
 
     let arguments = (ins
         QuregType:$in_qreg,
-        QuregType:$new_qreg,
-        I32Attr:$start
+        I32:$start,
+        QuregType:$new_qreg
     );
 
     let results = (outs
         QuregType:$out_qreg
     );
 
-    // %3 = jeff.qureg_insert_slice (%0) %1 %2 : !jeff.qureg !jeff.qureg -> !jeff.qureg
+    // %3 = jeff.qureg_insert_slice (%1) %0 %2
     let assemblyFormat = [{
-        `(` $start `)` $in_qreg $new_qreg attr-dict `:` functional-type(operands, results)
+        `(` $start `)` $in_qreg $new_qreg attr-dict `:`  type($start) `,` type($in_qreg) `,` type($new_qreg) `->` type(results)
     }];
 }
 
@@ -1080,7 +1080,7 @@ def QuregLengthOp : Qubit_Op<"qureg_length", []> {
         I32:$length
     );
 
-    // %1, %2 = jeff.qureg_length %0 : !jeff.qureg i32
+    // %1, %2 = jeff.qureg_length %0
     let assemblyFormat = [{
         $in_qreg attr-dict `:` type(results)
     }];
@@ -1092,7 +1092,7 @@ def QuregSplitOp : Qubit_Op<"qureg_split", []> {
 
     let arguments = (ins
         QuregType:$in_qreg,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
@@ -1100,9 +1100,9 @@ def QuregSplitOp : Qubit_Op<"qureg_split", []> {
         QuregType:$out_qreg_two
     );
 
-    // %1, %2 = jeff.qureg_split (%0) %1 : !jeff.qureg !jeff.qureg
+    // %1, %2 = jeff.qureg_split (%1) %0
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg attr-dict `:` type(results)
+        `(` $index `)` $in_qreg attr-dict `:` type($index) `,` type($in_qreg) `->` type(results)
     }];
 }
 

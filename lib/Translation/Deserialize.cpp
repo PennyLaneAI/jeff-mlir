@@ -372,6 +372,12 @@ void convertQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   data.mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
 }
 
+void convertQuregFreeZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          DeserializationData& data) {
+  builder.create<mlir::jeff::QuregFreeZeroOp>(
+      builder.getUnknownLoc(), data.mlirValues[operation.getInputs()[0]]);
+}
+
 void convertQuregExtractIndex(mlir::OpBuilder& builder,
                               jeff::Op::Reader operation,
                               DeserializationData& data) {
@@ -396,6 +402,78 @@ void convertQuregInsertIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutQreg();
 }
 
+void convertQuregExtractSlice(mlir::OpBuilder& builder,
+                              jeff::Op::Reader operation,
+                              DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QuregExtractSliceOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]],
+      mlirValues[inputs[2]]);
+  mlirValues[outputs[0]] = op.getOutQreg();
+  mlirValues[outputs[1]] = op.getNewQreg();
+}
+
+void convertQuregInsertSlice(mlir::OpBuilder& builder,
+                             jeff::Op::Reader operation,
+                             DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QuregInsertSliceOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[2]],
+      mlirValues[inputs[1]]);
+  mlirValues[outputs[0]] = op.getOutQreg();
+}
+
+void convertQuregLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                        DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QuregLengthOp>(builder.getUnknownLoc(),
+                                                      mlirValues[inputs[0]]);
+  mlirValues[outputs[0]] = op.getOutQreg();
+  mlirValues[outputs[1]] = op.getLength();
+}
+
+void convertQuregSplit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QuregSplitOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]]);
+  mlirValues[outputs[0]] = op.getOutQregOne();
+  mlirValues[outputs[1]] = op.getOutQregTwo();
+}
+
+void convertQuregJoin(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  auto op = builder.create<mlir::jeff::QuregJoinOp>(
+      builder.getUnknownLoc(), mlirValues[inputs[0]], mlirValues[inputs[1]]);
+  mlirValues[outputs[0]] = op.getOutQreg();
+}
+
+void convertQuregCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                        DeserializationData& data) {
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  auto& mlirValues = data.mlirValues;
+  llvm::SmallVector<mlir::Value> inQreg;
+  inQreg.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    inQreg.push_back(mlirValues[inputs[i]]);
+  }
+  auto op = builder.create<mlir::jeff::QuregCreateOp>(builder.getUnknownLoc(),
+                                                      inQreg);
+  mlirValues[outputs[0]] = op.getOutQreg();
+}
+
 void convertQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                       DeserializationData& data) {
   builder.create<mlir::jeff::QuregFreeOp>(
@@ -410,11 +488,32 @@ void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   case jeff::QuregOp::ALLOC:
     convertQuregAlloc(builder, operation, data);
     break;
+  case jeff::QuregOp::FREE_ZERO:
+    convertQuregFreeZero(builder, operation, data);
+    break;
   case jeff::QuregOp::EXTRACT_INDEX:
     convertQuregExtractIndex(builder, operation, data);
     break;
   case jeff::QuregOp::INSERT_INDEX:
     convertQuregInsertIndex(builder, operation, data);
+    break;
+  case jeff::QuregOp::EXTRACT_SLICE:
+    convertQuregExtractSlice(builder, operation, data);
+    break;
+  case jeff::QuregOp::INSERT_SLICE:
+    convertQuregInsertSlice(builder, operation, data);
+    break;
+  case jeff::QuregOp::LENGTH:
+    convertQuregLength(builder, operation, data);
+    break;
+  case jeff::QuregOp::SPLIT:
+    convertQuregSplit(builder, operation, data);
+    break;
+  case jeff::QuregOp::JOIN:
+    convertQuregJoin(builder, operation, data);
+    break;
+  case jeff::QuregOp::CREATE:
+    convertQuregCreate(builder, operation, data);
     break;
   case jeff::QuregOp::FREE:
     convertQuregFree(builder, operation, data);
@@ -672,7 +771,7 @@ void convertIntArrayCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       {static_cast<int64_t>(inputs.size())}, mlirValues[inputs[0]].getType());
   auto op = builder.create<mlir::jeff::IntArrayCreateOp>(
       builder.getUnknownLoc(), tensorType, inArray);
-  data.mlirValues[outputs[0]] = op.getOutArray();
+  mlirValues[outputs[0]] = op.getOutArray();
 }
 
 void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
@@ -985,7 +1084,7 @@ void convertFloatArrayCreate(mlir::OpBuilder& builder,
       {static_cast<int64_t>(inputs.size())}, mlirValues[inputs[0]].getType());
   auto op = builder.create<mlir::jeff::FloatArrayCreateOp>(
       builder.getUnknownLoc(), tensorType, inArray);
-  data.mlirValues[outputs[0]] = op.getOutArray();
+  mlirValues[outputs[0]] = op.getOutArray();
 }
 
 void convertFloatArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
