@@ -89,6 +89,7 @@ void SwitchOp::print(OpAsmPrinter& p) {
 
 ParseResult SwitchOp::parse(OpAsmParser& /*parser*/,
                             OperationState& /*result*/) {
+  // TODO: Implement this
   llvm::report_fatal_error("SwitchOp::parse is not implemented yet");
 }
 
@@ -119,6 +120,7 @@ void ForOp::print(OpAsmPrinter& p) {
 }
 
 ParseResult ForOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
+  // TODO: Implement this
   llvm::report_fatal_error("ForOp::parse is not implemented yet");
 }
 

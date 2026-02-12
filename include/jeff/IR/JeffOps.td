@@ -1899,6 +1899,7 @@ def SwitchOp : SCF_Op<"switch", []> {
     );
 
     let hasCustomAssemblyFormat = 1;
+    // TODO: Add verifiers
 }
 
 def ForOp : SCF_Op<"for", []> {
@@ -1919,6 +1920,7 @@ def ForOp : SCF_Op<"for", []> {
     );
 
     let hasCustomAssemblyFormat = 1;
+    // TODO: Add verifiers
 }
 
 def WhileOp : SCF_Op<"while", []> {
