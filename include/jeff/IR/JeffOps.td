@@ -1941,9 +1941,8 @@ def WhileOp : SCF_Op<"while", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-        $in_values attr-dict regions `:` type($in_values) type($out_values)
-    }];
+    let hasCustomAssemblyFormat = 1;
+    // TODO: Add verifiers
 }
 
 def DoWhileOp : SCF_Op<"doWhile", []> {
@@ -1963,9 +1962,8 @@ def DoWhileOp : SCF_Op<"doWhile", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-       $in_values attr-dict regions `:` type($in_values) type($out_values)
-    }];
+    let hasCustomAssemblyFormat = 1;
+    // TODO: Add verifiers
 }
 
 def YieldOp : SCF_Op<"yield", [Pure, ReturnLike, Terminator,

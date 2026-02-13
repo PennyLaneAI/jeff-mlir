@@ -59,9 +59,11 @@ void printInitializationList(OpAsmPrinter& p,
 } // namespace
 
 void SwitchOp::print(OpAsmPrinter& p) {
+  auto inValues = getInValues();
+
   p << '(' << getSelection() << ")";
   p << " : " << getSelection().getType();
-  p << " -> (" << getInValues().getTypes() << ") ";
+  p << " -> (" << inValues.getTypes() << ") ";
 
   auto branches = getBranches();
   for (size_t i = 0; i < branches.size(); ++i) {
@@ -69,10 +71,10 @@ void SwitchOp::print(OpAsmPrinter& p) {
     p << "case " << i << ' ';
     auto& branch = branches[i];
     auto regionArgs = branch.getArguments();
-    printInitializationList(p, regionArgs, getInValues(), "args");
+    printInitializationList(p, regionArgs, inValues, "args");
     p << ' ';
     p.printRegion(branch, /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/!getInValues().empty());
+                  /*printBlockTerminators=*/!inValues.empty());
   }
 
   auto& defaultRegion = getDefault();
@@ -80,10 +82,10 @@ void SwitchOp::print(OpAsmPrinter& p) {
     p.printNewline();
     p << "default ";
     auto regionArgs = defaultRegion.getArguments();
-    printInitializationList(p, regionArgs, getInValues(), "args");
+    printInitializationList(p, regionArgs, inValues, "args");
     p << ' ';
     p.printRegion(defaultRegion, /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/!getInValues().empty());
+                  /*printBlockTerminators=*/!inValues.empty());
   }
 
   p.printOptionalAttrDict((*this)->getAttrs());
@@ -98,15 +100,16 @@ ParseResult SwitchOp::parse(OpAsmParser& /*parser*/,
 // Adapted from
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L496
 void ForOp::print(OpAsmPrinter& p) {
+  auto inValues = getInValues();
   auto inductionVar = getBody().getArgument(0);
   auto regionArgs = getBody().getArguments().drop_front(1);
 
   p << " " << inductionVar << " = " << getStart() << " to " << getStop()
     << " step " << getStep();
 
-  if (!getInValues().empty()) {
-    printInitializationList(p, regionArgs, getInValues(), " args");
-    p << " -> (" << getInValues().getTypes() << ')';
+  if (!inValues.empty()) {
+    printInitializationList(p, regionArgs, inValues, " args");
+    p << " -> (" << inValues.getTypes() << ')';
   }
 
   if (Type t = inductionVar.getType(); !t.isIndex()) {
@@ -117,13 +120,65 @@ void ForOp::print(OpAsmPrinter& p) {
 
   p.printRegion(getRegion(),
                 /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/!getInValues().empty());
+                /*printBlockTerminators=*/!inValues.empty());
   p.printOptionalAttrDict((*this)->getAttrs());
 }
 
 ParseResult ForOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
   // TODO: Implement this
   llvm::report_fatal_error("ForOp::parse is not implemented yet");
+}
+
+void WhileOp::print(OpAsmPrinter& p) {
+  auto inValues = getInValues();
+
+  auto& condition = getCondition();
+  auto conditionArgs = condition.getArguments();
+  printInitializationList(p, conditionArgs, inValues, " args");
+  p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
+  p.printRegion(condition, /*printEntryBlockArgs=*/false,
+                /*printBlockTerminators=*/!inValues.empty());
+
+  auto& body = getBody();
+  auto bodyArgs = body.getArguments();
+  printInitializationList(p, bodyArgs, inValues, " args");
+  p << " -> (" << inValues.getTypes() << ") ";
+  p.printRegion(body, /*printEntryBlockArgs=*/false,
+                /*printBlockTerminators=*/!inValues.empty());
+
+  p.printOptionalAttrDict((*this)->getAttrs());
+}
+
+ParseResult WhileOp::parse(OpAsmParser& /*parser*/,
+                           OperationState& /*result*/) {
+  // TODO: Implement this
+  llvm::report_fatal_error("WhileOp::parse is not implemented yet");
+}
+
+void DoWhileOp::print(OpAsmPrinter& p) {
+  auto inValues = getInValues();
+
+  auto& body = getBody();
+  auto bodyArgs = body.getArguments();
+  printInitializationList(p, bodyArgs, inValues, " args");
+  p << " -> (" << inValues.getTypes() << ") ";
+  p.printRegion(body, /*printEntryBlockArgs=*/false,
+                /*printBlockTerminators=*/!inValues.empty());
+
+  auto& condition = getCondition();
+  auto conditionArgs = condition.getArguments();
+  printInitializationList(p, conditionArgs, inValues, " args");
+  p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
+  p.printRegion(condition, /*printEntryBlockArgs=*/false,
+                /*printBlockTerminators=*/!inValues.empty());
+
+  p.printOptionalAttrDict((*this)->getAttrs());
+}
+
+ParseResult DoWhileOp::parse(OpAsmParser& /*parser*/,
+                             OperationState& /*result*/) {
+  // TODO: Implement this
+  llvm::report_fatal_error("DoWhileOp::parse is not implemented yet");
 }
 
 //===----------------------------------------------------------------------===//

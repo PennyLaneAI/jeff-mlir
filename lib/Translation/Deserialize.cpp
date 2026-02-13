@@ -1157,6 +1157,7 @@ void convertOperations(
 
 void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                    DeserializationData& data) {
+  auto loc = builder.getUnknownLoc();
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto switchInstr = operation.getInstruction().getScf().getSwitch();
@@ -1172,8 +1173,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 
   auto op = builder.create<mlir::jeff::SwitchOp>(
-      builder.getUnknownLoc(), outTypes, mlirValues[inputs[0]], inValues,
-      branches.size());
+      loc, outTypes, mlirValues[inputs[0]], inValues, branches.size());
 
   for (size_t i = 0; i < branches.size(); ++i) {
     auto& block = op.getBranches()[i].emplaceBlock();
@@ -1184,8 +1184,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
     // Add sources to mlirValues
     for (size_t j = 0; j < branch.getSources().size(); ++j) {
-      auto arg =
-          block.addArgument(inValues[j].getType(), builder.getUnknownLoc());
+      auto arg = block.addArgument(inValues[j].getType(), loc);
       mlirValues[branch.getSources()[j]] = arg;
     }
 
@@ -1198,7 +1197,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       targetValues.push_back(mlirValues[branch.getTargets()[j]]);
     }
 
-    builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), targetValues);
+    builder.create<mlir::jeff::YieldOp>(loc, targetValues);
   }
 
   if (switchInstr.hasDefault()) {
@@ -1210,8 +1209,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
     // Add sources to mlirValues
     for (size_t i = 0; i < defaultRegion.getSources().size(); ++i) {
-      auto arg =
-          block.addArgument(inValues[i].getType(), builder.getUnknownLoc());
+      auto arg = block.addArgument(inValues[i].getType(), loc);
       mlirValues[defaultRegion.getSources()[i]] = arg;
     }
 
@@ -1224,7 +1222,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       targetValues.push_back(mlirValues[defaultRegion.getTargets()[i]]);
     }
 
-    builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), targetValues);
+    builder.create<mlir::jeff::YieldOp>(loc, targetValues);
   }
 
   llvm::SmallVector<mlir::Value> outValues;
@@ -1236,6 +1234,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                 DeserializationData& data) {
+  auto loc = builder.getUnknownLoc();
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto forInstr = operation.getInstruction().getScf().getFor();
@@ -1250,8 +1249,8 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 
   auto op = builder.create<mlir::jeff::ForOp>(
-      builder.getUnknownLoc(), outTypes, mlirValues[inputs[0]],
-      mlirValues[inputs[1]], mlirValues[inputs[2]], inValues);
+      loc, outTypes, mlirValues[inputs[0]], mlirValues[inputs[1]],
+      mlirValues[inputs[2]], inValues);
 
   {
     auto& bodyBlock = op.getBody().emplaceBlock();
@@ -1259,14 +1258,12 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     builder.setInsertionPointToStart(&bodyBlock);
 
     // Add induction variable to mlirValues
-    auto i = bodyBlock.addArgument(mlirValues[inputs[0]].getType(),
-                                   builder.getUnknownLoc());
+    auto i = bodyBlock.addArgument(mlirValues[inputs[0]].getType(), loc);
     mlirValues[forInstr.getSources()[0]] = i;
 
     // Add sources to mlirValues
     for (size_t i = 1; i < forInstr.getSources().size(); ++i) {
-      auto arg = bodyBlock.addArgument(inValues[i - 1].getType(),
-                                       builder.getUnknownLoc());
+      auto arg = bodyBlock.addArgument(inValues[i - 1].getType(), loc);
       mlirValues[forInstr.getSources()[i]] = arg;
     }
 
@@ -1278,7 +1275,76 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       outValues.push_back(mlirValues[forInstr.getTargets()[i]]);
     }
 
-    builder.create<mlir::jeff::YieldOp>(builder.getUnknownLoc(), outValues);
+    builder.create<mlir::jeff::YieldOp>(loc, outValues);
+  }
+
+  llvm::SmallVector<mlir::Value> outValues;
+  outValues.reserve(operation.getOutputs().size());
+  for (size_t i = 0; i < operation.getOutputs().size(); ++i) {
+    mlirValues[operation.getOutputs()[i]] = op.getResults()[i];
+  }
+}
+
+template <typename MLIR_WHILE_OP_TYPE, typename JEFF_WHILE_OP_READER_TYPE>
+void convertWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  JEFF_WHILE_OP_READER_TYPE reader, DeserializationData& data) {
+  auto loc = builder.getUnknownLoc();
+  auto& mlirValues = *data.mlirValues;
+  const auto inputs = operation.getInputs();
+
+  llvm::SmallVector<mlir::Value> inValues;
+  llvm::SmallVector<mlir::Type> outTypes;
+  inValues.reserve(inputs.size());
+  outTypes.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    inValues.push_back(mlirValues[inputs[i]]);
+    outTypes.push_back(mlirValues[inputs[i]].getType());
+  }
+
+  auto op = builder.create<MLIR_WHILE_OP_TYPE>(loc, outTypes, inValues);
+
+  {
+    auto& block = op.getCondition().emplaceBlock();
+    mlir::OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToStart(&block);
+
+    const auto condition = reader.getCondition();
+
+    // Add sources to mlirValues
+    for (size_t i = 0; i < condition.getSources().size(); ++i) {
+      auto arg = block.addArgument(inValues[i].getType(), loc);
+      mlirValues[condition.getSources()[i]] = arg;
+    }
+
+    convertOperations(builder, condition.getOperations(), data);
+
+    auto result = mlirValues[condition.getTargets()[0]];
+    builder.create<mlir::jeff::YieldOp>(loc, result);
+  }
+
+  {
+    auto& block = op.getBody().emplaceBlock();
+    mlir::OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToStart(&block);
+
+    const auto body = reader.getBody();
+
+    // Add sources to mlirValues
+    for (size_t i = 0; i < body.getSources().size(); ++i) {
+      auto arg = block.addArgument(inValues[i].getType(), loc);
+      mlirValues[body.getSources()[i]] = arg;
+    }
+
+    convertOperations(builder, body.getOperations(), data);
+
+    // Retrieve target values
+    llvm::SmallVector<mlir::Value> targetValues;
+    targetValues.reserve(body.getTargets().size());
+    for (size_t i = 0; i < body.getTargets().size(); ++i) {
+      targetValues.push_back(mlirValues[body.getTargets()[i]]);
+    }
+
+    builder.create<mlir::jeff::YieldOp>(loc, targetValues);
   }
 
   llvm::SmallVector<mlir::Value> outValues;
@@ -1297,6 +1363,14 @@ void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     break;
   case jeff::ScfOp::FOR:
     convertFor(builder, operation, data);
+    break;
+  case jeff::ScfOp::WHILE:
+    convertWhile<mlir::jeff::WhileOp, jeff::ScfOp::While::Reader>(
+        builder, operation, scf.getWhile(), data);
+    break;
+  case jeff::ScfOp::DO_WHILE:
+    convertWhile<mlir::jeff::DoWhileOp, jeff::ScfOp::DoWhile::Reader>(
+        builder, operation, scf.getDoWhile(), data);
     break;
   default:
     llvm::errs() << "Cannot convert scf instruction "

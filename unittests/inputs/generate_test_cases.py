@@ -14,6 +14,8 @@ from jeff import (
     quantum_gate,
     pauli_rotation,
     QuregType,
+    WhileSCF,
+    DoWhileSCF,
 )
 
 # Registry for generator functions
@@ -503,6 +505,95 @@ def generate_qureg_free() -> None:
     )
     free = JeffOp("qureg", "free", [alloc.outputs[0]], [])
     _create_and_write_module([num_qubits, alloc, free], "unit_qureg_free.jeff")
+
+
+@register_generator
+def generate_scf_while() -> None:
+    alloc = qubit_alloc()
+    counter = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 0)
+
+    three = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
+    int_lt = JeffOp(
+        "int",
+        "ltS",
+        [JeffValue(IntType(32)), three.outputs[0]],
+        [JeffValue(IntType(1))],
+    )
+    condition = JeffRegion(
+        sources=[JeffValue(QubitType()), int_lt.inputs[0]],
+        targets=[int_lt.outputs[0]],
+        operations=[three, int_lt],
+    )
+
+    h = quantum_gate("h", qubits=[JeffValue(QubitType())])
+    one = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 1)
+    int_add = JeffOp(
+        "int", "add", [JeffValue(IntType(32)), one.outputs[0]], [JeffValue(IntType(32))]
+    )
+    body = JeffRegion(
+        sources=[h.inputs[0], int_add.inputs[0]],
+        targets=[h.outputs[0], int_add.outputs[0]],
+        operations=[h, one, int_add],
+    )
+
+    scf_while_instr = WhileSCF(condition=condition, body=body)
+    scf_while = JeffOp(
+        "scf",
+        "while",
+        [alloc.outputs[0], counter.outputs[0]],
+        [JeffValue(QubitType()), JeffValue(IntType(32))],
+        scf_while_instr,
+    )
+
+    free = qubit_free(scf_while.outputs[0])
+
+    _create_and_write_module([alloc, counter, scf_while, free], "unit_scf_while.jeff")
+
+
+@register_generator
+def generate_scf_do_while() -> None:
+    alloc = qubit_alloc()
+    counter = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 0)
+
+    three = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
+    int_lt = JeffOp(
+        "int",
+        "ltS",
+        [JeffValue(IntType(32)), three.outputs[0]],
+        [JeffValue(IntType(1))],
+    )
+    condition = JeffRegion(
+        sources=[JeffValue(QubitType()), int_lt.inputs[0]],
+        targets=[int_lt.outputs[0]],
+        operations=[three, int_lt],
+    )
+
+    h = quantum_gate("h", qubits=[JeffValue(QubitType())])
+    one = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 1)
+    int_add = JeffOp(
+        "int", "add", [JeffValue(IntType(32)), one.outputs[0]], [JeffValue(IntType(32))]
+    )
+    body = JeffRegion(
+        sources=[h.inputs[0], int_add.inputs[0]],
+        targets=[h.outputs[0], int_add.outputs[0]],
+        operations=[h, one, int_add],
+    )
+
+    scf_do_while_instr = DoWhileSCF(body=body, condition=condition)
+    scf_do_while = JeffOp(
+        "scf",
+        "do_while",
+        [alloc.outputs[0], counter.outputs[0]],
+        [JeffValue(QubitType()), JeffValue(IntType(32))],
+        scf_do_while_instr,
+    )
+
+    free = qubit_free(scf_do_while.outputs[0])
+
+    _create_and_write_module(
+        [alloc, counter, scf_do_while, free],
+        "unit_scf_do_while.jeff",
+    )
 
 
 @register_generator
