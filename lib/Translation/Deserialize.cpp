@@ -262,7 +262,7 @@ void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   const auto outputs = operation.getOutputs();
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto custom = gate.getCustom();
-  const auto name = strings[custom.getName()].cStr();
+  const auto* const name = strings[custom.getName()].cStr();
   const auto numControls = gate.getControlQubits();
   const auto numTargets = custom.getNumQubits();
   const auto numQubits = static_cast<uint32_t>(numTargets + numControls);
@@ -1517,7 +1517,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
   }
 
   // Create function
-  const auto funcName = strings[function.getName()].cStr();
+  const auto* const funcName = strings[function.getName()].cStr();
   auto funcType = builder.getFunctionType(sourceTypes, targetTypes);
   auto func = builder.create<mlir::func::FuncOp>(builder.getUnknownLoc(),
                                                  funcName, funcType);
