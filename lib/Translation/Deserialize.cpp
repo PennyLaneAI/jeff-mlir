@@ -1296,9 +1296,9 @@ void convertWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   llvm::SmallVector<mlir::Type> outTypes;
   inValues.reserve(inputs.size());
   outTypes.reserve(inputs.size());
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    inValues.push_back(mlirValues[inputs[i]]);
-    outTypes.push_back(mlirValues[inputs[i]].getType());
+  for (const auto input : inputs) {
+    inValues.push_back(mlirValues[input]);
+    outTypes.push_back(mlirValues[input].getType());
   }
 
   auto op = builder.create<MLIR_WHILE_OP_TYPE>(loc, outTypes, inValues);
@@ -1387,17 +1387,19 @@ void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                  DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   auto& mlirFuncs = *data.mlirFuncs;
-  const auto jeffFunc = operation.getInstruction().getFunc();
-  auto mlirFunc = mlirFuncs[jeffFunc.getFuncCall()];
-  llvm::SmallVector<mlir::Value> inputs;
-  inputs.reserve(operation.getInputs().size());
-  for (const auto input : operation.getInputs()) {
-    inputs.push_back(mlirValues[input]);
+  const auto inputs = operation.getInputs();
+  const auto outputs = operation.getOutputs();
+  const auto func = operation.getInstruction().getFunc();
+  auto mlirFunc = mlirFuncs[func.getFuncCall()];
+  llvm::SmallVector<mlir::Value> mlirInputs;
+  mlirInputs.reserve(inputs.size());
+  for (const auto input : inputs) {
+    mlirInputs.push_back(mlirValues[input]);
   }
   auto op = builder.create<mlir::func::CallOp>(builder.getUnknownLoc(),
-                                               mlirFunc, inputs);
-  for (size_t i = 0; i < operation.getOutputs().size(); ++i) {
-    mlirValues[operation.getOutputs()[i]] = op.getResult(i);
+                                               mlirFunc, mlirInputs);
+  for (size_t i = 0; i < outputs.size(); ++i) {
+    mlirValues[outputs[i]] = op.getResult(i);
   }
 }
 
