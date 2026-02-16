@@ -18,8 +18,7 @@ int main() {
                   mlir::tensor::TensorDialect>();
 
   mlir::MLIRContext context(registry);
-  context.loadDialect<mlir::jeff::JeffDialect, mlir::func::FuncDialect,
-                      mlir::tensor::TensorDialect>();
+  context.loadAllAvailableDialects();
 
   const fs::path inputsDir = "unittests/inputs";
 

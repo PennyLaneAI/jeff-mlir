@@ -1,0 +1,118 @@
+#include "jeff/IR/JeffDialect.h"
+#include "jeff/Translation/Deserialize.hpp"
+#include "jeff/Translation/Serialize.hpp"
+
+#include <algorithm>
+#include <capnp/serialize.h>
+#include <fcntl.h>
+#include <filesystem>
+#include <fstream>
+#include <gtest/gtest.h>
+#include <jeff.capnp.h>
+#include <kj/string-tree.h>
+#include <llvm/Support/Format.h>
+#include <llvm/Support/raw_ostream.h>
+#include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/Dialect/Tensor/IR/Tensor.h>
+#include <mlir/IR/BuiltinOps.h>
+#include <mlir/IR/MLIRContext.h>
+#include <vector>
+
+namespace fs = std::filesystem;
+
+struct RoundTripTestCase {
+  std::string fileName;
+};
+
+std::ostream& operator<<(std::ostream& os, const RoundTripTestCase& testCase) {
+  return os << testCase.fileName;
+}
+
+class RoundTripTest : public ::testing::Test,
+                      public ::testing::WithParamInterface<RoundTripTestCase> {
+};
+
+kj::Array<capnp::word> readJeffFile(const std::string& path) {
+  const auto fd = open(path.c_str(), O_RDONLY, 0);
+  if (fd < 0) {
+    llvm::errs() << "Failed to open file: " << path << "\n";
+    llvm::report_fatal_error("Could not open file");
+  }
+  capnp::MallocMessageBuilder message;
+  capnp::readMessageCopyFromFd(fd, message);
+  return capnp::messageToFlatArray(message);
+}
+
+TEST_P(RoundTripTest, RoundTrip) {
+  const auto& testCase = GetParam();
+
+  mlir::DialectRegistry registry;
+  registry.insert<mlir::jeff::JeffDialect, mlir::func::FuncDialect,
+                  mlir::tensor::TensorDialect>();
+
+  mlir::MLIRContext context(registry);
+  context.loadAllAvailableDialects();
+
+  const fs::path inputsDir = TEST_INPUTS_DIR;
+
+  const auto& path = inputsDir / testCase.fileName;
+
+  auto original = readJeffFile(path.string());
+
+  // Deserialize and serialize again
+  auto mlirModule = deserialize(&context, path.string());
+  auto serialized = serialize(*mlirModule);
+
+  // Compare textual representations
+  capnp::FlatArrayMessageReader originalMessage(original);
+  auto originalModule = originalMessage.getRoot<jeff::Module>();
+  auto originalText = originalModule.toString().flatten();
+
+  capnp::FlatArrayMessageReader serializedMessage(serialized);
+  auto serializedModule = serializedMessage.getRoot<jeff::Module>();
+  auto serializedText = serializedModule.toString().flatten();
+
+  llvm::errs() << "Original module:\n" << originalText.cStr() << "\n\n";
+  llvm::errs() << "Serialized module:\n" << serializedText.cStr() << "\n\n";
+
+  ASSERT_EQ(originalText, serializedText);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    , RoundTripTest,
+    ::testing::Values(RoundTripTestCase{"bell_pair.jeff"},
+                      // RoundTripTestCase{"unit_gate_cgphase.jeff"},
+                      // RoundTripTestCase{"unit_gate_cr1.jeff"},
+                      // RoundTripTestCase{"unit_gate_crx.jeff"},
+                      // RoundTripTestCase{"unit_gate_crxy.jeff"},
+                      // RoundTripTestCase{"unit_gate_cry.jeff"},
+                      // RoundTripTestCase{"unit_gate_crz.jeff"},
+                      // RoundTripTestCase{"unit_gate_cswap.jeff"},
+                      // RoundTripTestCase{"unit_gate_cu.jeff"},
+                      // RoundTripTestCase{"unit_gate_gphase.jeff"},
+                      RoundTripTestCase{"unit_gate_h.jeff"},
+                      RoundTripTestCase{"unit_gate_i.jeff"},
+                      RoundTripTestCase{"unit_gate_mch.jeff"},
+                      RoundTripTestCase{"unit_gate_mci.jeff"},
+                      RoundTripTestCase{"unit_gate_mcs.jeff"},
+                      RoundTripTestCase{"unit_gate_mct.jeff"},
+                      RoundTripTestCase{"unit_gate_mcx.jeff"},
+                      RoundTripTestCase{"unit_gate_mcy.jeff"},
+                      RoundTripTestCase{"unit_gate_mcz.jeff"},
+                      // RoundTripTestCase{"unit_gate_r1.jeff"},
+                      // RoundTripTestCase{"unit_gate_rx.jeff"},
+                      // RoundTripTestCase{"unit_gate_rxx.jeff"},
+                      // RoundTripTestCase{"unit_gate_ry.jeff"},
+                      // RoundTripTestCase{"unit_gate_rz.jeff"},
+                      RoundTripTestCase{"unit_gate_s.jeff"},
+                      // RoundTripTestCase{"unit_gate_swap.jeff"},
+                      RoundTripTestCase{"unit_gate_t.jeff"},
+                      // RoundTripTestCase{"unit_gate_u.jeff"},
+                      RoundTripTestCase{"unit_gate_x.jeff"},
+                      RoundTripTestCase{"unit_gate_y.jeff"},
+                      RoundTripTestCase{"unit_gate_z.jeff"},
+                      RoundTripTestCase{"unit_qubit_alloc.jeff"},
+                      RoundTripTestCase{"unit_qubit_free_zero.jeff"},
+                      RoundTripTestCase{"unit_qubit_free.jeff"}
+                      // RoundTripTestCase{"unit_qubit_reset.jeff"}
+                      ));

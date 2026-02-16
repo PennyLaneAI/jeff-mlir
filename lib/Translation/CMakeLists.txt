@@ -1,6 +1,7 @@
 add_mlir_library(
-  MLIRJeffDeserialize
+  MLIRJeffTranslation
   Deserialize.cpp
+  Serialize.cpp
   LINK_LIBS
   MLIRJeff
   MLIRFuncDialect
@@ -9,7 +10,7 @@ add_mlir_library(
   DISABLE_INSTALL)
 
 target_include_directories(
-  MLIRJeffDeserialize PRIVATE ${jeff_SOURCE_DIR}/impl/cpp/src/capnp
+  MLIRJeffTranslation PRIVATE ${jeff_SOURCE_DIR}/impl/cpp/src/capnp
                               ${jeff_BINARY_DIR}/impl/cpp/src/capnp ${CAPNP_INCLUDE_DIRS})
 
-target_compile_definitions(MLIRJeffDeserialize PRIVATE ${CAPNP_DEFINITIONS})
+target_compile_definitions(MLIRJeffTranslation PRIVATE ${CAPNP_DEFINITIONS})

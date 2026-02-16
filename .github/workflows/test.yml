@@ -36,4 +36,6 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Test
-        run: ./build/unittests/jeff-test
+        run: ctest --test-dir build --output-on-failure
+      - name: Deserilize
+        run: ./build/unittests/jeff-mlir-deserialize

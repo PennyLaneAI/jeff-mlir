@@ -33,42 +33,43 @@ struct DeserializationData {
   capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader* strings{};
 };
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // Qubit operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-void convertQubitAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                       DeserializationData& data) {
+void deserializeQubitAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   auto allocOp =
       builder.create<mlir::jeff::QubitAllocOp>(builder.getUnknownLoc());
   mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
 }
 
-void convertQubitFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationData& data) {
+void deserializeQubitFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   builder.create<mlir::jeff::QubitFreeOp>(builder.getUnknownLoc(),
                                           mlirValues[operation.getInputs()[0]]);
 }
 
-void convertQubitFreeZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                          DeserializationData& data) {
+void deserializeQubitFreeZero(mlir::OpBuilder& builder,
+                              jeff::Op::Reader operation,
+                              DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   builder.create<mlir::jeff::QubitFreeZeroOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
 }
 
-void convertMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                    DeserializationData& data) {
+void deserializeMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                        DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   auto op = builder.create<mlir::jeff::QubitMeasureOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
   mlirValues[operation.getOutputs()[0]] = op.getResult();
 }
 
-void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationData& data) {
+void deserializeMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          DeserializationData& data) {
   const auto outputs = operation.getOutputs();
   auto& mlirValues = *data.mlirValues;
   auto op = builder.create<mlir::jeff::QubitMeasureNDOp>(
@@ -77,8 +78,8 @@ void convertMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[1]] = op.getResult();
 }
 
-void convertReset(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  DeserializationData& data) {
+void deserializeReset(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
   const auto outputs = operation.getOutputs();
   auto& mlirValues = *data.mlirValues;
   auto op = builder.create<mlir::jeff::QubitResetOp>(
@@ -87,9 +88,9 @@ void convertReset(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 }
 
 template <typename OpType>
-void convertOneTargetZeroParameter(mlir::OpBuilder& builder,
-                                   jeff::Op::Reader operation,
-                                   DeserializationData& data) {
+void deserializeOneTargetZeroParameter(mlir::OpBuilder& builder,
+                                       jeff::Op::Reader operation,
+                                       DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   auto& mlirValues = *data.mlirValues;
@@ -110,9 +111,9 @@ void convertOneTargetZeroParameter(mlir::OpBuilder& builder,
 }
 
 template <typename OpType>
-void convertOneTargetOneParameter(mlir::OpBuilder& builder,
-                                  jeff::Op::Reader operation,
-                                  DeserializationData& data) {
+void deserializeOneTargetOneParameter(mlir::OpBuilder& builder,
+                                      jeff::Op::Reader operation,
+                                      DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   auto& mlirValues = *data.mlirValues;
@@ -133,8 +134,8 @@ void convertOneTargetOneParameter(mlir::OpBuilder& builder,
   }
 }
 
-void convertU(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-              DeserializationData& data) {
+void deserializeU(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                  DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   auto& mlirValues = *data.mlirValues;
@@ -157,8 +158,8 @@ void convertU(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                 DeserializationData& data) {
+void deserializeSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                     DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   auto& mlirValues = *data.mlirValues;
@@ -179,8 +180,8 @@ void convertSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertGPhase(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                   DeserializationData& data) {
+void deserializeGPhase(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       DeserializationData& data) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   auto& mlirValues = *data.mlirValues;
@@ -200,62 +201,73 @@ void convertGPhase(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationData& data) {
+void deserializeWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          DeserializationData& data) {
   const auto wellKnown =
       operation.getInstruction().getQubit().getGate().getWellKnown();
   switch (wellKnown) {
   case jeff::WellKnownGate::X:
-    convertOneTargetZeroParameter<mlir::jeff::XOp>(builder, operation, data);
+    deserializeOneTargetZeroParameter<mlir::jeff::XOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::Y:
-    convertOneTargetZeroParameter<mlir::jeff::YOp>(builder, operation, data);
+    deserializeOneTargetZeroParameter<mlir::jeff::YOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::Z:
-    convertOneTargetZeroParameter<mlir::jeff::ZOp>(builder, operation, data);
+    deserializeOneTargetZeroParameter<mlir::jeff::ZOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::S:
-    convertOneTargetZeroParameter<mlir::jeff::SOp>(builder, operation, data);
+    deserializeOneTargetZeroParameter<mlir::jeff::SOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::T:
-    convertOneTargetZeroParameter<mlir::jeff::TOp>(builder, operation, data);
+    deserializeOneTargetZeroParameter<mlir::jeff::TOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::R1:
-    convertOneTargetOneParameter<mlir::jeff::R1Op>(builder, operation, data);
+    deserializeOneTargetOneParameter<mlir::jeff::R1Op>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::RX:
-    convertOneTargetOneParameter<mlir::jeff::RxOp>(builder, operation, data);
+    deserializeOneTargetOneParameter<mlir::jeff::RxOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::RY:
-    convertOneTargetOneParameter<mlir::jeff::RyOp>(builder, operation, data);
+    deserializeOneTargetOneParameter<mlir::jeff::RyOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::RZ:
-    convertOneTargetOneParameter<mlir::jeff::RzOp>(builder, operation, data);
+    deserializeOneTargetOneParameter<mlir::jeff::RzOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::H:
-    convertOneTargetZeroParameter<mlir::jeff::HOp>(builder, operation, data);
+    deserializeOneTargetZeroParameter<mlir::jeff::HOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::U:
-    convertU(builder, operation, data);
+    deserializeU(builder, operation, data);
     break;
   case jeff::WellKnownGate::SWAP:
-    convertSwap(builder, operation, data);
+    deserializeSwap(builder, operation, data);
     break;
   case jeff::WellKnownGate::I:
-    convertOneTargetZeroParameter<mlir::jeff::IOp>(builder, operation, data);
+    deserializeOneTargetZeroParameter<mlir::jeff::IOp>(builder, operation,
+                                                       data);
     break;
   case jeff::WellKnownGate::GPHASE:
-    convertGPhase(builder, operation, data);
+    deserializeGPhase(builder, operation, data);
     break;
   default:
-    llvm::errs() << "Cannot convert well-known gate "
+    llvm::errs() << "Cannot deserialize well-known gate "
                  << static_cast<int>(wellKnown) << "\n";
     llvm::report_fatal_error("Unknown well-known gate");
   }
 }
 
-void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                   DeserializationData& data) {
+void deserializeCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   auto& strings = *data.strings;
   const auto inputs = operation.getInputs();
@@ -290,8 +302,8 @@ void convertCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertPpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                DeserializationData& data) {
+void deserializePpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                    DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -326,80 +338,81 @@ void convertPpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                 DeserializationData& data) {
+void deserializeGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                     DeserializationData& data) {
   const auto gate = operation.getInstruction().getQubit().getGate();
   switch (gate.which()) {
   case jeff::QubitGate::WELL_KNOWN:
-    convertWellKnown(builder, operation, data);
+    deserializeWellKnown(builder, operation, data);
     break;
   case jeff::QubitGate::CUSTOM:
-    convertCustom(builder, operation, data);
+    deserializeCustom(builder, operation, data);
     break;
   case jeff::QubitGate::PPR:
-    convertPpr(builder, operation, data);
+    deserializePpr(builder, operation, data);
     break;
   default:
-    llvm::errs() << "Cannot convert gate instruction "
+    llvm::errs() << "Cannot deserialize gate instruction "
                  << static_cast<int>(gate.which()) << "\n";
     llvm::report_fatal_error("Unknown gate instruction");
   }
 }
 
-void convertQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  DeserializationData& data) {
+void deserializeQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
   const auto qubit = operation.getInstruction().getQubit();
   switch (qubit.which()) {
   case jeff::QubitOp::ALLOC:
-    convertQubitAlloc(builder, operation, data);
+    deserializeQubitAlloc(builder, operation, data);
     break;
   case jeff::QubitOp::FREE:
-    convertQubitFree(builder, operation, data);
+    deserializeQubitFree(builder, operation, data);
     break;
   case jeff::QubitOp::FREE_ZERO:
-    convertQubitFreeZero(builder, operation, data);
+    deserializeQubitFreeZero(builder, operation, data);
     break;
   case jeff::QubitOp::MEASURE:
-    convertMeasure(builder, operation, data);
+    deserializeMeasure(builder, operation, data);
     break;
   case jeff::QubitOp::MEASURE_ND:
-    convertMeasureNd(builder, operation, data);
+    deserializeMeasureNd(builder, operation, data);
     break;
   case jeff::QubitOp::RESET:
-    convertReset(builder, operation, data);
+    deserializeReset(builder, operation, data);
     break;
   case jeff::QubitOp::GATE:
-    convertGate(builder, operation, data);
+    deserializeGate(builder, operation, data);
     break;
   default:
-    llvm::errs() << "Cannot convert qubit instruction "
+    llvm::errs() << "Cannot deserialize qubit instruction "
                  << static_cast<int>(qubit.which()) << "\n";
     llvm::report_fatal_error("Unknown qubit instruction");
   }
 }
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // Qureg operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-void convertQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                       DeserializationData& data) {
+void deserializeQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   auto allocOp = builder.create<mlir::jeff::QuregAllocOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
   mlirValues[operation.getOutputs()[0]] = allocOp.getResult();
 }
 
-void convertQuregFreeZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                          DeserializationData& data) {
+void deserializeQuregFreeZero(mlir::OpBuilder& builder,
+                              jeff::Op::Reader operation,
+                              DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   builder.create<mlir::jeff::QuregFreeZeroOp>(
       builder.getUnknownLoc(), mlirValues[operation.getInputs()[0]]);
 }
 
-void convertQuregExtractIndex(mlir::OpBuilder& builder,
-                              jeff::Op::Reader operation,
-                              DeserializationData& data) {
+void deserializeQuregExtractIndex(mlir::OpBuilder& builder,
+                                  jeff::Op::Reader operation,
+                                  DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -409,9 +422,9 @@ void convertQuregExtractIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[1]] = op.getOutQubit();
 }
 
-void convertQuregInsertIndex(mlir::OpBuilder& builder,
-                             jeff::Op::Reader operation,
-                             DeserializationData& data) {
+void deserializeQuregInsertIndex(mlir::OpBuilder& builder,
+                                 jeff::Op::Reader operation,
+                                 DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -421,9 +434,9 @@ void convertQuregInsertIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutQreg();
 }
 
-void convertQuregExtractSlice(mlir::OpBuilder& builder,
-                              jeff::Op::Reader operation,
-                              DeserializationData& data) {
+void deserializeQuregExtractSlice(mlir::OpBuilder& builder,
+                                  jeff::Op::Reader operation,
+                                  DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -434,9 +447,9 @@ void convertQuregExtractSlice(mlir::OpBuilder& builder,
   mlirValues[outputs[1]] = op.getNewQreg();
 }
 
-void convertQuregInsertSlice(mlir::OpBuilder& builder,
-                             jeff::Op::Reader operation,
-                             DeserializationData& data) {
+void deserializeQuregInsertSlice(mlir::OpBuilder& builder,
+                                 jeff::Op::Reader operation,
+                                 DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -446,8 +459,9 @@ void convertQuregInsertSlice(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutQreg();
 }
 
-void convertQuregLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                        DeserializationData& data) {
+void deserializeQuregLength(mlir::OpBuilder& builder,
+                            jeff::Op::Reader operation,
+                            DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -457,8 +471,8 @@ void convertQuregLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[1]] = op.getLength();
 }
 
-void convertQuregSplit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                       DeserializationData& data) {
+void deserializeQuregSplit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -468,8 +482,8 @@ void convertQuregSplit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[1]] = op.getOutQregTwo();
 }
 
-void convertQuregJoin(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationData& data) {
+void deserializeQuregJoin(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -478,8 +492,9 @@ void convertQuregJoin(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getOutQreg();
 }
 
-void convertQuregCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                        DeserializationData& data) {
+void deserializeQuregCreate(mlir::OpBuilder& builder,
+                            jeff::Op::Reader operation,
+                            DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -493,66 +508,66 @@ void convertQuregCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getOutQreg();
 }
 
-void convertQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationData& data) {
+void deserializeQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   builder.create<mlir::jeff::QuregFreeOp>(builder.getUnknownLoc(),
                                           mlirValues[operation.getInputs()[0]]);
 }
 
-void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  DeserializationData& data) {
+void deserializeQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
   const auto instruction = operation.getInstruction();
   const auto qureg = instruction.getQureg();
   switch (qureg.which()) {
   case jeff::QuregOp::ALLOC:
-    convertQuregAlloc(builder, operation, data);
+    deserializeQuregAlloc(builder, operation, data);
     break;
   case jeff::QuregOp::FREE_ZERO:
-    convertQuregFreeZero(builder, operation, data);
+    deserializeQuregFreeZero(builder, operation, data);
     break;
   case jeff::QuregOp::EXTRACT_INDEX:
-    convertQuregExtractIndex(builder, operation, data);
+    deserializeQuregExtractIndex(builder, operation, data);
     break;
   case jeff::QuregOp::INSERT_INDEX:
-    convertQuregInsertIndex(builder, operation, data);
+    deserializeQuregInsertIndex(builder, operation, data);
     break;
   case jeff::QuregOp::EXTRACT_SLICE:
-    convertQuregExtractSlice(builder, operation, data);
+    deserializeQuregExtractSlice(builder, operation, data);
     break;
   case jeff::QuregOp::INSERT_SLICE:
-    convertQuregInsertSlice(builder, operation, data);
+    deserializeQuregInsertSlice(builder, operation, data);
     break;
   case jeff::QuregOp::LENGTH:
-    convertQuregLength(builder, operation, data);
+    deserializeQuregLength(builder, operation, data);
     break;
   case jeff::QuregOp::SPLIT:
-    convertQuregSplit(builder, operation, data);
+    deserializeQuregSplit(builder, operation, data);
     break;
   case jeff::QuregOp::JOIN:
-    convertQuregJoin(builder, operation, data);
+    deserializeQuregJoin(builder, operation, data);
     break;
   case jeff::QuregOp::CREATE:
-    convertQuregCreate(builder, operation, data);
+    deserializeQuregCreate(builder, operation, data);
     break;
   case jeff::QuregOp::FREE:
-    convertQuregFree(builder, operation, data);
+    deserializeQuregFree(builder, operation, data);
     break;
   default:
-    llvm::errs() << "Cannot convert qureg instruction "
+    llvm::errs() << "Cannot deserialize qureg instruction "
                  << static_cast<int>(qureg.which()) << "\n";
     llvm::report_fatal_error("Unknown qureg instruction");
   }
 }
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // Int operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-#define CONVERT_INT_CONST(BIT_WIDTH)                                           \
-  void convertIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                    \
-                                  jeff::Op::Reader operation,                  \
-                                  DeserializationData& data) {                 \
+#define DESERIALIZE_INT_CONST(BIT_WIDTH)                                       \
+  void deserializeIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                \
+                                      jeff::Op::Reader operation,              \
+                                      DeserializationData& data) {             \
     auto& mlirValues = *data.mlirValues;                                       \
     const auto value =                                                         \
         operation.getInstruction().getInt().getConst##BIT_WIDTH();             \
@@ -563,17 +578,17 @@ void convertQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     mlirValues[operation.getOutputs()[0]] = op.getConstant();                  \
   }
 
-CONVERT_INT_CONST(1)
-CONVERT_INT_CONST(8)
-CONVERT_INT_CONST(16)
-CONVERT_INT_CONST(32)
-CONVERT_INT_CONST(64)
+DESERIALIZE_INT_CONST(1)
+DESERIALIZE_INT_CONST(8)
+DESERIALIZE_INT_CONST(16)
+DESERIALIZE_INT_CONST(32)
+DESERIALIZE_INT_CONST(64)
 
-#undef CONVERT_INT_CONST
+#undef DESERIALIZE_INT_CONST
 
-void convertIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                       mlir::jeff::IntUnaryOperation unaryOperation,
-                       DeserializationData& data) {
+void deserializeIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           mlir::jeff::IntUnaryOperation unaryOperation,
+                           DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -582,9 +597,10 @@ void convertIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getB();
 }
 
-void convertIntBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                        mlir::jeff::IntBinaryOperation binaryOperation,
-                        DeserializationData& data) {
+void deserializeIntBinaryOp(mlir::OpBuilder& builder,
+                            jeff::Op::Reader operation,
+                            mlir::jeff::IntBinaryOperation binaryOperation,
+                            DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -594,7 +610,7 @@ void convertIntBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getC();
 }
 
-void convertIntComparisonOp(
+void deserializeIntComparisonOp(
     mlir::OpBuilder& builder, jeff::Op::Reader operation,
     mlir::jeff::IntComparisonOperation comparisonOperation,
     DeserializationData& data) {
@@ -609,32 +625,32 @@ void convertIntComparisonOp(
 
 #define ADD_CONST_CASE(BIT_WIDTH)                                              \
   case jeff::IntOp::CONST##BIT_WIDTH:                                          \
-    convertIntConst##BIT_WIDTH(builder, operation, data);                      \
+    deserializeIntConst##BIT_WIDTH(builder, operation, data);                  \
     break;
 
 #define ADD_UNARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                      \
   case jeff::IntOp::JEFF_ENUM_VALUE:                                           \
-    convertIntUnaryOp(builder, operation,                                      \
-                      mlir::jeff::IntUnaryOperation::_##MLIR_ENUM_SUFFIX,      \
-                      data);                                                   \
+    deserializeIntUnaryOp(builder, operation,                                  \
+                          mlir::jeff::IntUnaryOperation::_##MLIR_ENUM_SUFFIX,  \
+                          data);                                               \
     break;
 
 #define ADD_BINARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                     \
   case jeff::IntOp::JEFF_ENUM_VALUE:                                           \
-    convertIntBinaryOp(builder, operation,                                     \
-                       mlir::jeff::IntBinaryOperation::_##MLIR_ENUM_SUFFIX,    \
-                       data);                                                  \
+    deserializeIntBinaryOp(                                                    \
+        builder, operation,                                                    \
+        mlir::jeff::IntBinaryOperation::_##MLIR_ENUM_SUFFIX, data);            \
     break;
 
 #define ADD_COMPARISON_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                 \
   case jeff::IntOp::JEFF_ENUM_VALUE:                                           \
-    convertIntComparisonOp(                                                    \
+    deserializeIntComparisonOp(                                                \
         builder, operation,                                                    \
         mlir::jeff::IntComparisonOperation::_##MLIR_ENUM_SUFFIX, data);        \
     break;
 
-void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                DeserializationData& data) {
+void deserializeInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                    DeserializationData& data) {
   const auto intInstr = operation.getInstruction().getInt();
   switch (intInstr.which()) {
     ADD_CONST_CASE(1)
@@ -667,7 +683,7 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     ADD_COMPARISON_CASE(LT_U, ltU)
     ADD_COMPARISON_CASE(LTE_U, lteU)
   default:
-    llvm::errs() << "Cannot convert int instruction "
+    llvm::errs() << "Cannot deserialize int instruction "
                  << static_cast<int>(intInstr.which()) << "\n";
     llvm::report_fatal_error("Unknown int instruction");
   }
@@ -678,12 +694,13 @@ void convertInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 #undef ADD_BINARY_CASE
 #undef ADD_COMPARISON_CASE
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // IntArray operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                           DeserializationData& data) {
+void deserializeIntArrayConst1(mlir::OpBuilder& builder,
+                               jeff::Op::Reader operation,
+                               DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto values = operation.getInstruction().getIntArray().getConst1();
   llvm::SmallVector<bool> inArray;
@@ -700,10 +717,10 @@ void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[operation.getOutputs()[0]] = op.getOutArray();
 }
 
-#define CONVERT_INT_ARRAY_CONST(BIT_WIDTH)                                     \
-  void convertIntArrayConst##BIT_WIDTH(mlir::OpBuilder& builder,               \
-                                       jeff::Op::Reader operation,             \
-                                       DeserializationData& data) {            \
+#define DESERIALIZE_INT_ARRAY_CONST(BIT_WIDTH)                                 \
+  void deserializeIntArrayConst##BIT_WIDTH(mlir::OpBuilder& builder,           \
+                                           jeff::Op::Reader operation,         \
+                                           DeserializationData& data) {        \
     auto& mlirValues = *data.mlirValues;                                       \
     const auto values =                                                        \
         operation.getInstruction().getIntArray().getConst##BIT_WIDTH();        \
@@ -722,15 +739,16 @@ void convertIntArrayConst1(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     mlirValues[operation.getOutputs()[0]] = op.getOutArray();                  \
   }
 
-CONVERT_INT_ARRAY_CONST(8)
-CONVERT_INT_ARRAY_CONST(16)
-CONVERT_INT_ARRAY_CONST(32)
-CONVERT_INT_ARRAY_CONST(64)
+DESERIALIZE_INT_ARRAY_CONST(8)
+DESERIALIZE_INT_ARRAY_CONST(16)
+DESERIALIZE_INT_ARRAY_CONST(32)
+DESERIALIZE_INT_ARRAY_CONST(64)
 
-#undef CONVERT_INT_ARRAY_CONST
+#undef DESERIALIZE_INT_ARRAY_CONST
 
-void convertIntArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                         DeserializationData& data) {
+void deserializeIntArrayZero(mlir::OpBuilder& builder,
+                             jeff::Op::Reader operation,
+                             DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -742,9 +760,9 @@ void convertIntArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getOutArray();
 }
 
-void convertIntArrayGetIndex(mlir::OpBuilder& builder,
-                             jeff::Op::Reader operation,
-                             DeserializationData& data) {
+void deserializeIntArrayGetIndex(mlir::OpBuilder& builder,
+                                 jeff::Op::Reader operation,
+                                 DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -757,9 +775,9 @@ void convertIntArrayGetIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getValue();
 }
 
-void convertIntArraySetIndex(mlir::OpBuilder& builder,
-                             jeff::Op::Reader operation,
-                             DeserializationData& data) {
+void deserializeIntArraySetIndex(mlir::OpBuilder& builder,
+                                 jeff::Op::Reader operation,
+                                 DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -770,8 +788,9 @@ void convertIntArraySetIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutArray();
 }
 
-void convertIntArrayLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                           DeserializationData& data) {
+void deserializeIntArrayLength(mlir::OpBuilder& builder,
+                               jeff::Op::Reader operation,
+                               DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -780,8 +799,9 @@ void convertIntArrayLength(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getLength();
 }
 
-void convertIntArrayCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                           DeserializationData& data) {
+void deserializeIntArrayCreate(mlir::OpBuilder& builder,
+                               jeff::Op::Reader operation,
+                               DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -797,55 +817,55 @@ void convertIntArrayCreate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getOutArray();
 }
 
-void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                     DeserializationData& data) {
+void deserializeIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                         DeserializationData& data) {
   const auto intArray = operation.getInstruction().getIntArray();
   switch (intArray.which()) {
   case jeff::IntArrayOp::CONST1:
-    convertIntArrayConst1(builder, operation, data);
+    deserializeIntArrayConst1(builder, operation, data);
     break;
   case jeff::IntArrayOp::CONST8:
-    convertIntArrayConst8(builder, operation, data);
+    deserializeIntArrayConst8(builder, operation, data);
     break;
   case jeff::IntArrayOp::CONST16:
-    convertIntArrayConst16(builder, operation, data);
+    deserializeIntArrayConst16(builder, operation, data);
     break;
   case jeff::IntArrayOp::CONST32:
-    convertIntArrayConst32(builder, operation, data);
+    deserializeIntArrayConst32(builder, operation, data);
     break;
   case jeff::IntArrayOp::CONST64:
-    convertIntArrayConst64(builder, operation, data);
+    deserializeIntArrayConst64(builder, operation, data);
     break;
   case jeff::IntArrayOp::ZERO:
-    convertIntArrayZero(builder, operation, data);
+    deserializeIntArrayZero(builder, operation, data);
     break;
   case jeff::IntArrayOp::GET_INDEX:
-    convertIntArrayGetIndex(builder, operation, data);
+    deserializeIntArrayGetIndex(builder, operation, data);
     break;
   case jeff::IntArrayOp::SET_INDEX:
-    convertIntArraySetIndex(builder, operation, data);
+    deserializeIntArraySetIndex(builder, operation, data);
     break;
   case jeff::IntArrayOp::LENGTH:
-    convertIntArrayLength(builder, operation, data);
+    deserializeIntArrayLength(builder, operation, data);
     break;
   case jeff::IntArrayOp::CREATE:
-    convertIntArrayCreate(builder, operation, data);
+    deserializeIntArrayCreate(builder, operation, data);
     break;
   default:
-    llvm::errs() << "Cannot convert int array instruction "
+    llvm::errs() << "Cannot deserialize int array instruction "
                  << static_cast<int>(intArray.which()) << "\n";
     llvm::report_fatal_error("Unknown int array instruction");
   }
 }
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // Float operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-#define CONVERT_FLOAT_CONST(BIT_WIDTH)                                         \
-  void convertFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,                  \
-                                    jeff::Op::Reader operation,                \
-                                    DeserializationData& data) {               \
+#define DESERIALIZE_FLOAT_CONST(BIT_WIDTH)                                     \
+  void deserializeFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,              \
+                                        jeff::Op::Reader operation,            \
+                                        DeserializationData& data) {           \
     auto& mlirValues = *data.mlirValues;                                       \
     const auto value =                                                         \
         operation.getInstruction().getFloat().getConst##BIT_WIDTH();           \
@@ -856,14 +876,15 @@ void convertIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     mlirValues[operation.getOutputs()[0]] = op.getConstant();                  \
   }
 
-CONVERT_FLOAT_CONST(32)
-CONVERT_FLOAT_CONST(64)
+DESERIALIZE_FLOAT_CONST(32)
+DESERIALIZE_FLOAT_CONST(64)
 
-#undef CONVERT_FLOAT_CONST
+#undef DESERIALIZE_FLOAT_CONST
 
-void convertFloatUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                         mlir::jeff::FloatUnaryOperation unaryOperation,
-                         DeserializationData& data) {
+void deserializeFloatUnaryOp(mlir::OpBuilder& builder,
+                             jeff::Op::Reader operation,
+                             mlir::jeff::FloatUnaryOperation unaryOperation,
+                             DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -872,9 +893,10 @@ void convertFloatUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getB();
 }
 
-void convertFloatBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                          mlir::jeff::FloatBinaryOperation binaryOperation,
-                          DeserializationData& data) {
+void deserializeFloatBinaryOp(mlir::OpBuilder& builder,
+                              jeff::Op::Reader operation,
+                              mlir::jeff::FloatBinaryOperation binaryOperation,
+                              DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -884,7 +906,7 @@ void convertFloatBinaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getC();
 }
 
-void convertFloatComparisonOp(
+void deserializeFloatComparisonOp(
     mlir::OpBuilder& builder, jeff::Op::Reader operation,
     mlir::jeff::FloatComparisonOperation comparisonOperation,
     DeserializationData& data) {
@@ -897,9 +919,9 @@ void convertFloatComparisonOp(
   mlirValues[outputs[0]] = op.getC();
 }
 
-void convertFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      mlir::jeff::FloatIsOperation isOperation,
-                      DeserializationData& data) {
+void deserializeFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                          mlir::jeff::FloatIsOperation isOperation,
+                          DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -910,39 +932,39 @@ void convertFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 #define ADD_CONST_CASE(BIT_WIDTH)                                              \
   case jeff::FloatOp::CONST##BIT_WIDTH:                                        \
-    convertFloatConst##BIT_WIDTH(builder, operation, data);                    \
+    deserializeFloatConst##BIT_WIDTH(builder, operation, data);                \
     break;
 
 #define ADD_UNARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                      \
   case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
-    convertFloatUnaryOp(builder, operation,                                    \
-                        mlir::jeff::FloatUnaryOperation::_##MLIR_ENUM_SUFFIX,  \
-                        data);                                                 \
+    deserializeFloatUnaryOp(                                                   \
+        builder, operation,                                                    \
+        mlir::jeff::FloatUnaryOperation::_##MLIR_ENUM_SUFFIX, data);           \
     break;
 
 #define ADD_BINARY_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                     \
   case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
-    convertFloatBinaryOp(                                                      \
+    deserializeFloatBinaryOp(                                                  \
         builder, operation,                                                    \
         mlir::jeff::FloatBinaryOperation::_##MLIR_ENUM_SUFFIX, data);          \
     break;
 
 #define ADD_COMPARISON_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                 \
   case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
-    convertFloatComparisonOp(                                                  \
+    deserializeFloatComparisonOp(                                              \
         builder, operation,                                                    \
         mlir::jeff::FloatComparisonOperation::_##MLIR_ENUM_SUFFIX, data);      \
     break;
 
 #define ADD_IS_CASE(JEFF_ENUM_VALUE, MLIR_ENUM_SUFFIX)                         \
   case jeff::FloatOp::JEFF_ENUM_VALUE:                                         \
-    convertFloatIsOp(builder, operation,                                       \
-                     mlir::jeff::FloatIsOperation::_is##MLIR_ENUM_SUFFIX,      \
-                     data);                                                    \
+    deserializeFloatIsOp(builder, operation,                                   \
+                         mlir::jeff::FloatIsOperation::_is##MLIR_ENUM_SUFFIX,  \
+                         data);                                                \
     break;
 
-void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  DeserializationData& data) {
+void deserializeFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      DeserializationData& data) {
   const auto floatInstr = operation.getInstruction().getFloat();
   switch (floatInstr.which()) {
     ADD_CONST_CASE(32)
@@ -978,7 +1000,7 @@ void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     ADD_IS_CASE(IS_NAN, Nan)
     ADD_IS_CASE(IS_INF, Inf)
   default:
-    llvm::errs() << "Cannot convert float instruction "
+    llvm::errs() << "Cannot deserialize float instruction "
                  << static_cast<int>(floatInstr.which()) << "\n";
     llvm::report_fatal_error("Unknown float instruction");
   }
@@ -990,13 +1012,13 @@ void convertFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 #undef ADD_COMPARISON_CASE
 #undef ADD_IS_CASE
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // FloatArray operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-void convertFloatArrayConst32(mlir::OpBuilder& builder,
-                              jeff::Op::Reader operation,
-                              DeserializationData& data) {
+void deserializeFloatArrayConst32(mlir::OpBuilder& builder,
+                                  jeff::Op::Reader operation,
+                                  DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto values = operation.getInstruction().getFloatArray().getConst32();
   llvm::SmallVector<float> inArray;
@@ -1013,9 +1035,9 @@ void convertFloatArrayConst32(mlir::OpBuilder& builder,
   mlirValues[operation.getOutputs()[0]] = op.getOutArray();
 }
 
-void convertFloatArrayConst64(mlir::OpBuilder& builder,
-                              jeff::Op::Reader operation,
-                              DeserializationData& data) {
+void deserializeFloatArrayConst64(mlir::OpBuilder& builder,
+                                  jeff::Op::Reader operation,
+                                  DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto values = operation.getInstruction().getFloatArray().getConst64();
   llvm::SmallVector<double> inArray;
@@ -1032,8 +1054,9 @@ void convertFloatArrayConst64(mlir::OpBuilder& builder,
   mlirValues[operation.getOutputs()[0]] = op.getOutArray();
 }
 
-void convertFloatArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                           DeserializationData& data) {
+void deserializeFloatArrayZero(mlir::OpBuilder& builder,
+                               jeff::Op::Reader operation,
+                               DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -1056,9 +1079,9 @@ void convertFloatArrayZero(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   mlirValues[outputs[0]] = op.getOutArray();
 }
 
-void convertFloatArrayGetIndex(mlir::OpBuilder& builder,
-                               jeff::Op::Reader operation,
-                               DeserializationData& data) {
+void deserializeFloatArrayGetIndex(mlir::OpBuilder& builder,
+                                   jeff::Op::Reader operation,
+                                   DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -1071,9 +1094,9 @@ void convertFloatArrayGetIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getValue();
 }
 
-void convertFloatArraySetIndex(mlir::OpBuilder& builder,
-                               jeff::Op::Reader operation,
-                               DeserializationData& data) {
+void deserializeFloatArraySetIndex(mlir::OpBuilder& builder,
+                                   jeff::Op::Reader operation,
+                                   DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -1084,9 +1107,9 @@ void convertFloatArraySetIndex(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutArray();
 }
 
-void convertFloatArrayLength(mlir::OpBuilder& builder,
-                             jeff::Op::Reader operation,
-                             DeserializationData& data) {
+void deserializeFloatArrayLength(mlir::OpBuilder& builder,
+                                 jeff::Op::Reader operation,
+                                 DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -1095,9 +1118,9 @@ void convertFloatArrayLength(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getLength();
 }
 
-void convertFloatArrayCreate(mlir::OpBuilder& builder,
-                             jeff::Op::Reader operation,
-                             DeserializationData& data) {
+void deserializeFloatArrayCreate(mlir::OpBuilder& builder,
+                                 jeff::Op::Reader operation,
+                                 DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -1113,50 +1136,50 @@ void convertFloatArrayCreate(mlir::OpBuilder& builder,
   mlirValues[outputs[0]] = op.getOutArray();
 }
 
-void convertFloatArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                       DeserializationData& data) {
+void deserializeFloatArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                           DeserializationData& data) {
   const auto floatArray = operation.getInstruction().getFloatArray();
   switch (floatArray.which()) {
   case jeff::FloatArrayOp::CONST32:
-    convertFloatArrayConst32(builder, operation, data);
+    deserializeFloatArrayConst32(builder, operation, data);
     break;
   case jeff::FloatArrayOp::CONST64:
-    convertFloatArrayConst64(builder, operation, data);
+    deserializeFloatArrayConst64(builder, operation, data);
     break;
   case jeff::FloatArrayOp::ZERO:
-    convertFloatArrayZero(builder, operation, data);
+    deserializeFloatArrayZero(builder, operation, data);
     break;
   case jeff::FloatArrayOp::GET_INDEX:
-    convertFloatArrayGetIndex(builder, operation, data);
+    deserializeFloatArrayGetIndex(builder, operation, data);
     break;
   case jeff::FloatArrayOp::SET_INDEX:
-    convertFloatArraySetIndex(builder, operation, data);
+    deserializeFloatArraySetIndex(builder, operation, data);
     break;
   case jeff::FloatArrayOp::LENGTH:
-    convertFloatArrayLength(builder, operation, data);
+    deserializeFloatArrayLength(builder, operation, data);
     break;
   case jeff::FloatArrayOp::CREATE:
-    convertFloatArrayCreate(builder, operation, data);
+    deserializeFloatArrayCreate(builder, operation, data);
     break;
   default:
-    llvm::errs() << "Cannot convert float array instruction "
+    llvm::errs() << "Cannot deserialize float array instruction "
                  << static_cast<int>(floatArray.which()) << "\n";
     llvm::report_fatal_error("Unknown float array instruction");
   }
 }
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // SCF operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
 // Forward declaration
-void convertOperations(
+void deserializeOperations(
     mlir::OpBuilder& builder,
     capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
     DeserializationData& data);
 
-void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                   DeserializationData& data) {
+void deserializeSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                       DeserializationData& data) {
   auto loc = builder.getUnknownLoc();
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
@@ -1188,7 +1211,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       mlirValues[branch.getSources()[j]] = arg;
     }
 
-    convertOperations(builder, branches[i].getOperations(), data);
+    deserializeOperations(builder, branches[i].getOperations(), data);
 
     // Retrieve target values
     llvm::SmallVector<mlir::Value> targetValues;
@@ -1213,7 +1236,7 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       mlirValues[defaultRegion.getSources()[i]] = arg;
     }
 
-    convertOperations(builder, defaultRegion.getOperations(), data);
+    deserializeOperations(builder, defaultRegion.getOperations(), data);
 
     // Retrieve target values
     llvm::SmallVector<mlir::Value> targetValues;
@@ -1232,8 +1255,8 @@ void convertSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                DeserializationData& data) {
+void deserializeFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                    DeserializationData& data) {
   auto loc = builder.getUnknownLoc();
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
@@ -1267,7 +1290,7 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       mlirValues[forInstr.getSources()[i]] = arg;
     }
 
-    convertOperations(builder, forInstr.getOperations(), data);
+    deserializeOperations(builder, forInstr.getOperations(), data);
 
     llvm::SmallVector<mlir::Value> outValues;
     outValues.reserve(forInstr.getTargets().size());
@@ -1286,8 +1309,9 @@ void convertFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 }
 
 template <typename MLIR_WHILE_OP_TYPE, typename JEFF_WHILE_OP_READER_TYPE>
-void convertWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  JEFF_WHILE_OP_READER_TYPE reader, DeserializationData& data) {
+void deserializeWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                      JEFF_WHILE_OP_READER_TYPE reader,
+                      DeserializationData& data) {
   auto loc = builder.getUnknownLoc();
   auto& mlirValues = *data.mlirValues;
   const auto inputs = operation.getInputs();
@@ -1316,7 +1340,7 @@ void convertWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       mlirValues[condition.getSources()[i]] = arg;
     }
 
-    convertOperations(builder, condition.getOperations(), data);
+    deserializeOperations(builder, condition.getOperations(), data);
 
     auto result = mlirValues[condition.getTargets()[0]];
     builder.create<mlir::jeff::YieldOp>(loc, result);
@@ -1335,7 +1359,7 @@ void convertWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       mlirValues[body.getSources()[i]] = arg;
     }
 
-    convertOperations(builder, body.getOperations(), data);
+    deserializeOperations(builder, body.getOperations(), data);
 
     // Retrieve target values
     llvm::SmallVector<mlir::Value> targetValues;
@@ -1354,37 +1378,37 @@ void convertWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void convertScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                DeserializationData& data) {
+void deserializeScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                    DeserializationData& data) {
   const auto scf = operation.getInstruction().getScf();
   switch (scf.which()) {
   case jeff::ScfOp::SWITCH:
-    convertSwitch(builder, operation, data);
+    deserializeSwitch(builder, operation, data);
     break;
   case jeff::ScfOp::FOR:
-    convertFor(builder, operation, data);
+    deserializeFor(builder, operation, data);
     break;
   case jeff::ScfOp::WHILE:
-    convertWhile<mlir::jeff::WhileOp, jeff::ScfOp::While::Reader>(
+    deserializeWhile<mlir::jeff::WhileOp, jeff::ScfOp::While::Reader>(
         builder, operation, scf.getWhile(), data);
     break;
   case jeff::ScfOp::DO_WHILE:
-    convertWhile<mlir::jeff::DoWhileOp, jeff::ScfOp::DoWhile::Reader>(
+    deserializeWhile<mlir::jeff::DoWhileOp, jeff::ScfOp::DoWhile::Reader>(
         builder, operation, scf.getDoWhile(), data);
     break;
   default:
-    llvm::errs() << "Cannot convert scf instruction "
+    llvm::errs() << "Cannot deserialize scf instruction "
                  << static_cast<int>(scf.which()) << "\n";
     llvm::report_fatal_error("Unknown scf instruction");
   }
 }
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // Func operations
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                 DeserializationData& data) {
+void deserializeFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+                     DeserializationData& data) {
   auto& mlirValues = *data.mlirValues;
   auto& mlirFuncs = *data.mlirFuncs;
   const auto inputs = operation.getInputs();
@@ -1403,11 +1427,12 @@ void convertFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 // Types
-// --------------------------------------------------
+//===----------------------------------------------------------------------===//
 
-mlir::Type convertIntType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+mlir::Type deserializeIntType(mlir::OpBuilder& builder,
+                              jeff::Type::Reader type) {
   switch (type.getInt()) {
   case 1:
     return builder.getI1Type();
@@ -1420,14 +1445,14 @@ mlir::Type convertIntType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
   case 64:
     return builder.getI64Type();
   default:
-    llvm::errs() << "Cannot convert int type "
+    llvm::errs() << "Cannot deserialize int type "
                  << static_cast<int>(type.getInt()) << "\n";
     llvm::report_fatal_error("Unknown int type");
   }
 }
 
-mlir::Type convertIntArrayType(mlir::OpBuilder& builder,
-                               jeff::Type::Reader type) {
+mlir::Type deserializeIntArrayType(mlir::OpBuilder& builder,
+                                   jeff::Type::Reader type) {
   switch (type.getIntArray()) {
   case 1:
     return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
@@ -1445,27 +1470,28 @@ mlir::Type convertIntArrayType(mlir::OpBuilder& builder,
     return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
                                        builder.getI64Type());
   default:
-    llvm::errs() << "Cannot convert int array type "
+    llvm::errs() << "Cannot deserialize int array type "
                  << static_cast<int>(type.getIntArray()) << "\n";
     llvm::report_fatal_error("Unknown int array type");
   }
 }
 
-mlir::Type convertFloatType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+mlir::Type deserializeFloatType(mlir::OpBuilder& builder,
+                                jeff::Type::Reader type) {
   switch (type.getFloat()) {
   case jeff::FloatPrecision::FLOAT32:
     return builder.getF32Type();
   case jeff::FloatPrecision::FLOAT64:
     return builder.getF64Type();
   default:
-    llvm::errs() << "Cannot convert float type "
+    llvm::errs() << "Cannot deserialize float type "
                  << static_cast<int>(type.getFloat()) << "\n";
     llvm::report_fatal_error("Unknown float type");
   }
 }
 
-mlir::Type convertFloatArrayType(mlir::OpBuilder& builder,
-                                 jeff::Type::Reader type) {
+mlir::Type deserializeFloatArrayType(mlir::OpBuilder& builder,
+                                     jeff::Type::Reader type) {
   switch (type.getFloatArray()) {
   case jeff::FloatPrecision::FLOAT32:
     return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
@@ -1474,34 +1500,34 @@ mlir::Type convertFloatArrayType(mlir::OpBuilder& builder,
     return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
                                        builder.getF64Type());
   default:
-    llvm::errs() << "Cannot convert float array type "
+    llvm::errs() << "Cannot deserialize float array type "
                  << static_cast<int>(type.getFloatArray()) << "\n";
     llvm::report_fatal_error("Unknown float array type");
   }
 }
 
-mlir::Type convertType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+mlir::Type deserializeType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
   switch (type.which()) {
   case jeff::Type::QUBIT:
     return mlir::jeff::QubitType::get(builder.getContext());
   case jeff::Type::QUREG:
     return mlir::jeff::QuregType::get(builder.getContext());
   case jeff::Type::INT:
-    return convertIntType(builder, type);
+    return deserializeIntType(builder, type);
   case jeff::Type::INT_ARRAY:
-    return convertIntArrayType(builder, type);
+    return deserializeIntArrayType(builder, type);
   case jeff::Type::FLOAT:
-    return convertFloatType(builder, type);
+    return deserializeFloatType(builder, type);
   case jeff::Type::FLOAT_ARRAY:
-    return convertFloatArrayType(builder, type);
+    return deserializeFloatArrayType(builder, type);
   default:
-    llvm::errs() << "Cannot convert type " << static_cast<int>(type.which())
+    llvm::errs() << "Cannot deserialize type " << static_cast<int>(type.which())
                  << "\n";
     llvm::report_fatal_error("Unknown type");
   }
 }
 
-void convertOperations(
+void deserializeOperations(
     mlir::OpBuilder& builder,
     capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
     DeserializationData& data) {
@@ -1509,40 +1535,41 @@ void convertOperations(
     const auto instruction = operation.getInstruction();
     switch (instruction.which()) {
     case jeff::Op::Instruction::QUBIT:
-      convertQubit(builder, operation, data);
+      deserializeQubit(builder, operation, data);
       break;
     case jeff::Op::Instruction::QUREG:
-      convertQureg(builder, operation, data);
+      deserializeQureg(builder, operation, data);
       break;
     case jeff::Op::Instruction::INT:
-      convertInt(builder, operation, data);
+      deserializeInt(builder, operation, data);
       break;
     case jeff::Op::Instruction::INT_ARRAY:
-      convertIntArray(builder, operation, data);
+      deserializeIntArray(builder, operation, data);
       break;
     case jeff::Op::Instruction::FLOAT:
-      convertFloat(builder, operation, data);
+      deserializeFloat(builder, operation, data);
       break;
     case jeff::Op::Instruction::FLOAT_ARRAY:
-      convertFloatArray(builder, operation, data);
+      deserializeFloatArray(builder, operation, data);
       break;
     case jeff::Op::Instruction::SCF:
-      convertScf(builder, operation, data);
+      deserializeScf(builder, operation, data);
       break;
     case jeff::Op::Instruction::FUNC:
-      convertFunc(builder, operation, data);
+      deserializeFunc(builder, operation, data);
       break;
     default:
-      llvm::errs() << "Cannot convert instruction "
+      llvm::errs() << "Cannot deserialize instruction "
                    << static_cast<int>(instruction.which()) << "\n";
       llvm::report_fatal_error("Unknown instruction");
     }
   }
 }
 
-void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
-                     jeff::Module::Reader jeffModule,
-                     llvm::DenseMap<uint32_t, mlir::func::FuncOp>& mlirFuncs) {
+void deserializeFunction(
+    mlir::OpBuilder& builder, jeff::Function::Reader function,
+    jeff::Module::Reader jeffModule,
+    llvm::DenseMap<uint32_t, mlir::func::FuncOp>& mlirFuncs) {
   // Get strings
   auto strings = jeffModule.getStrings();
 
@@ -1578,7 +1605,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
   sourceTypes.reserve(sources.size());
   for (const auto source : sources) {
     const auto jeffType = jeffValues[source].getType();
-    sourceTypes.push_back(convertType(builder, jeffType));
+    sourceTypes.push_back(deserializeType(builder, jeffType));
   }
 
   // Get targets
@@ -1589,7 +1616,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
   targetTypes.reserve(targets.size());
   for (auto target : targets) {
     const auto jeffType = jeffValues[target].getType();
-    targetTypes.push_back(convertType(builder, jeffType));
+    targetTypes.push_back(deserializeType(builder, jeffType));
   }
 
   // Create function
@@ -1619,7 +1646,7 @@ void convertFunction(mlir::OpBuilder& builder, jeff::Function::Reader function,
   }
 
   auto data = DeserializationData{&mlirValues, &mlirFuncs, &strings};
-  convertOperations(builder, operations, data);
+  deserializeOperations(builder, operations, data);
 
   llvm::SmallVector<mlir::Value> results;
   results.reserve(body.getTargets().size());
@@ -1660,7 +1687,7 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   mlirFuncs.reserve(functions.size());
 
   for (const auto function : functions) {
-    convertFunction(builder, function, jeffModule, mlirFuncs);
+    deserializeFunction(builder, function, jeffModule, mlirFuncs);
   }
 
   return mlirModule;
