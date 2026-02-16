@@ -1,7 +1,11 @@
 #include "jeff/IR/JeffDialect.h"
 #include "jeff/IR/JeffOps.h"
 
+#include <capnp/common.h>
+#include <capnp/message.h>
 #include <capnp/serialize.h>
+#include <cstddef>
+#include <cstdint>
 #include <jeff.capnp.h>
 #include <kj/array.h>
 #include <llvm/ADT/DenseMap.h>
@@ -10,11 +14,11 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
-#include <mlir/IR/Attributes.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/Types.h>
 #include <mlir/IR/Value.h>
 #include <string>
 #include <unordered_map>
@@ -288,7 +292,7 @@ void collectValues(mlir::func::FuncOp func, SerializationContext& ctx,
 
 void serializeFunction(jeff::Function::Builder funcBuilder,
                        mlir::func::FuncOp func, uint32_t funcNameIdx,
-                       bool isEntryPoint, SerializationContext& ctx) {
+                       SerializationContext& ctx) {
   funcBuilder.setName(funcNameIdx);
 
   auto defBuilder = funcBuilder.initDefinition();
@@ -373,25 +377,8 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
     auto funcName = func.getName().str();
     uint32_t funcNameIdx = ctx.getOrAddString(funcName);
 
-    // Check if this is the entry point
-    bool isEntryPoint = false;
-    if (auto passthroughAttr = func->getAttr("passthrough")) {
-      if (auto arrayAttr = llvm::dyn_cast<mlir::ArrayAttr>(passthroughAttr)) {
-        for (auto attr : arrayAttr) {
-          if (auto strAttr = llvm::dyn_cast<mlir::StringAttr>(attr)) {
-            if (strAttr.getValue() == "entry_point") {
-              isEntryPoint = true;
-              entryPointIdx = funcNameIdx;
-              foundEntryPoint = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-
     auto funcBuilder = functionsBuilder[i];
-    serializeFunction(funcBuilder, func, funcNameIdx, isEntryPoint, ctx);
+    serializeFunction(funcBuilder, func, funcNameIdx, ctx);
   }
 
   // Set entry point

@@ -2,23 +2,26 @@
 #include "jeff/Translation/Deserialize.hpp"
 #include "jeff/Translation/Serialize.hpp"
 
-#include <algorithm>
+#include <capnp/common.h>
+#include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <fcntl.h>
 #include <filesystem>
-#include <fstream>
 #include <gtest/gtest.h>
 #include <jeff.capnp.h>
+#include <kj/array.h>
 #include <kj/string-tree.h>
-#include <llvm/Support/Format.h>
+#include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
-#include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/MLIRContext.h>
-#include <vector>
+#include <ostream>
+#include <string>
 
 namespace fs = std::filesystem;
+
+namespace {
 
 struct RoundTripTestCase {
   std::string fileName;
@@ -42,6 +45,8 @@ kj::Array<capnp::word> readJeffFile(const std::string& path) {
   capnp::readMessageCopyFromFd(fd, message);
   return capnp::messageToFlatArray(message);
 }
+
+} // namespace
 
 TEST_P(RoundTripTest, RoundTrip) {
   const auto& testCase = GetParam();
