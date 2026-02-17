@@ -1679,8 +1679,8 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   auto strings = jeffModule.getStrings();
   auto mlirStrings = llvm::SmallVector<llvm::StringRef>();
   mlirStrings.reserve(strings.size());
-  for (auto i = 0; i < strings.size(); ++i) {
-    mlirStrings.push_back(strings[i].cStr());
+  for (auto string : strings) {
+    mlirStrings.push_back(string.cStr());
   }
 
   // Get functions

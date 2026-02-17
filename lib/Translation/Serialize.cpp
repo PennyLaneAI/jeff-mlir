@@ -2,6 +2,7 @@
 #include "jeff/IR/JeffOps.h"
 
 #include <capnp/common.h>
+#include <capnp/list.h>
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <cstddef>
