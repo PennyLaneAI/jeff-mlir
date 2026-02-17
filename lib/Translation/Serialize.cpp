@@ -29,7 +29,6 @@ namespace {
 struct SerializationContext {
   llvm::DenseMap<mlir::Value, uint32_t> valueMap;
   llvm::DenseMap<mlir::func::FuncOp, uint32_t> funcMap;
-  llvm::SmallVector<mlir::Operation*> operations;
   std::unordered_map<std::string, uint32_t> strings;
 
   uint32_t getValueId(mlir::Value value) {
@@ -47,98 +46,96 @@ struct SerializationContext {
 // Qubit operations
 //===----------------------------------------------------------------------===//
 
-void serializeQubitAlloc(jeff::Op::Builder opBuilder,
-                         mlir::jeff::QubitAllocOp op,
+void serializeQubitAlloc(jeff::Op::Builder builder, mlir::jeff::QubitAllocOp op,
                          SerializationContext& ctx) {
-  auto qubitBuilder = opBuilder.initInstruction().initQubit();
+  auto qubitBuilder = builder.initInstruction().initQubit();
   qubitBuilder.setAlloc();
 
-  opBuilder.initInputs(0);
+  builder.initInputs(0);
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getResult()));
 }
 
-void serializeQubitFree(jeff::Op::Builder opBuilder, mlir::jeff::QubitFreeOp op,
+void serializeQubitFree(jeff::Op::Builder builder, mlir::jeff::QubitFreeOp op,
                         SerializationContext& ctx) {
-  auto qubitBuilder = opBuilder.initInstruction().initQubit();
+  auto qubitBuilder = builder.initInstruction().initQubit();
   qubitBuilder.setFree();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
 
-  opBuilder.initOutputs(0);
+  builder.initOutputs(0);
 }
 
-void serializeQubitFreeZero(jeff::Op::Builder opBuilder,
+void serializeQubitFreeZero(jeff::Op::Builder builder,
                             mlir::jeff::QubitFreeZeroOp op,
                             SerializationContext& ctx) {
-  auto qubitBuilder = opBuilder.initInstruction().initQubit();
+  auto qubitBuilder = builder.initInstruction().initQubit();
   qubitBuilder.setFreeZero();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
 
-  opBuilder.initOutputs(0);
+  builder.initOutputs(0);
 }
 
-void serializeMeasure(jeff::Op::Builder opBuilder,
-                      mlir::jeff::QubitMeasureOp op,
+void serializeMeasure(jeff::Op::Builder builder, mlir::jeff::QubitMeasureOp op,
                       SerializationContext& ctx) {
-  auto qubitBuilder = opBuilder.initInstruction().initQubit();
+  auto qubitBuilder = builder.initInstruction().initQubit();
   qubitBuilder.setMeasure();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getResult()));
 }
 
-void serializeMeasureNd(jeff::Op::Builder opBuilder,
+void serializeMeasureNd(jeff::Op::Builder builder,
                         mlir::jeff::QubitMeasureNDOp op,
                         SerializationContext& ctx) {
-  auto qubitBuilder = opBuilder.initInstruction().initQubit();
+  auto qubitBuilder = builder.initInstruction().initQubit();
   qubitBuilder.setMeasureNd();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
 
-  auto outputs = opBuilder.initOutputs(2);
+  auto outputs = builder.initOutputs(2);
   outputs.set(0, ctx.getValueId(op.getOutQubit()));
   outputs.set(1, ctx.getValueId(op.getResult()));
 }
 
-void serializeReset(jeff::Op::Builder opBuilder, mlir::jeff::QubitResetOp op,
+void serializeReset(jeff::Op::Builder builder, mlir::jeff::QubitResetOp op,
                     SerializationContext& ctx) {
-  auto qubitBuilder = opBuilder.initInstruction().initQubit();
+  auto qubitBuilder = builder.initInstruction().initQubit();
   qubitBuilder.setReset();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getOutQubit()));
 }
 
 template <typename OpType>
-void serializeOneTargetZeroParameter(jeff::Op::Builder opBuilder, OpType op,
+void serializeOneTargetZeroParameter(jeff::Op::Builder builder, OpType op,
                                      jeff::WellKnownGate gate,
                                      SerializationContext& ctx) {
-  auto gateBuilder = opBuilder.initInstruction().initQubit().initGate();
+  auto gateBuilder = builder.initInstruction().initQubit().initGate();
   gateBuilder.setWellKnown(gate);
   gateBuilder.setControlQubits(op.getNumCtrls());
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
 
   auto numControls = op.getNumCtrls();
-  auto inputs = opBuilder.initInputs(1 + numControls);
+  auto inputs = builder.initInputs(1 + numControls);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
   for (uint8_t i = 0; i < numControls; ++i) {
     inputs.set(1 + i, ctx.getValueId(op.getInCtrlQubits()[i]));
   }
 
-  auto outputs = opBuilder.initOutputs(1 + numControls);
+  auto outputs = builder.initOutputs(1 + numControls);
   outputs.set(0, ctx.getValueId(op.getOutQubit()));
   for (uint8_t i = 0; i < numControls; ++i) {
     outputs.set(1 + i, ctx.getValueId(op.getOutCtrlQubits()[i]));
@@ -146,41 +143,41 @@ void serializeOneTargetZeroParameter(jeff::Op::Builder opBuilder, OpType op,
 }
 
 template <typename OpType>
-void serializeOneTargetOneParameter(jeff::Op::Builder opBuilder, OpType op,
+void serializeOneTargetOneParameter(jeff::Op::Builder builder, OpType op,
                                     jeff::WellKnownGate gate,
                                     SerializationContext& ctx) {
-  auto gateBuilder = opBuilder.initInstruction().initQubit().initGate();
+  auto gateBuilder = builder.initInstruction().initQubit().initGate();
   gateBuilder.setWellKnown(gate);
   gateBuilder.setControlQubits(op.getNumCtrls());
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
 
   auto numControls = op.getNumCtrls();
-  auto inputs = opBuilder.initInputs(1 + numControls + 1);
+  auto inputs = builder.initInputs(1 + numControls + 1);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
   for (uint8_t i = 0; i < numControls; ++i) {
     inputs.set(1 + i, ctx.getValueId(op.getInCtrlQubits()[i]));
   }
   inputs.set(1 + numControls, ctx.getValueId(op.getRotation()));
 
-  auto outputs = opBuilder.initOutputs(1 + numControls);
+  auto outputs = builder.initOutputs(1 + numControls);
   outputs.set(0, ctx.getValueId(op.getOutQubit()));
   for (uint8_t i = 0; i < numControls; ++i) {
     outputs.set(1 + i, ctx.getValueId(op.getOutCtrlQubits()[i]));
   }
 }
 
-void serializeU(jeff::Op::Builder opBuilder, mlir::jeff::UOp op,
+void serializeU(jeff::Op::Builder builder, mlir::jeff::UOp op,
                 SerializationContext& ctx) {
 
-  auto gateBuilder = opBuilder.initInstruction().initQubit().initGate();
+  auto gateBuilder = builder.initInstruction().initQubit().initGate();
   gateBuilder.setWellKnown(jeff::WellKnownGate::U);
   gateBuilder.setControlQubits(op.getNumCtrls());
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
 
   auto numControls = op.getNumCtrls();
-  auto inputs = opBuilder.initInputs(1 + numControls + 3);
+  auto inputs = builder.initInputs(1 + numControls + 3);
   inputs.set(0, ctx.getValueId(op.getInQubit()));
   for (uint8_t i = 0; i < numControls; ++i) {
     inputs.set(1 + i, ctx.getValueId(op.getInCtrlQubits()[i]));
@@ -189,30 +186,30 @@ void serializeU(jeff::Op::Builder opBuilder, mlir::jeff::UOp op,
   inputs.set(2 + numControls, ctx.getValueId(op.getPhi()));
   inputs.set(3 + numControls, ctx.getValueId(op.getLambda()));
 
-  auto outputs = opBuilder.initOutputs(1 + numControls);
+  auto outputs = builder.initOutputs(1 + numControls);
   outputs.set(0, ctx.getValueId(op.getOutQubit()));
   for (uint8_t i = 0; i < numControls; ++i) {
     outputs.set(1 + i, ctx.getValueId(op.getOutCtrlQubits()[i]));
   }
 }
 
-void serializeSwap(jeff::Op::Builder opBuilder, mlir::jeff::SwapOp op,
+void serializeSwap(jeff::Op::Builder builder, mlir::jeff::SwapOp op,
                    SerializationContext& ctx) {
-  auto gateBuilder = opBuilder.initInstruction().initQubit().initGate();
+  auto gateBuilder = builder.initInstruction().initQubit().initGate();
   gateBuilder.setWellKnown(jeff::WellKnownGate::SWAP);
   gateBuilder.setControlQubits(op.getNumCtrls());
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
 
   auto numControls = op.getNumCtrls();
-  auto inputs = opBuilder.initInputs(2 + numControls);
+  auto inputs = builder.initInputs(2 + numControls);
   inputs.set(0, ctx.getValueId(op.getInQubitOne()));
   inputs.set(1, ctx.getValueId(op.getInQubitTwo()));
   for (uint8_t i = 0; i < numControls; ++i) {
     inputs.set(2 + i, ctx.getValueId(op.getInCtrlQubits()[i]));
   }
 
-  auto outputs = opBuilder.initOutputs(2 + numControls);
+  auto outputs = builder.initOutputs(2 + numControls);
   outputs.set(0, ctx.getValueId(op.getOutQubitOne()));
   outputs.set(1, ctx.getValueId(op.getOutQubitTwo()));
   for (uint8_t i = 0; i < numControls; ++i) {
@@ -220,30 +217,68 @@ void serializeSwap(jeff::Op::Builder opBuilder, mlir::jeff::SwapOp op,
   }
 }
 
-void serializeGPhase(jeff::Op::Builder opBuilder, mlir::jeff::GPhaseOp op,
+void serializeGPhase(jeff::Op::Builder builder, mlir::jeff::GPhaseOp op,
                      SerializationContext& ctx) {
-  auto gateBuilder = opBuilder.initInstruction().initQubit().initGate();
+  auto gateBuilder = builder.initInstruction().initQubit().initGate();
   gateBuilder.setWellKnown(jeff::WellKnownGate::GPHASE);
   gateBuilder.setControlQubits(op.getNumCtrls());
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
 
   auto numControls = op.getNumCtrls();
-  auto inputs = opBuilder.initInputs(numControls + 1);
+  auto inputs = builder.initInputs(numControls + 1);
   for (uint8_t i = 0; i < numControls; ++i) {
     inputs.set(i, ctx.getValueId(op.getInCtrlQubits()[i]));
   }
   inputs.set(numControls, ctx.getValueId(op.getRotation()));
 
-  auto outputs = opBuilder.initOutputs(numControls);
+  auto outputs = builder.initOutputs(numControls);
   for (uint8_t i = 0; i < numControls; ++i) {
     outputs.set(i, ctx.getValueId(op.getOutCtrlQubits()[i]));
   }
 }
 
-void serializeCustom(jeff::Op::Builder opBuilder, mlir::jeff::CustomOp op,
+void serializeWellKnownGate(jeff::Op::Builder builder,
+                            mlir::Operation* operation,
+                            SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::XOp>(operation)) {
+    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::X, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::YOp>(operation)) {
+    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::Y, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::ZOp>(operation)) {
+    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::Z, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::SOp>(operation)) {
+    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::S, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::TOp>(operation)) {
+    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::T, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::R1Op>(operation)) {
+    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::R1, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::RxOp>(operation)) {
+    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RX, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::RyOp>(operation)) {
+    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RY, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::RzOp>(operation)) {
+    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RZ, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::HOp>(operation)) {
+    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::H, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::UOp>(operation)) {
+    serializeU(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::SwapOp>(operation)) {
+    serializeSwap(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IOp>(operation)) {
+    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::I, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::GPhaseOp>(operation)) {
+    serializeGPhase(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize well-known gate " << operation->getName()
+                 << "\n";
+    llvm::report_fatal_error("Unknown well-known gate");
+  }
+}
+
+void serializeCustom(jeff::Op::Builder builder, mlir::jeff::CustomOp op,
                      SerializationContext& ctx) {
-  auto gateBuilder = opBuilder.initInstruction().initQubit().initGate();
+  auto gateBuilder = builder.initInstruction().initQubit().initGate();
   gateBuilder.setControlQubits(op.getNumCtrls());
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
@@ -252,20 +287,20 @@ void serializeCustom(jeff::Op::Builder opBuilder, mlir::jeff::CustomOp op,
   customBuilder.setNumQubits(op.getNumTargets());
   customBuilder.setNumParams(op.getNumParams());
 
-  auto inputs = opBuilder.initInputs(op.getNumOperands());
+  auto inputs = builder.initInputs(op.getNumOperands());
   for (size_t i = 0; i < op.getNumOperands(); ++i) {
     inputs.set(i, ctx.getValueId(op.getOperand(i)));
   }
 
-  auto outputs = opBuilder.initOutputs(op.getNumResults());
+  auto outputs = builder.initOutputs(op.getNumResults());
   for (size_t i = 0; i < op.getNumResults(); ++i) {
     outputs.set(i, ctx.getValueId(op.getResult(i)));
   }
 }
 
-void serializePpr(jeff::Op::Builder opBuilder, mlir::jeff::PPROp op,
+void serializePpr(jeff::Op::Builder builder, mlir::jeff::PPROp op,
                   SerializationContext& ctx) {
-  auto gateBuilder = opBuilder.initInstruction().initQubit().initGate();
+  auto gateBuilder = builder.initInstruction().initQubit().initGate();
   gateBuilder.setControlQubits(op.getNumCtrls());
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
@@ -293,14 +328,53 @@ void serializePpr(jeff::Op::Builder opBuilder, mlir::jeff::PPROp op,
     }
   }
 
-  auto inputs = opBuilder.initInputs(op.getNumOperands());
+  auto inputs = builder.initInputs(op.getNumOperands());
   for (size_t i = 0; i < op.getNumOperands(); ++i) {
     inputs.set(i, ctx.getValueId(op.getOperand(i)));
   }
 
-  auto outputs = opBuilder.initOutputs(op.getNumResults());
+  auto outputs = builder.initOutputs(op.getNumResults());
   for (size_t i = 0; i < op.getNumResults(); ++i) {
     outputs.set(i, ctx.getValueId(op.getResult(i)));
+  }
+}
+
+void serializeGate(jeff::Op::Builder builder, mlir::Operation* operation,
+                   SerializationContext& ctx) {
+  if (llvm::isa<mlir::jeff::WellKnownGate>(operation)) {
+    serializeWellKnownGate(builder, operation, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::CustomOp>(operation)) {
+    serializeCustom(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::PPROp>(operation)) {
+    serializePpr(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize gate operation " << operation->getName()
+                 << "\n";
+    llvm::report_fatal_error("Unknown gate operation");
+  }
+}
+
+void serializeQubit(jeff::Op::Builder builder, mlir::Operation* operation,
+                    SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::QubitAllocOp>(operation)) {
+    serializeQubitAlloc(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitFreeOp>(operation)) {
+    serializeQubitFree(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitFreeZeroOp>(operation)) {
+    serializeQubitFreeZero(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitMeasureOp>(operation)) {
+    serializeMeasure(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QubitMeasureNDOp>(operation)) {
+    serializeMeasureNd(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitResetOp>(operation)) {
+    serializeReset(builder, op, ctx);
+  } else if (llvm::isa<mlir::jeff::MultipleCtrlQubitsGate>(operation)) {
+    serializeGate(builder, operation, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize qubit operation " << operation->getName()
+                 << "\n";
+    llvm::report_fatal_error("Unknown qubit operation");
   }
 }
 
@@ -308,190 +382,244 @@ void serializePpr(jeff::Op::Builder opBuilder, mlir::jeff::PPROp op,
 // Qureg operations
 //===----------------------------------------------------------------------===//
 
-void serializeQuregAlloc(jeff::Op::Builder opBuilder,
-                         mlir::jeff::QuregAllocOp op,
+void serializeQuregAlloc(jeff::Op::Builder builder, mlir::jeff::QuregAllocOp op,
                          SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setAlloc();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getNumQubits()));
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getResult()));
 }
 
-void serializeQuregFreeZero(jeff::Op::Builder opBuilder,
+void serializeQuregFreeZero(jeff::Op::Builder builder,
                             mlir::jeff::QuregFreeZeroOp op,
                             SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setFreeZero();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getQreg()));
 
-  opBuilder.initOutputs(0);
+  builder.initOutputs(0);
 }
 
-void serializeQuregExtractIndex(jeff::Op::Builder opBuilder,
+void serializeQuregExtractIndex(jeff::Op::Builder builder,
                                 mlir::jeff::QuregExtractIndexOp op,
                                 SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setExtractIndex();
 
-  auto inputs = opBuilder.initInputs(2);
+  auto inputs = builder.initInputs(2);
   inputs.set(0, ctx.getValueId(op.getInQreg()));
   inputs.set(1, ctx.getValueId(op.getIndex()));
 
-  auto outputs = opBuilder.initOutputs(2);
+  auto outputs = builder.initOutputs(2);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
   outputs.set(1, ctx.getValueId(op.getOutQubit()));
 }
 
-void serializeQuregInsertIndex(jeff::Op::Builder opBuilder,
+void serializeQuregInsertIndex(jeff::Op::Builder builder,
                                mlir::jeff::QuregInsertIndexOp op,
                                SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setInsertIndex();
 
-  auto inputs = opBuilder.initInputs(3);
+  auto inputs = builder.initInputs(3);
   inputs.set(0, ctx.getValueId(op.getInQreg()));
   inputs.set(1, ctx.getValueId(op.getInQubit()));
   inputs.set(2, ctx.getValueId(op.getIndex()));
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
 }
 
-void serializeQuregExtractSlice(jeff::Op::Builder opBuilder,
+void serializeQuregExtractSlice(jeff::Op::Builder builder,
                                 mlir::jeff::QuregExtractSliceOp op,
                                 SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setExtractSlice();
 
-  auto inputs = opBuilder.initInputs(3);
+  auto inputs = builder.initInputs(3);
   inputs.set(0, ctx.getValueId(op.getInQreg()));
   inputs.set(1, ctx.getValueId(op.getStart()));
   inputs.set(2, ctx.getValueId(op.getLength()));
 
-  auto outputs = opBuilder.initOutputs(2);
+  auto outputs = builder.initOutputs(2);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
   outputs.set(1, ctx.getValueId(op.getNewQreg()));
 }
 
-void serializeQuregInsertSlice(jeff::Op::Builder opBuilder,
+void serializeQuregInsertSlice(jeff::Op::Builder builder,
                                mlir::jeff::QuregInsertSliceOp op,
                                SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setInsertSlice();
 
-  auto inputs = opBuilder.initInputs(3);
+  auto inputs = builder.initInputs(3);
   inputs.set(0, ctx.getValueId(op.getInQreg()));
   inputs.set(1, ctx.getValueId(op.getNewQreg()));
   inputs.set(2, ctx.getValueId(op.getStart()));
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
 }
 
-void serializeQuregLength(jeff::Op::Builder opBuilder,
+void serializeQuregLength(jeff::Op::Builder builder,
                           mlir::jeff::QuregLengthOp op,
                           SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setLength();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getInQreg()));
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
 }
 
-void serializeQuregSplit(jeff::Op::Builder opBuilder,
-                         mlir::jeff::QuregSplitOp op,
+void serializeQuregSplit(jeff::Op::Builder builder, mlir::jeff::QuregSplitOp op,
                          SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setSplit();
 
-  auto inputs = opBuilder.initInputs(2);
+  auto inputs = builder.initInputs(2);
   inputs.set(0, ctx.getValueId(op.getInQreg()));
   inputs.set(1, ctx.getValueId(op.getIndex()));
 
-  auto outputs = opBuilder.initOutputs(2);
+  auto outputs = builder.initOutputs(2);
   outputs.set(0, ctx.getValueId(op.getOutQregOne()));
   outputs.set(1, ctx.getValueId(op.getOutQregTwo()));
 }
 
-void serializeQuregJoin(jeff::Op::Builder opBuilder, mlir::jeff::QuregJoinOp op,
+void serializeQuregJoin(jeff::Op::Builder builder, mlir::jeff::QuregJoinOp op,
                         SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setJoin();
 
-  auto inputs = opBuilder.initInputs(2);
+  auto inputs = builder.initInputs(2);
   inputs.set(0, ctx.getValueId(op.getInQregOne()));
   inputs.set(1, ctx.getValueId(op.getInQregTwo()));
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
 }
 
-void serializeQuregCreate(jeff::Op::Builder opBuilder,
+void serializeQuregCreate(jeff::Op::Builder builder,
                           mlir::jeff::QuregCreateOp op,
                           SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setCreate();
 
-  auto inputs = opBuilder.initInputs(op.getInQubits().size());
+  auto inputs = builder.initInputs(op.getInQubits().size());
   for (size_t i = 0; i < op.getInQubits().size(); ++i) {
     inputs.set(i, ctx.getValueId(op.getInQubits()[i]));
   }
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
 }
 
-void serializeQuregFree(jeff::Op::Builder opBuilder, mlir::jeff::QuregFreeOp op,
+void serializeQuregFree(jeff::Op::Builder builder, mlir::jeff::QuregFreeOp op,
                         SerializationContext& ctx) {
-  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  auto quregBuilder = builder.initInstruction().initQureg();
   quregBuilder.setFree();
 
-  auto inputs = opBuilder.initInputs(1);
+  auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getQreg()));
 
-  opBuilder.initOutputs(0);
+  builder.initOutputs(0);
+}
+
+void serializeQureg(jeff::Op::Builder builder, mlir::Operation* operation,
+                    SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::QuregAllocOp>(operation)) {
+    serializeQuregAlloc(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeZeroOp>(operation)) {
+    serializeQuregFreeZero(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregExtractIndexOp>(operation)) {
+    serializeQuregExtractIndex(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregInsertIndexOp>(operation)) {
+    serializeQuregInsertIndex(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregExtractSliceOp>(operation)) {
+    serializeQuregExtractSlice(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregInsertSliceOp>(operation)) {
+    serializeQuregInsertSlice(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregLengthOp>(operation)) {
+    serializeQuregLength(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregSplitOp>(operation)) {
+    serializeQuregSplit(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregJoinOp>(operation)) {
+    serializeQuregJoin(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregCreateOp>(operation)) {
+    serializeQuregCreate(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeOp>(operation)) {
+    serializeQuregFree(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize qureg operation " << operation->getName()
+                 << "\n";
+    llvm::report_fatal_error("Unknown qureg operation");
+  }
 }
 
 //===----------------------------------------------------------------------===//
 // Int operations
 //===----------------------------------------------------------------------===//
 
-void serializeIntConst32(jeff::Op::Builder opBuilder,
-                         mlir::jeff::IntConst32Op op,
+void serializeIntConst32(jeff::Op::Builder builder, mlir::jeff::IntConst32Op op,
                          SerializationContext& ctx) {
-  auto intBuilder = opBuilder.initInstruction().initInt();
+  auto intBuilder = builder.initInstruction().initInt();
   intBuilder.setConst32(op.getVal());
 
-  opBuilder.initInputs(0);
+  builder.initInputs(0);
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getConstant()));
+}
+
+void serializeInt(jeff::Op::Builder builder, mlir::Operation* operation,
+                  SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::IntConst32Op>(operation)) {
+    serializeIntConst32(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize int operation " << operation->getName()
+                 << "\n";
+    llvm::report_fatal_error("Unknown int operation");
+  }
 }
 
 //===----------------------------------------------------------------------===//
 // Float operations
 //===----------------------------------------------------------------------===//
 
-void serializeFloatConst64(jeff::Op::Builder opBuilder,
+void serializeFloatConst64(jeff::Op::Builder builder,
                            mlir::jeff::FloatConst64Op op,
                            SerializationContext& ctx) {
-  auto floatBuilder = opBuilder.initInstruction().initFloat();
+  auto floatBuilder = builder.initInstruction().initFloat();
   auto value = op.getVal().convertToDouble();
   floatBuilder.setConst64(value);
 
-  opBuilder.initInputs(0);
+  builder.initInputs(0);
 
-  auto outputs = opBuilder.initOutputs(1);
+  auto outputs = builder.initOutputs(1);
   outputs.set(0, ctx.getValueId(op.getConstant()));
+}
+
+void serializeFloat(jeff::Op::Builder builder, mlir::Operation* operation,
+                    SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst64Op>(operation)) {
+    serializeFloatConst64(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize float operation " << operation->getName()
+                 << "\n";
+    llvm::report_fatal_error("Unknown float operation");
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -504,15 +632,13 @@ void serializeQuregType(jeff::Type::Builder builder) { builder.setQureg(); }
 
 void serializeIntType(jeff::Type::Builder builder, mlir::Type type) {
   auto intType = llvm::cast<mlir::IntegerType>(type);
-  unsigned width = intType.getWidth();
-  builder.setInt(width);
+  builder.setInt(intType.getWidth());
 }
 
 void serializeIntArrayType(jeff::Type::Builder builder, mlir::Type type) {
   auto tensorType = llvm::cast<mlir::RankedTensorType>(type);
   auto elementType = llvm::cast<mlir::IntegerType>(tensorType.getElementType());
-  unsigned width = elementType.getWidth();
-  builder.setIntArray(width);
+  builder.setIntArray(elementType.getWidth());
 }
 
 void serializeFloatType(jeff::Type::Builder builder, mlir::Type type) {
@@ -564,90 +690,16 @@ void serializeType(jeff::Type::Builder builder, mlir::Type type) {
   }
 }
 
-void serializeOperation(jeff::Op::Builder opBuilder, mlir::Operation* operation,
+void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
                         SerializationContext& ctx) {
-  // Qubit operations
-  if (auto op = llvm::dyn_cast<mlir::jeff::QubitAllocOp>(operation)) {
-    serializeQubitAlloc(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitFreeOp>(operation)) {
-    serializeQubitFree(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitFreeZeroOp>(operation)) {
-    serializeQubitFreeZero(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitMeasureOp>(operation)) {
-    serializeMeasure(opBuilder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QubitMeasureNDOp>(operation)) {
-    serializeMeasureNd(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitResetOp>(operation)) {
-    serializeReset(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::XOp>(operation)) {
-    serializeOneTargetZeroParameter(opBuilder, op, jeff::WellKnownGate::X, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::YOp>(operation)) {
-    serializeOneTargetZeroParameter(opBuilder, op, jeff::WellKnownGate::Y, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::ZOp>(operation)) {
-    serializeOneTargetZeroParameter(opBuilder, op, jeff::WellKnownGate::Z, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::SOp>(operation)) {
-    serializeOneTargetZeroParameter(opBuilder, op, jeff::WellKnownGate::S, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::TOp>(operation)) {
-    serializeOneTargetZeroParameter(opBuilder, op, jeff::WellKnownGate::T, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::R1Op>(operation)) {
-    serializeOneTargetOneParameter(opBuilder, op, jeff::WellKnownGate::R1, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::RxOp>(operation)) {
-    serializeOneTargetOneParameter(opBuilder, op, jeff::WellKnownGate::RX, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::RyOp>(operation)) {
-    serializeOneTargetOneParameter(opBuilder, op, jeff::WellKnownGate::RY, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::RzOp>(operation)) {
-    serializeOneTargetOneParameter(opBuilder, op, jeff::WellKnownGate::RZ, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::HOp>(operation)) {
-    serializeOneTargetZeroParameter(opBuilder, op, jeff::WellKnownGate::H, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::UOp>(operation)) {
-    serializeU(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::SwapOp>(operation)) {
-    serializeSwap(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IOp>(operation)) {
-    serializeOneTargetZeroParameter(opBuilder, op, jeff::WellKnownGate::I, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::GPhaseOp>(operation)) {
-    serializeGPhase(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::CustomOp>(operation)) {
-    serializeCustom(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::PPROp>(operation)) {
-    serializePpr(opBuilder, op, ctx);
-  }
-  // Qureg operations
-  else if (auto op = llvm::dyn_cast<mlir::jeff::QuregAllocOp>(operation)) {
-    serializeQuregAlloc(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeZeroOp>(operation)) {
-    serializeQuregFreeZero(opBuilder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregExtractIndexOp>(operation)) {
-    serializeQuregExtractIndex(opBuilder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregInsertIndexOp>(operation)) {
-    serializeQuregInsertIndex(opBuilder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregExtractSliceOp>(operation)) {
-    serializeQuregExtractSlice(opBuilder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregInsertSliceOp>(operation)) {
-    serializeQuregInsertSlice(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregLengthOp>(operation)) {
-    serializeQuregLength(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregSplitOp>(operation)) {
-    serializeQuregSplit(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregJoinOp>(operation)) {
-    serializeQuregJoin(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregCreateOp>(operation)) {
-    serializeQuregCreate(opBuilder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeOp>(operation)) {
-    serializeQuregFree(opBuilder, op, ctx);
-  }
-  // Int operations
-  else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst32Op>(operation)) {
-    serializeIntConst32(opBuilder, op, ctx);
-  }
-  // Float operations
-  else if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst64Op>(operation)) {
-    serializeFloatConst64(opBuilder, op, ctx);
+  if (llvm::isa<mlir::jeff::QubitOperation>(operation)) {
+    serializeQubit(builder, operation, ctx);
+  } else if (llvm::isa<mlir::jeff::QuregOperation>(operation)) {
+    serializeQureg(builder, operation, ctx);
+  } else if (llvm::isa<mlir::jeff::IntOperation>(operation)) {
+    serializeInt(builder, operation, ctx);
+  } else if (llvm::isa<mlir::jeff::FloatOperation>(operation)) {
+    serializeFloat(builder, operation, ctx);
   } else {
     llvm::errs() << "Cannot serialize operation " << operation->getName()
                  << "\n";
@@ -657,7 +709,6 @@ void serializeOperation(jeff::Op::Builder opBuilder, mlir::Operation* operation,
 
 void collectValues(mlir::func::FuncOp func, SerializationContext& ctx,
                    llvm::SmallVector<mlir::Value>& values) {
-  // Collect all values: block arguments and operation results
   for (auto& block : func.getRegion()) {
     for (auto arg : block.getArguments()) {
       uint32_t id = ctx.getValueId(arg);
@@ -679,20 +730,9 @@ void collectValues(mlir::func::FuncOp func, SerializationContext& ctx,
 }
 
 void serializeFunction(jeff::Function::Builder funcBuilder,
-                       mlir::func::FuncOp func, uint32_t funcNameIdx,
-                       SerializationContext& ctx) {
-  funcBuilder.setName(funcNameIdx);
-
+                       mlir::func::FuncOp func, SerializationContext& ctx) {
   auto defBuilder = funcBuilder.initDefinition();
   auto& entryBlock = func.getRegion().front();
-
-  // Collect all operations (except return)
-  llvm::SmallVector<mlir::Operation*> ops;
-  for (auto& op : entryBlock) {
-    if (!llvm::isa<mlir::func::ReturnOp>(&op)) {
-      ops.push_back(&op);
-    }
-  }
 
   // Collect all values
   llvm::SmallVector<mlir::Value> values;
@@ -709,32 +749,31 @@ void serializeFunction(jeff::Function::Builder funcBuilder,
   // Build body
   auto bodyBuilder = defBuilder.initBody();
 
-  // Set sources (function arguments)
-  auto numArgs = entryBlock.getNumArguments();
-  auto sourcesBuilder = bodyBuilder.initSources(numArgs);
-  for (unsigned i = 0; i < numArgs; ++i) {
+  // Set sources
+  const auto numSources = entryBlock.getNumArguments();
+  auto sourcesBuilder = bodyBuilder.initSources(numSources);
+  for (unsigned i = 0; i < numSources; ++i) {
     sourcesBuilder.set(i, ctx.getValueId(entryBlock.getArgument(i)));
   }
 
-  // Set targets (return values)
-  mlir::func::ReturnOp returnOp;
-  for (auto& op : entryBlock) {
-    if (auto ret = llvm::dyn_cast<mlir::func::ReturnOp>(&op)) {
-      returnOp = ret;
-      break;
-    }
-  }
-
-  auto targetsBuilder = bodyBuilder.initTargets(returnOp.getNumOperands());
-  for (unsigned i = 0; i < returnOp.getNumOperands(); ++i) {
+  // Set targets
+  auto returnOp = llvm::cast<mlir::func::ReturnOp>(entryBlock.back());
+  const auto numTargets = returnOp.getNumOperands();
+  auto targetsBuilder = bodyBuilder.initTargets(numTargets);
+  for (unsigned i = 0; i < numTargets; ++i) {
     targetsBuilder.set(i, ctx.getValueId(returnOp.getOperand(i)));
   }
 
   // Serialize operations
-  auto opsBuilder = bodyBuilder.initOperations(ops.size());
-  for (size_t i = 0; i < ops.size(); ++i) {
-    auto opBuilder = opsBuilder[i];
-    serializeOperation(opBuilder, ops[i], ctx);
+  const auto numOperations = entryBlock.getOperations().size() - 1;
+  auto operationBuilders = bodyBuilder.initOperations(numOperations);
+  size_t i = 0;
+  for (auto& operation : entryBlock.getOperations()) {
+    if (llvm::isa<mlir::func::ReturnOp>(operation)) {
+      continue;
+    }
+    serializeOperation(operationBuilders[i], &operation, ctx);
+    ++i;
   }
 }
 
@@ -750,8 +789,9 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
   // Get strings
   auto stringsAttr =
       llvm::cast<mlir::ArrayAttr>(module->getAttr("jeff.strings"));
-  auto stringsBuilder = moduleBuilder.initStrings(stringsAttr.size());
-  for (auto i = 0; i < stringsAttr.size(); ++i) {
+  const auto numStrings = stringsAttr.size();
+  auto stringsBuilder = moduleBuilder.initStrings(numStrings);
+  for (auto i = 0; i < numStrings; ++i) {
     auto str = llvm::cast<mlir::StringAttr>(stringsAttr[i]).getValue().str();
     ctx.strings[str] = i;
     stringsBuilder.set(i, str);
@@ -766,9 +806,9 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
 
   // TODO: Support multiple functions
   auto function = functions[0];
-  auto funcBuilder = functionsBuilder[0];
-  serializeFunction(funcBuilder, function,
-                    ctx.strings[function.getName().str()], ctx);
+  auto functionBuilder = functionsBuilder[0];
+  functionBuilder.setName(ctx.strings[function.getName().str()]);
+  serializeFunction(functionBuilder, function, ctx);
 
   // Set metadata
   moduleBuilder.setTool("");

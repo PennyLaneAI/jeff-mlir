@@ -941,7 +941,7 @@ def SwapOp : WellKnownGate_Op<"swap", []> {
 
 class Qureg_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [QuregOperation]>;
 
-def QuregAllocOp : Qubit_Op<"qureg_alloc", []> {
+def QuregAllocOp : Qureg_Op<"qureg_alloc", []> {
     let summary = "Allocates a new qubit register given a number of qubits in the |0> state.";
     let description = [{}];
 
@@ -959,7 +959,7 @@ def QuregAllocOp : Qubit_Op<"qureg_alloc", []> {
     }];
 }
 
-def QuregFreeOp : Qubit_Op<"qureg_free", []> {
+def QuregFreeOp : Qureg_Op<"qureg_free", []> {
     let summary = "Frees a qubit register.";
     let description = [{}];
 
@@ -973,7 +973,7 @@ def QuregFreeOp : Qubit_Op<"qureg_free", []> {
     }];
 }
 
-def QuregFreeZeroOp : Qubit_Op<"qureg_free_zero", []> {
+def QuregFreeZeroOp : Qureg_Op<"qureg_free_zero", []> {
     let summary = "Frees a qubit register, assuming that all qubits are in the |0> state.";
     let description = [{}];
 
@@ -987,7 +987,7 @@ def QuregFreeZeroOp : Qubit_Op<"qureg_free_zero", []> {
     }];
 }
 
-def QuregExtractIndexOp : Qubit_Op<"qureg_extract_index", []> {
+def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
     let summary = "Extracts a single qubit from a qubit register.";
     let description = [{}];
 
@@ -1007,7 +1007,7 @@ def QuregExtractIndexOp : Qubit_Op<"qureg_extract_index", []> {
     }];
 }
 
-def QuregInsertIndexOp : Qubit_Op<"qureg_insert_index", []> {
+def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
     let summary = "Insert a single qubit from a qubit register.";
     let description = [{}];
 
@@ -1027,7 +1027,7 @@ def QuregInsertIndexOp : Qubit_Op<"qureg_insert_index", []> {
     }];
 }
 
-def QuregExtractSliceOp : Qubit_Op<"qureg_extract_slice", []> {
+def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", []> {
     let summary = "Extract a slice of qubits from a qubit register given a range of indices.";
     let description = [{}];
 
@@ -1048,7 +1048,7 @@ def QuregExtractSliceOp : Qubit_Op<"qureg_extract_slice", []> {
     }];
 }
 
-def QuregInsertSliceOp : Qubit_Op<"qureg_insert_slice", []> {
+def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", []> {
     let summary = "Insert a slice of qubits into a qubit register.";
     let description = [{}];
 
@@ -1068,7 +1068,7 @@ def QuregInsertSliceOp : Qubit_Op<"qureg_insert_slice", []> {
     }];
 }
 
-def QuregLengthOp : Qubit_Op<"qureg_length", []> {
+def QuregLengthOp : Qureg_Op<"qureg_length", []> {
     let summary = "Returns the length of the qubit register.";
     let description = [{}];
 
@@ -1087,7 +1087,7 @@ def QuregLengthOp : Qubit_Op<"qureg_length", []> {
     }];
 }
 
-def QuregSplitOp : Qubit_Op<"qureg_split", []> {
+def QuregSplitOp : Qureg_Op<"qureg_split", []> {
     let summary = "Splits a qubit register into two qubit registers at a given index.";
     let description = [{}];
 
@@ -1107,7 +1107,7 @@ def QuregSplitOp : Qubit_Op<"qureg_split", []> {
     }];
 }
 
-def QuregJoinOp : Qubit_Op<"qureg_join", [SameOperandsAndResultType]> {
+def QuregJoinOp : Qureg_Op<"qureg_join", [SameOperandsAndResultType]> {
     let summary = "Joins together two qubit registers into a single qubit register.";
     let description = [{}];
 
@@ -1126,7 +1126,7 @@ def QuregJoinOp : Qubit_Op<"qureg_join", [SameOperandsAndResultType]> {
     }];
 }
 
-def QuregCreateOp : Qubit_Op<"qureg_create", []> {
+def QuregCreateOp : Qureg_Op<"qureg_create", []> {
     let summary = "Creates a qubit register from a variable number of input qubits.";
     let description = [{}];
 
