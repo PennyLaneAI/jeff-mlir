@@ -305,6 +305,179 @@ void serializePpr(jeff::Op::Builder opBuilder, mlir::jeff::PPROp op,
 }
 
 //===----------------------------------------------------------------------===//
+// Qureg operations
+//===----------------------------------------------------------------------===//
+
+void serializeQuregAlloc(jeff::Op::Builder opBuilder,
+                         mlir::jeff::QuregAllocOp op,
+                         SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setAlloc();
+
+  auto inputs = opBuilder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getNumQubits()));
+
+  auto outputs = opBuilder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getResult()));
+}
+
+void serializeQuregFreeZero(jeff::Op::Builder opBuilder,
+                            mlir::jeff::QuregFreeZeroOp op,
+                            SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setFreeZero();
+
+  auto inputs = opBuilder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getQreg()));
+
+  opBuilder.initOutputs(0);
+}
+
+void serializeQuregExtractIndex(jeff::Op::Builder opBuilder,
+                                mlir::jeff::QuregExtractIndexOp op,
+                                SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setExtractIndex();
+
+  auto inputs = opBuilder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getInQreg()));
+  inputs.set(1, ctx.getValueId(op.getIndex()));
+
+  auto outputs = opBuilder.initOutputs(2);
+  outputs.set(0, ctx.getValueId(op.getOutQreg()));
+  outputs.set(1, ctx.getValueId(op.getOutQubit()));
+}
+
+void serializeQuregInsertIndex(jeff::Op::Builder opBuilder,
+                               mlir::jeff::QuregInsertIndexOp op,
+                               SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setInsertIndex();
+
+  auto inputs = opBuilder.initInputs(3);
+  inputs.set(0, ctx.getValueId(op.getInQreg()));
+  inputs.set(1, ctx.getValueId(op.getInQubit()));
+  inputs.set(2, ctx.getValueId(op.getIndex()));
+
+  auto outputs = opBuilder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutQreg()));
+}
+
+void serializeQuregExtractSlice(jeff::Op::Builder opBuilder,
+                                mlir::jeff::QuregExtractSliceOp op,
+                                SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setExtractSlice();
+
+  auto inputs = opBuilder.initInputs(3);
+  inputs.set(0, ctx.getValueId(op.getInQreg()));
+  inputs.set(1, ctx.getValueId(op.getStart()));
+  inputs.set(2, ctx.getValueId(op.getLength()));
+
+  auto outputs = opBuilder.initOutputs(2);
+  outputs.set(0, ctx.getValueId(op.getOutQreg()));
+  outputs.set(1, ctx.getValueId(op.getNewQreg()));
+}
+
+void serializeQuregInsertSlice(jeff::Op::Builder opBuilder,
+                               mlir::jeff::QuregInsertSliceOp op,
+                               SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setInsertSlice();
+
+  auto inputs = opBuilder.initInputs(3);
+  inputs.set(0, ctx.getValueId(op.getInQreg()));
+  inputs.set(1, ctx.getValueId(op.getNewQreg()));
+  inputs.set(2, ctx.getValueId(op.getStart()));
+
+  auto outputs = opBuilder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutQreg()));
+}
+
+void serializeQuregLength(jeff::Op::Builder opBuilder,
+                          mlir::jeff::QuregLengthOp op,
+                          SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setLength();
+
+  auto inputs = opBuilder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getInQreg()));
+
+  auto outputs = opBuilder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutQreg()));
+}
+
+void serializeQuregSplit(jeff::Op::Builder opBuilder,
+                         mlir::jeff::QuregSplitOp op,
+                         SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setSplit();
+
+  auto inputs = opBuilder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getInQreg()));
+  inputs.set(1, ctx.getValueId(op.getIndex()));
+
+  auto outputs = opBuilder.initOutputs(2);
+  outputs.set(0, ctx.getValueId(op.getOutQregOne()));
+  outputs.set(1, ctx.getValueId(op.getOutQregTwo()));
+}
+
+void serializeQuregJoin(jeff::Op::Builder opBuilder, mlir::jeff::QuregJoinOp op,
+                        SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setJoin();
+
+  auto inputs = opBuilder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getInQregOne()));
+  inputs.set(1, ctx.getValueId(op.getInQregTwo()));
+
+  auto outputs = opBuilder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutQreg()));
+}
+
+void serializeQuregCreate(jeff::Op::Builder opBuilder,
+                          mlir::jeff::QuregCreateOp op,
+                          SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setCreate();
+
+  auto inputs = opBuilder.initInputs(op.getInQubits().size());
+  for (size_t i = 0; i < op.getInQubits().size(); ++i) {
+    inputs.set(i, ctx.getValueId(op.getInQubits()[i]));
+  }
+
+  auto outputs = opBuilder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutQreg()));
+}
+
+void serializeQuregFree(jeff::Op::Builder opBuilder, mlir::jeff::QuregFreeOp op,
+                        SerializationContext& ctx) {
+  auto quregBuilder = opBuilder.initInstruction().initQureg();
+  quregBuilder.setFree();
+
+  auto inputs = opBuilder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getQreg()));
+
+  opBuilder.initOutputs(0);
+}
+
+//===----------------------------------------------------------------------===//
+// Int operations
+//===----------------------------------------------------------------------===//
+
+void serializeIntConst32(jeff::Op::Builder opBuilder,
+                         mlir::jeff::IntConst32Op op,
+                         SerializationContext& ctx) {
+  auto intBuilder = opBuilder.initInstruction().initInt();
+  intBuilder.setConst32(op.getVal());
+
+  opBuilder.initInputs(0);
+
+  auto outputs = opBuilder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getConstant()));
+}
+
+//===----------------------------------------------------------------------===//
 // Float operations
 //===----------------------------------------------------------------------===//
 
@@ -439,6 +612,38 @@ void serializeOperation(jeff::Op::Builder opBuilder, mlir::Operation* operation,
     serializeCustom(opBuilder, op, ctx);
   } else if (auto op = llvm::dyn_cast<mlir::jeff::PPROp>(operation)) {
     serializePpr(opBuilder, op, ctx);
+  }
+  // Qureg operations
+  else if (auto op = llvm::dyn_cast<mlir::jeff::QuregAllocOp>(operation)) {
+    serializeQuregAlloc(opBuilder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeZeroOp>(operation)) {
+    serializeQuregFreeZero(opBuilder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregExtractIndexOp>(operation)) {
+    serializeQuregExtractIndex(opBuilder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregInsertIndexOp>(operation)) {
+    serializeQuregInsertIndex(opBuilder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregExtractSliceOp>(operation)) {
+    serializeQuregExtractSlice(opBuilder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::QuregInsertSliceOp>(operation)) {
+    serializeQuregInsertSlice(opBuilder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregLengthOp>(operation)) {
+    serializeQuregLength(opBuilder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregSplitOp>(operation)) {
+    serializeQuregSplit(opBuilder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregJoinOp>(operation)) {
+    serializeQuregJoin(opBuilder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregCreateOp>(operation)) {
+    serializeQuregCreate(opBuilder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeOp>(operation)) {
+    serializeQuregFree(opBuilder, op, ctx);
+  }
+  // Int operations
+  else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst32Op>(operation)) {
+    serializeIntConst32(opBuilder, op, ctx);
   }
   // Float operations
   else if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst64Op>(operation)) {

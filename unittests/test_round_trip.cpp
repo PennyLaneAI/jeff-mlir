@@ -123,4 +123,14 @@ INSTANTIATE_TEST_SUITE_P(
                       RoundTripTestCase{"unit_qubit_free.jeff"},
                       RoundTripTestCase{"unit_qubit_measure_nd.jeff"},
                       RoundTripTestCase{"unit_qubit_measure.jeff"},
-                      RoundTripTestCase{"unit_qubit_reset.jeff"}));
+                      RoundTripTestCase{"unit_qubit_reset.jeff"},
+                      RoundTripTestCase{"unit_qureg_alloc.jeff"},
+                      RoundTripTestCase{"unit_qureg_create.jeff"},
+                      RoundTripTestCase{"unit_qureg_extract_index.jeff"},
+                      RoundTripTestCase{"unit_qureg_extract_slice.jeff"},
+                      RoundTripTestCase{"unit_qureg_free_zero.jeff"},
+                      RoundTripTestCase{"unit_qureg_free.jeff"},
+                      RoundTripTestCase{"unit_qureg_insert_index.jeff"},
+                      RoundTripTestCase{"unit_qureg_insert_slice.jeff"},
+                      RoundTripTestCase{"unit_qureg_join.jeff"},
+                      RoundTripTestCase{"unit_qureg_split.jeff"}));
