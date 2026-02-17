@@ -63,7 +63,32 @@ def generate_qubit_free_zero() -> None:
 
 
 @register_generator
-def generate_reset() -> None:
+def generate_qubit_measure() -> None:
+    alloc = qubit_alloc()
+    measure = JeffOp(
+        "qubit",
+        "measure",
+        [alloc.outputs[0]],
+        [JeffValue(IntType(1))],
+    )
+    _create_and_write_module([alloc, measure], "unit_qubit_measure.jeff")
+
+
+@register_generator
+def generate_qubit_measure_nd() -> None:
+    alloc = qubit_alloc()
+    measure = JeffOp(
+        "qubit",
+        "measureNd",
+        [alloc.outputs[0]],
+        [JeffValue(QubitType()), JeffValue(IntType(1))],
+    )
+    free = qubit_free(measure.outputs[0])
+    _create_and_write_module([alloc, measure, free], "unit_qubit_measure_nd.jeff")
+
+
+@register_generator
+def generate_qubit_reset() -> None:
     alloc = qubit_alloc()
     reset = JeffOp("qubit", "reset", [alloc.outputs[0]], [JeffValue(QubitType())])
     free = qubit_free(reset.outputs[0])
@@ -233,7 +258,40 @@ def generate_cgphase() -> None:
 
 
 @register_generator
-def generate_rxx() -> None:
+def generate_custom_1() -> None:
+    alloc1 = qubit_alloc()
+    alloc2 = qubit_alloc()
+    gate = quantum_gate("custom", qubits=[alloc1.outputs[0], alloc2.outputs[0]])
+    free1 = qubit_free(gate.outputs[0])
+    free2 = qubit_free(gate.outputs[1])
+    _create_and_write_module(
+        [alloc1, alloc2, gate, free1, free2], "unit_gate_custom_1.jeff"
+    )
+
+
+@register_generator
+def generate_custom_2() -> None:
+    alloc1 = qubit_alloc()
+    alloc2 = qubit_alloc()
+    alloc3 = qubit_alloc()
+    rotation = JeffOp("float", "const64", [], [JeffValue(FloatType(64))], 0.5)
+    gate = quantum_gate(
+        "custom",
+        qubits=[alloc1.outputs[0], alloc2.outputs[0]],
+        params=[rotation.outputs[0]],
+        control_qubits=[alloc3.outputs[0]],
+    )
+    free1 = qubit_free(gate.outputs[0])
+    free2 = qubit_free(gate.outputs[1])
+    free3 = qubit_free(gate.outputs[2])
+    _create_and_write_module(
+        [alloc1, alloc2, alloc3, rotation, gate, free1, free2, free3],
+        "unit_gate_custom_2.jeff",
+    )
+
+
+@register_generator
+def generate_ppr_rxx() -> None:
     alloc1 = qubit_alloc()
     alloc2 = qubit_alloc()
     rotation = JeffOp("float", "const64", [], [JeffValue(FloatType(64))], 0.5)
@@ -246,12 +304,12 @@ def generate_rxx() -> None:
     free2 = qubit_free(gate.outputs[1])
     _create_and_write_module(
         [alloc1, alloc2, rotation, gate, free1, free2],
-        "unit_gate_rxx.jeff",
+        "unit_gate_ppr_rxx.jeff",
     )
 
 
 @register_generator
-def generate_crxy() -> None:
+def generate_ppr_crxy() -> None:
     alloc1 = qubit_alloc()
     alloc2 = qubit_alloc()
     alloc3 = qubit_alloc()
@@ -267,7 +325,7 @@ def generate_crxy() -> None:
     free3 = qubit_free(gate.outputs[2])
     _create_and_write_module(
         [alloc1, alloc2, alloc3, rotation, gate, free1, free2, free3],
-        "unit_gate_crxy.jeff",
+        "unit_gate_ppr_crxy.jeff",
     )
 
 

@@ -10,6 +10,7 @@
 #include <jeff.capnp.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
@@ -30,7 +31,7 @@ namespace {
 struct DeserializationData {
   llvm::DenseMap<uint32_t, mlir::Value>* mlirValues{};
   llvm::DenseMap<uint32_t, mlir::func::FuncOp>* mlirFuncs{};
-  capnp::List<capnp::Text, capnp::Kind::BLOB>::Reader* strings{};
+  llvm::SmallVector<llvm::StringRef>* strings{};
 };
 
 //===----------------------------------------------------------------------===//
@@ -274,7 +275,7 @@ void deserializeCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   const auto outputs = operation.getOutputs();
   const auto gate = operation.getInstruction().getQubit().getGate();
   const auto custom = gate.getCustom();
-  const auto* const name = strings[custom.getName()].cStr();
+  const auto name = strings[custom.getName()];
   const auto numControls = gate.getControlQubits();
   const auto numTargets = custom.getNumQubits();
   const auto numQubits = static_cast<uint32_t>(numTargets + numControls);
@@ -1569,9 +1570,8 @@ void deserializeOperations(
 void deserializeFunction(
     mlir::OpBuilder& builder, jeff::Function::Reader function,
     jeff::Module::Reader jeffModule,
-    llvm::DenseMap<uint32_t, mlir::func::FuncOp>& mlirFuncs) {
-  // Get strings
-  auto strings = jeffModule.getStrings();
+    llvm::DenseMap<uint32_t, mlir::func::FuncOp>& mlirFuncs,
+    llvm::SmallVector<llvm::StringRef>& mlirStrings) {
 
   // Get entry point
   const auto entryPoint = jeffModule.getEntrypoint();
@@ -1620,7 +1620,7 @@ void deserializeFunction(
   }
 
   // Create function
-  const auto* const funcName = strings[function.getName()].cStr();
+  const auto funcName = mlirStrings[function.getName()];
   auto funcType = builder.getFunctionType(sourceTypes, targetTypes);
   auto func = builder.create<mlir::func::FuncOp>(builder.getUnknownLoc(),
                                                  funcName, funcType);
@@ -1630,9 +1630,6 @@ void deserializeFunction(
   if (function.getName() == entryPoint) {
     llvm::SmallVector<mlir::Attribute> attributes;
     attributes.emplace_back(builder.getStringAttr("entry_point"));
-    const auto jeffVersion = std::to_string(jeffModule.getVersion());
-    attributes.emplace_back(builder.getStrArrayAttr({"version", jeffVersion}));
-    // TODO: Add more metadata
     func->setAttr("passthrough", builder.getArrayAttr(attributes));
   }
 
@@ -1645,7 +1642,7 @@ void deserializeFunction(
     mlirValues[sources[i]] = entryBlock.getArgument(i);
   }
 
-  auto data = DeserializationData{&mlirValues, &mlirFuncs, &strings};
+  auto data = DeserializationData{&mlirValues, &mlirFuncs, &mlirStrings};
   deserializeOperations(builder, operations, data);
 
   llvm::SmallVector<mlir::Value> results;
@@ -1678,6 +1675,15 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   auto mlirModule = builder.create<mlir::ModuleOp>(builder.getUnknownLoc());
   builder.setInsertionPointToStart(mlirModule.getBody());
 
+  // Get strings
+  auto strings = jeffModule.getStrings();
+  auto mlirStrings = llvm::SmallVector<llvm::StringRef>();
+  mlirStrings.reserve(strings.size());
+  for (auto i = 0; i < strings.size(); ++i) {
+    mlirStrings.push_back(strings[i].cStr());
+  }
+
+  // Get functions
   if (!jeffModule.hasFunctions()) {
     llvm::report_fatal_error("No functions found in module");
   }
@@ -1687,8 +1693,13 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   mlirFuncs.reserve(functions.size());
 
   for (const auto function : functions) {
-    deserializeFunction(builder, function, jeffModule, mlirFuncs);
+    deserializeFunction(builder, function, jeffModule, mlirFuncs, mlirStrings);
   }
+
+  // Set metadata
+  mlirModule->setAttr("jeff.strings", builder.getStrArrayAttr(mlirStrings));
+  const auto jeffVersion = std::to_string(jeffModule.getVersion());
+  mlirModule->setAttr("jeff.version", builder.getStringAttr(jeffVersion));
 
   return mlirModule;
 }
