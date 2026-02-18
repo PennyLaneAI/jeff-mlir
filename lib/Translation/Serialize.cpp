@@ -31,6 +31,7 @@ struct SerializationContext {
   llvm::DenseMap<mlir::Value, uint32_t> valueMap;
   llvm::DenseMap<mlir::func::FuncOp, uint32_t> funcMap;
   std::unordered_map<std::string, uint32_t> strings;
+  llvm::SmallVector<mlir::Value> mlirValues;
 
   uint32_t getValueId(mlir::Value value) {
     auto it = valueMap.find(value);
@@ -39,6 +40,10 @@ struct SerializationContext {
     }
     uint32_t id = valueMap.size();
     valueMap[value] = id;
+    if (id >= mlirValues.size()) {
+      mlirValues.resize(id + 1);
+    }
+    mlirValues[id] = value;
     return id;
   }
 };
@@ -1242,6 +1247,295 @@ void serializeFloatArray(jeff::Op::Builder builder, mlir::Operation* operation,
     llvm::report_fatal_error("Unknown float array operation");
   }
 }
+//===----------------------------------------------------------------------===//
+// SCF operations
+//===----------------------------------------------------------------------===//
+
+// Forward declaration
+void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
+                        SerializationContext& ctx);
+
+void serializeSwitch(jeff::Op::Builder builder, mlir::jeff::SwitchOp op,
+                     SerializationContext& ctx) {
+  auto switchBuilder = builder.initInstruction().initScf().initSwitch();
+
+  const auto numInputs = op.getNumOperands();
+  auto inputs = builder.initInputs(numInputs);
+  for (size_t i = 0; i < numInputs; ++i) {
+    inputs.set(i, ctx.getValueId(op.getOperand(i)));
+  }
+
+  const auto numOutputs = op.getNumResults();
+  auto outputs = builder.initOutputs(numOutputs);
+  for (size_t i = 0; i < numOutputs; ++i) {
+    outputs.set(i, ctx.getValueId(op.getResult(i)));
+  }
+
+  auto branches = op.getBranches();
+  const auto numBranches = branches.size();
+  auto branchBuilders = switchBuilder.initBranches(numBranches);
+  for (size_t i = 0; i < numBranches; ++i) {
+    auto& block = branches[i].front();
+    auto branchBuilder = branchBuilders[i];
+
+    const auto numSources = block.getNumArguments();
+    auto sources = branchBuilder.initSources(numSources);
+    for (size_t j = 0; j < numSources; ++j) {
+      sources.set(j, ctx.getValueId(block.getArgument(j)));
+    }
+
+    const auto numOperations = block.getOperations().size() - 1;
+    auto operationBuilders = branchBuilder.initOperations(numOperations);
+    size_t j = 0;
+    for (auto& operation : block.getOperations()) {
+      if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
+        continue;
+      }
+      serializeOperation(operationBuilders[j], &operation, ctx);
+      ++j;
+    }
+
+    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
+    const auto numTargets = yieldOp.getNumOperands();
+    auto targets = branchBuilder.initTargets(numTargets);
+    for (size_t j = 0; j < numTargets; ++j) {
+      targets.set(j, ctx.getValueId(yieldOp.getOperand(j)));
+    }
+  }
+
+  {
+    auto& block = op.getDefault().front();
+    auto defaultBuilder = switchBuilder.initDefault();
+
+    const auto numSources = block.getNumArguments();
+    auto sources = defaultBuilder.initSources(numSources);
+    for (size_t i = 0; i < numSources; ++i) {
+      sources.set(i, ctx.getValueId(block.getArgument(i)));
+    }
+
+    const auto numOperations = block.getOperations().size() - 1;
+    auto operationBuilders = defaultBuilder.initOperations(numOperations);
+    size_t i = 0;
+    for (auto& operation : block.getOperations()) {
+      if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
+        continue;
+      }
+      serializeOperation(operationBuilders[i], &operation, ctx);
+      ++i;
+    }
+
+    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
+    const auto numTargets = yieldOp.getNumOperands();
+    auto targets = defaultBuilder.initTargets(numTargets);
+    for (size_t i = 0; i < numTargets; ++i) {
+      targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+    }
+  }
+}
+
+void serializeFor(jeff::Op::Builder builder, mlir::jeff::ForOp op,
+                  SerializationContext& ctx) {
+  auto forBuilder = builder.initInstruction().initScf().initFor();
+
+  const auto numInputs = op.getNumOperands();
+  auto inputs = builder.initInputs(numInputs);
+  for (size_t i = 0; i < numInputs; ++i) {
+    inputs.set(i, ctx.getValueId(op.getOperand(i)));
+  }
+
+  const auto numOutputs = op.getNumResults();
+  auto outputs = builder.initOutputs(numOutputs);
+  for (size_t i = 0; i < numOutputs; ++i) {
+    outputs.set(i, ctx.getValueId(op.getResult(i)));
+  }
+
+  auto& block = op.getBody().front();
+
+  const auto numSources = block.getNumArguments();
+  auto sources = forBuilder.initSources(numSources);
+  for (size_t i = 0; i < numSources; ++i) {
+    sources.set(i, ctx.getValueId(block.getArgument(i)));
+  }
+
+  const auto numOperations = block.getOperations().size() - 1;
+  auto operationBuilders = forBuilder.initOperations(numOperations);
+  size_t i = 0;
+  for (auto& operation : block.getOperations()) {
+    if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
+      continue;
+    }
+    serializeOperation(operationBuilders[i], &operation, ctx);
+    ++i;
+  }
+
+  auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
+  const auto numTargets = yieldOp.getNumOperands();
+  auto targets = forBuilder.initTargets(numTargets);
+  for (size_t i = 0; i < numTargets; ++i) {
+    targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+  }
+}
+
+void serializeWhile(jeff::Op::Builder builder, mlir::jeff::WhileOp op,
+                    SerializationContext& ctx) {
+  auto whileBuilder = builder.initInstruction().initScf().initWhile();
+
+  const auto numInputs = op.getNumOperands();
+  auto inputs = builder.initInputs(numInputs);
+  for (size_t i = 0; i < numInputs; ++i) {
+    inputs.set(i, ctx.getValueId(op.getOperand(i)));
+  }
+
+  const auto numOutputs = op.getNumResults();
+  auto outputs = builder.initOutputs(numOutputs);
+  for (size_t i = 0; i < numOutputs; ++i) {
+    outputs.set(i, ctx.getValueId(op.getResult(i)));
+  }
+
+  {
+    auto& condition = op.getCondition();
+    auto conditionBuilder = whileBuilder.initCondition();
+
+    const auto numSources = condition.getNumArguments();
+    auto sources = conditionBuilder.initSources(numSources);
+    for (size_t i = 0; i < numSources; ++i) {
+      sources.set(i, ctx.getValueId(condition.getArgument(i)));
+    }
+
+    const auto numOperations = condition.front().getOperations().size() - 1;
+    auto operationBuilders = conditionBuilder.initOperations(numOperations);
+    size_t i = 0;
+    for (auto& operation : condition.front().getOperations()) {
+      if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
+        continue;
+      }
+      serializeOperation(operationBuilders[i], &operation, ctx);
+      ++i;
+    }
+
+    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(condition.front().back());
+    auto targets = conditionBuilder.initTargets(1);
+    targets.set(0, ctx.getValueId(yieldOp.getOperand(0)));
+  }
+
+  {
+    auto& body = op.getBody();
+    auto bodyBuilder = whileBuilder.initBody();
+
+    const auto numSources = body.getNumArguments();
+    auto sources = bodyBuilder.initSources(numSources);
+    for (size_t i = 0; i < numSources; ++i) {
+      sources.set(i, ctx.getValueId(body.getArgument(i)));
+    }
+
+    const auto numOperations = body.front().getOperations().size() - 1;
+    auto operationBuilders = bodyBuilder.initOperations(numOperations);
+    size_t i = 0;
+    for (auto& operation : body.front().getOperations()) {
+      if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
+        continue;
+      }
+      serializeOperation(operationBuilders[i], &operation, ctx);
+      ++i;
+    }
+
+    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(body.front().back());
+    const auto numTargets = yieldOp.getNumOperands();
+    auto targets = bodyBuilder.initTargets(numTargets);
+    for (size_t i = 0; i < numTargets; ++i) {
+      targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+    }
+  }
+}
+
+void serializeDoWhile(jeff::Op::Builder builder, mlir::jeff::DoWhileOp op,
+                      SerializationContext& ctx) {
+  auto doWhileBuilder = builder.initInstruction().initScf().initDoWhile();
+
+  const auto numInputs = op.getNumOperands();
+  auto inputs = builder.initInputs(numInputs);
+  for (size_t i = 0; i < numInputs; ++i) {
+    inputs.set(i, ctx.getValueId(op.getOperand(i)));
+  }
+
+  const auto numOutputs = op.getNumResults();
+  auto outputs = builder.initOutputs(numOutputs);
+  for (size_t i = 0; i < numOutputs; ++i) {
+    outputs.set(i, ctx.getValueId(op.getResult(i)));
+  }
+
+  {
+    auto& condition = op.getCondition();
+    auto conditionBuilder = doWhileBuilder.initCondition();
+
+    const auto numSources = condition.getNumArguments();
+    auto sources = conditionBuilder.initSources(numSources);
+    for (size_t i = 0; i < numSources; ++i) {
+      sources.set(i, ctx.getValueId(condition.getArgument(i)));
+    }
+
+    const auto numOperations = condition.front().getOperations().size() - 1;
+    auto operationBuilders = conditionBuilder.initOperations(numOperations);
+    size_t i = 0;
+    for (auto& operation : condition.front().getOperations()) {
+      if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
+        continue;
+      }
+      serializeOperation(operationBuilders[i], &operation, ctx);
+      ++i;
+    }
+
+    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(condition.front().back());
+    auto targets = conditionBuilder.initTargets(1);
+    targets.set(0, ctx.getValueId(yieldOp.getOperand(0)));
+  }
+
+  {
+    auto& body = op.getBody();
+    auto bodyBuilder = doWhileBuilder.initBody();
+
+    const auto numSources = body.getNumArguments();
+    auto sources = bodyBuilder.initSources(numSources);
+    for (size_t i = 0; i < numSources; ++i) {
+      sources.set(i, ctx.getValueId(body.getArgument(i)));
+    }
+
+    const auto numOperations = body.front().getOperations().size() - 1;
+    auto operationBuilders = bodyBuilder.initOperations(numOperations);
+    size_t i = 0;
+    for (auto& operation : body.front().getOperations()) {
+      if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
+        continue;
+      }
+      serializeOperation(operationBuilders[i], &operation, ctx);
+      ++i;
+    }
+
+    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(body.front().back());
+    const auto numTargets = yieldOp.getNumOperands();
+    auto targets = bodyBuilder.initTargets(numTargets);
+    for (size_t i = 0; i < numTargets; ++i) {
+      targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+    }
+  }
+}
+
+void serializeSCF(jeff::Op::Builder builder, mlir::Operation* operation,
+                  SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::SwitchOp>(operation)) {
+    serializeSwitch(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::ForOp>(operation)) {
+    serializeFor(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::WhileOp>(operation)) {
+    serializeWhile(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::DoWhileOp>(operation)) {
+    serializeDoWhile(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize SCF operation " << operation->getName()
+                 << "\n";
+    llvm::report_fatal_error("Unknown SCF operation");
+  }
+}
 
 //===----------------------------------------------------------------------===//
 // Types
@@ -1325,6 +1619,8 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
     serializeFloat(builder, operation, ctx);
   } else if (llvm::isa<mlir::jeff::FloatArrayOperation>(operation)) {
     serializeFloatArray(builder, operation, ctx);
+  } else if (llvm::isa<mlir::jeff::SCFOperation>(operation)) {
+    serializeSCF(builder, operation, ctx);
   } else {
     llvm::errs() << "Cannot serialize operation " << operation->getName()
                  << "\n";
@@ -1332,44 +1628,10 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
   }
 }
 
-void collectValues(mlir::func::FuncOp func, SerializationContext& ctx,
-                   llvm::SmallVector<mlir::Value>& values) {
-  for (auto& block : func.getRegion()) {
-    for (auto arg : block.getArguments()) {
-      uint32_t id = ctx.getValueId(arg);
-      if (id >= values.size()) {
-        values.resize(id + 1);
-      }
-      values[id] = arg;
-    }
-    for (auto& op : block) {
-      for (auto result : op.getResults()) {
-        uint32_t id = ctx.getValueId(result);
-        if (id >= values.size()) {
-          values.resize(id + 1);
-        }
-        values[id] = result;
-      }
-    }
-  }
-}
-
 void serializeFunction(jeff::Function::Builder funcBuilder,
                        mlir::func::FuncOp func, SerializationContext& ctx) {
   auto defBuilder = funcBuilder.initDefinition();
   auto& entryBlock = func.getRegion().front();
-
-  // Collect all values
-  llvm::SmallVector<mlir::Value> values;
-  collectValues(func, ctx, values);
-
-  // Build values list
-  auto valuesBuilder = defBuilder.initValues(values.size());
-  for (size_t i = 0; i < values.size(); ++i) {
-    auto valueBuilder = valuesBuilder[i];
-    auto typeBuilder = valueBuilder.initType();
-    serializeType(typeBuilder, values[i].getType());
-  }
 
   // Build body
   auto bodyBuilder = defBuilder.initBody();
@@ -1399,6 +1661,15 @@ void serializeFunction(jeff::Function::Builder funcBuilder,
     }
     serializeOperation(operationBuilders[i], &operation, ctx);
     ++i;
+  }
+
+  // Build values
+  // TODO: Just use valueMap?
+  auto valuesBuilder = defBuilder.initValues(ctx.mlirValues.size());
+  for (size_t i = 0; i < ctx.mlirValues.size(); ++i) {
+    auto valueBuilder = valuesBuilder[i];
+    auto typeBuilder = valueBuilder.initType();
+    serializeType(typeBuilder, ctx.mlirValues[i].getType());
   }
 }
 

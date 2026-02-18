@@ -218,5 +218,10 @@ INSTANTIATE_TEST_SUITE_P(
         RoundTripTestCase{"unit_float_array_length.jeff"},
         RoundTripTestCase{"unit_float_array_set_index.jeff"},
         RoundTripTestCase{"unit_float_array_zero.jeff"},
+        // SCF operations
+        RoundTripTestCase{"unit_scf_do_while.jeff"},
+        RoundTripTestCase{"unit_scf_for.jeff"},
+        RoundTripTestCase{"unit_scf_switch.jeff"},
+        RoundTripTestCase{"unit_scf_while.jeff"},
         // Integration tests
         RoundTripTestCase{"bell_pair.jeff"}));
