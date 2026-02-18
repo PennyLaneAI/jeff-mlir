@@ -1,4 +1,5 @@
 #include "jeff/IR/JeffDialect.h"
+#include "jeff/IR/JeffInterfaces.h"
 #include "jeff/IR/JeffOps.h"
 
 #include <capnp/common.h>
@@ -739,6 +740,160 @@ void serializeInt(jeff::Op::Builder builder, mlir::Operation* operation,
 }
 
 //===----------------------------------------------------------------------===//
+// IntArray operations
+//===----------------------------------------------------------------------===//
+
+void serializeIntArrayConst1(jeff::Op::Builder builder,
+                             mlir::jeff::IntArrayConst1Op op,
+                             SerializationContext& ctx) {
+  auto intArrayBuilder = builder.initInstruction().initIntArray();
+  auto values = op.getInArray();
+  auto listBuilder = intArrayBuilder.initConst1(values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    listBuilder.set(i, static_cast<bool>(values[i]));
+  }
+
+  builder.initInputs(0);
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+#define SERIALIZE_INT_ARRAY_CONST(BIT_WIDTH)                                   \
+  void serializeIntArrayConst##BIT_WIDTH(                                      \
+      jeff::Op::Builder builder, mlir::jeff::IntArrayConst##BIT_WIDTH##Op op,  \
+      SerializationContext& ctx) {                                             \
+    auto intArrayBuilder = builder.initInstruction().initIntArray();           \
+    auto values = op.getInArray();                                             \
+    auto listBuilder = intArrayBuilder.initConst##BIT_WIDTH(values.size());    \
+    for (size_t i = 0; i < values.size(); ++i) {                               \
+      listBuilder.set(i, static_cast<uint##BIT_WIDTH##_t>(values[i]));         \
+    }                                                                          \
+                                                                               \
+    builder.initInputs(0);                                                     \
+                                                                               \
+    auto outputs = builder.initOutputs(1);                                     \
+    outputs.set(0, ctx.getValueId(op.getOutArray()));                          \
+  }
+
+SERIALIZE_INT_ARRAY_CONST(8)
+SERIALIZE_INT_ARRAY_CONST(16)
+SERIALIZE_INT_ARRAY_CONST(32)
+SERIALIZE_INT_ARRAY_CONST(64)
+
+#undef SERIALIZE_INT_ARRAY_CONST
+
+void serializeIntArrayZero(jeff::Op::Builder builder,
+                           mlir::jeff::IntArrayZeroOp op,
+                           SerializationContext& ctx) {
+  auto intArrayBuilder = builder.initInstruction().initIntArray();
+  auto tensorType =
+      llvm::cast<mlir::RankedTensorType>(op.getOutArray().getType());
+  auto elementType = llvm::cast<mlir::IntegerType>(tensorType.getElementType());
+  intArrayBuilder.setZero(elementType.getWidth());
+
+  auto inputs = builder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getLength()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeIntArrayGetIndex(jeff::Op::Builder builder,
+                               mlir::jeff::IntArrayGetIndexOp op,
+                               SerializationContext& ctx) {
+  auto intArrayBuilder = builder.initInstruction().initIntArray();
+  intArrayBuilder.setGetIndex();
+
+  auto inputs = builder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getInArray()));
+  inputs.set(1, ctx.getValueId(op.getIndex()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getValue()));
+}
+
+void serializeIntArraySetIndex(jeff::Op::Builder builder,
+                               mlir::jeff::IntArraySetIndexOp op,
+                               SerializationContext& ctx) {
+  auto intArrayBuilder = builder.initInstruction().initIntArray();
+  intArrayBuilder.setSetIndex();
+
+  auto inputs = builder.initInputs(3);
+  inputs.set(0, ctx.getValueId(op.getInArray()));
+  inputs.set(1, ctx.getValueId(op.getIndex()));
+  inputs.set(2, ctx.getValueId(op.getValue()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeIntArrayLength(jeff::Op::Builder builder,
+                             mlir::jeff::IntArrayLengthOp op,
+                             SerializationContext& ctx) {
+  auto intArrayBuilder = builder.initInstruction().initIntArray();
+  intArrayBuilder.setLength();
+
+  auto inputs = builder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getInArray()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getLength()));
+}
+
+void serializeIntArrayCreate(jeff::Op::Builder builder,
+                             mlir::jeff::IntArrayCreateOp op,
+                             SerializationContext& ctx) {
+  auto intArrayBuilder = builder.initInstruction().initIntArray();
+  intArrayBuilder.setCreate();
+
+  auto inputs = builder.initInputs(op.getInArray().size());
+  for (size_t i = 0; i < op.getInArray().size(); ++i) {
+    inputs.set(i, ctx.getValueId(op.getInArray()[i]));
+  }
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeIntArray(jeff::Op::Builder builder, mlir::Operation* operation,
+                       SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::IntArrayConst1Op>(operation)) {
+    serializeIntArrayConst1(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArrayConst8Op>(operation)) {
+    serializeIntArrayConst8(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArrayConst16Op>(operation)) {
+    serializeIntArrayConst16(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArrayConst32Op>(operation)) {
+    serializeIntArrayConst32(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArrayConst64Op>(operation)) {
+    serializeIntArrayConst64(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntArrayZeroOp>(operation)) {
+    serializeIntArrayZero(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArrayGetIndexOp>(operation)) {
+    serializeIntArrayGetIndex(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArraySetIndexOp>(operation)) {
+    serializeIntArraySetIndex(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArrayLengthOp>(operation)) {
+    serializeIntArrayLength(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::IntArrayCreateOp>(operation)) {
+    serializeIntArrayCreate(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize int array operation "
+                 << operation->getName() << "\n";
+    llvm::report_fatal_error("Unknown int array operation");
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Float operations
 //===----------------------------------------------------------------------===//
 
@@ -842,6 +997,8 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
     serializeQureg(builder, operation, ctx);
   } else if (llvm::isa<mlir::jeff::IntOperation>(operation)) {
     serializeInt(builder, operation, ctx);
+  } else if (llvm::isa<mlir::jeff::IntArrayOperation>(operation)) {
+    serializeIntArray(builder, operation, ctx);
   } else if (llvm::isa<mlir::jeff::FloatOperation>(operation)) {
     serializeFloat(builder, operation, ctx);
   } else {

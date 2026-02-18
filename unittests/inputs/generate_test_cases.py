@@ -15,6 +15,7 @@ from jeff import (
     pauli_rotation,
     QuregType,
     WhileSCF,
+    IntArrayType,
     DoWhileSCF,
 )
 
@@ -553,6 +554,19 @@ def generate_qureg_create() -> None:
 
 
 @register_generator
+def generate_qureg_free() -> None:
+    num_qubits = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
+    alloc = JeffOp(
+        "qureg",
+        "alloc",
+        [num_qubits.outputs[0]],
+        [JeffValue(QuregType())],
+    )
+    free = JeffOp("qureg", "free", [alloc.outputs[0]], [])
+    _create_and_write_module([num_qubits, alloc, free], "unit_qureg_free.jeff")
+
+
+@register_generator
 def generate_int_const1() -> None:
     const = JeffOp("int", "const1", [], [JeffValue(IntType(1))], True)
     _create_and_write_module([const], "unit_int_const1.jeff")
@@ -627,16 +641,120 @@ def generate_int_comparison() -> None:
 
 
 @register_generator
-def generate_qureg_free() -> None:
-    num_qubits = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
-    alloc = JeffOp(
-        "qureg",
-        "alloc",
-        [num_qubits.outputs[0]],
-        [JeffValue(QuregType())],
+def generate_int_array_const1() -> None:
+    const = JeffOp(
+        "intArray", "const1", [], [JeffValue(IntArrayType(1))], [True, False, True]
     )
-    free = JeffOp("qureg", "free", [alloc.outputs[0]], [])
-    _create_and_write_module([num_qubits, alloc, free], "unit_qureg_free.jeff")
+    _create_and_write_module([const], "unit_int_array_const1.jeff")
+
+
+@register_generator
+def generate_int_array_const() -> None:
+    for bit_width in [8, 16, 32, 64]:
+        const = JeffOp(
+            "intArray",
+            f"const{bit_width}",
+            [],
+            [JeffValue(IntArrayType(bit_width))],
+            [1, 2, 3],
+        )
+        _create_and_write_module([const], f"unit_int_array_const{bit_width}.jeff")
+
+
+@register_generator
+def generate_int_array_zero() -> None:
+    length = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
+    zero = JeffOp(
+        "intArray",
+        "zero",
+        [length.outputs[0]],
+        [JeffValue(IntArrayType(32))],
+        32,
+    )
+    _create_and_write_module([length, zero], "unit_int_array_zero.jeff")
+
+
+@register_generator
+def generate_int_array_get_index() -> None:
+    index = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 2)
+    array = JeffOp(
+        "intArray",
+        "const32",
+        [],
+        [JeffValue(IntArrayType(32))],
+        [1, 2, 3],
+    )
+    get_index = JeffOp(
+        "intArray",
+        "getIndex",
+        [array.outputs[0], index.outputs[0]],
+        [JeffValue(IntType(32))],
+    )
+    _create_and_write_module(
+        [index, array, get_index],
+        "unit_int_array_get_index.jeff",
+    )
+
+
+@register_generator
+def generate_int_array_set_index() -> None:
+    index = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 2)
+    value = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
+    array = JeffOp(
+        "intArray",
+        "const32",
+        [],
+        [JeffValue(IntArrayType(32))],
+        [1, 2, 3],
+    )
+    set_index = JeffOp(
+        "intArray",
+        "setIndex",
+        [array.outputs[0], index.outputs[0], value.outputs[0]],
+        [JeffValue(IntArrayType(32))],
+    )
+    _create_and_write_module(
+        [index, value, array, set_index],
+        "unit_int_array_set_index.jeff",
+    )
+
+
+@register_generator
+def generate_int_array_length() -> None:
+    array = JeffOp(
+        "intArray",
+        "const32",
+        [],
+        [JeffValue(IntArrayType(32))],
+        [1, 2, 3],
+    )
+    length = JeffOp(
+        "intArray",
+        "length",
+        [array.outputs[0]],
+        [JeffValue(IntType(32))],
+    )
+    _create_and_write_module(
+        [array, length],
+        "unit_int_array_length.jeff",
+    )
+
+
+@register_generator
+def generate_int_array_create() -> None:
+    value1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 1)
+    value2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 2)
+    value3 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
+    array_create = JeffOp(
+        "intArray",
+        "create",
+        [value1.outputs[0], value2.outputs[0], value3.outputs[0]],
+        [JeffValue(IntArrayType(32))],
+    )
+    _create_and_write_module(
+        [value1, value2, value3, array_create],
+        "unit_int_array_create.jeff",
+    )
 
 
 @register_generator
