@@ -572,21 +572,165 @@ void serializeQureg(jeff::Op::Builder builder, mlir::Operation* operation,
 // Int operations
 //===----------------------------------------------------------------------===//
 
-void serializeIntConst32(jeff::Op::Builder builder, mlir::jeff::IntConst32Op op,
-                         SerializationContext& ctx) {
-  auto intBuilder = builder.initInstruction().initInt();
-  intBuilder.setConst32(op.getVal());
+#define SERIALIZE_INT_CONST(BIT_WIDTH)                                         \
+  void serializeIntConst##BIT_WIDTH(jeff::Op::Builder builder,                 \
+                                    mlir::jeff::IntConst##BIT_WIDTH##Op op,    \
+                                    SerializationContext& ctx) {               \
+    auto intBuilder = builder.initInstruction().initInt();                     \
+    intBuilder.setConst##BIT_WIDTH(op.getVal());                               \
+                                                                               \
+    builder.initInputs(0);                                                     \
+                                                                               \
+    auto outputs = builder.initOutputs(1);                                     \
+    outputs.set(0, ctx.getValueId(op.getConstant()));                          \
+  }
 
-  builder.initInputs(0);
+SERIALIZE_INT_CONST(1)
+SERIALIZE_INT_CONST(8)
+SERIALIZE_INT_CONST(16)
+SERIALIZE_INT_CONST(32)
+SERIALIZE_INT_CONST(64)
+
+#undef SERIALIZE_INT_CONST
+
+void serializeIntUnary(jeff::Op::Builder builder, mlir::jeff::IntUnaryOp op,
+                       SerializationContext& ctx) {
+  auto intBuilder = builder.initInstruction().initInt();
+  switch (op.getOp()) {
+  case mlir::jeff::IntUnaryOperation::_not:
+    intBuilder.setNot();
+    break;
+  case mlir::jeff::IntUnaryOperation::_abs:
+    intBuilder.setAbs();
+    break;
+  default:
+    llvm::report_fatal_error("Unknown int unary operation");
+  }
+
+  auto inputs = builder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getA()));
 
   auto outputs = builder.initOutputs(1);
-  outputs.set(0, ctx.getValueId(op.getConstant()));
+  outputs.set(0, ctx.getValueId(op.getB()));
+}
+
+void serializeIntBinary(jeff::Op::Builder builder, mlir::jeff::IntBinaryOp op,
+                        SerializationContext& ctx) {
+  auto intBuilder = builder.initInstruction().initInt();
+  switch (op.getOp()) {
+  case mlir::jeff::IntBinaryOperation::_add:
+    intBuilder.setAdd();
+    break;
+  case mlir::jeff::IntBinaryOperation::_sub:
+    intBuilder.setSub();
+    break;
+  case mlir::jeff::IntBinaryOperation::_mul:
+    intBuilder.setMul();
+    break;
+  case mlir::jeff::IntBinaryOperation::_divS:
+    intBuilder.setDivS();
+    break;
+  case mlir::jeff::IntBinaryOperation::_divU:
+    intBuilder.setDivU();
+    break;
+  case mlir::jeff::IntBinaryOperation::_pow:
+    intBuilder.setPow();
+    break;
+  case mlir::jeff::IntBinaryOperation::_and:
+    intBuilder.setAnd();
+    break;
+  case mlir::jeff::IntBinaryOperation::_or:
+    intBuilder.setOr();
+    break;
+  case mlir::jeff::IntBinaryOperation::_xor:
+    intBuilder.setXor();
+    break;
+  case mlir::jeff::IntBinaryOperation::_minS:
+    intBuilder.setMinS();
+    break;
+  case mlir::jeff::IntBinaryOperation::_minU:
+    intBuilder.setMinU();
+    break;
+  case mlir::jeff::IntBinaryOperation::_maxS:
+    intBuilder.setMaxS();
+    break;
+  case mlir::jeff::IntBinaryOperation::_maxU:
+    intBuilder.setMaxU();
+    break;
+  case mlir::jeff::IntBinaryOperation::_remS:
+    intBuilder.setRemS();
+    break;
+  case mlir::jeff::IntBinaryOperation::_remU:
+    intBuilder.setRemU();
+    break;
+  case mlir::jeff::IntBinaryOperation::_shl:
+    intBuilder.setShl();
+    break;
+  case mlir::jeff::IntBinaryOperation::_shr:
+    intBuilder.setShr();
+    break;
+  default:
+    llvm::report_fatal_error("Unknown int binary operation");
+  }
+
+  auto inputs = builder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getA()));
+  inputs.set(1, ctx.getValueId(op.getB()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getC()));
+}
+
+void serializeIntComparison(jeff::Op::Builder builder,
+                            mlir::jeff::IntComparisonOp op,
+                            SerializationContext& ctx) {
+  auto intBuilder = builder.initInstruction().initInt();
+  switch (op.getOp()) {
+  case mlir::jeff::IntComparisonOperation::_eq:
+    intBuilder.setEq();
+    break;
+  case mlir::jeff::IntComparisonOperation::_ltS:
+    intBuilder.setLtS();
+    break;
+  case mlir::jeff::IntComparisonOperation::_lteS:
+    intBuilder.setLteS();
+    break;
+  case mlir::jeff::IntComparisonOperation::_ltU:
+    intBuilder.setLtU();
+    break;
+  case mlir::jeff::IntComparisonOperation::_lteU:
+    intBuilder.setLteU();
+    break;
+  default:
+    llvm::report_fatal_error("Unknown int comparison operation");
+  }
+
+  auto inputs = builder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getA()));
+  inputs.set(1, ctx.getValueId(op.getB()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getResult()));
 }
 
 void serializeInt(jeff::Op::Builder builder, mlir::Operation* operation,
                   SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::IntConst32Op>(operation)) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::IntConst1Op>(operation)) {
+    serializeIntConst1(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst8Op>(operation)) {
+    serializeIntConst8(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst16Op>(operation)) {
+    serializeIntConst16(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst32Op>(operation)) {
     serializeIntConst32(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst64Op>(operation)) {
+    serializeIntConst64(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntUnaryOp>(operation)) {
+    serializeIntUnary(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntBinaryOp>(operation)) {
+    serializeIntBinary(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntComparisonOp>(operation)) {
+    serializeIntComparison(builder, op, ctx);
   } else {
     llvm::errs() << "Cannot serialize int operation " << operation->getName()
                  << "\n";

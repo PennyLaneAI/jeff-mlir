@@ -553,6 +553,80 @@ def generate_qureg_create() -> None:
 
 
 @register_generator
+def generate_int_const1() -> None:
+    const = JeffOp("int", "const1", [], [JeffValue(IntType(1))], True)
+    _create_and_write_module([const], "unit_int_const1.jeff")
+
+
+@register_generator
+def generate_int_const() -> None:
+    for bit_width in [8, 16, 32, 64]:
+        const = JeffOp(
+            "int", f"const{bit_width}", [], [JeffValue(IntType(bit_width))], 5
+        )
+        _create_and_write_module([const], f"unit_int_const{bit_width}.jeff")
+
+
+@register_generator
+def generate_int_unary() -> None:
+    operations = ["not", "abs"]
+    for operation in operations:
+        const = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 42)
+        unary = JeffOp("int", operation, [const.outputs[0]], [JeffValue(IntType(32))])
+        _create_and_write_module([const, unary], f"unit_int_{operation}.jeff")
+
+
+@register_generator
+def generate_int_binary() -> None:
+    operations = [
+        "add",
+        "sub",
+        "mul",
+        "divS",
+        "divU",
+        "pow",
+        "and",
+        "or",
+        "xor",
+        "minS",
+        "minU",
+        "maxS",
+        "maxU",
+        "remS",
+        "remU",
+        "shl",
+        "shr",
+    ]
+    for operation in operations:
+        const1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 42)
+        const2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 10)
+        binary = JeffOp(
+            "int",
+            operation,
+            [const1.outputs[0], const2.outputs[0]],
+            [JeffValue(IntType(32))],
+        )
+        _create_and_write_module([const1, const2, binary], f"unit_int_{operation}.jeff")
+
+
+@register_generator
+def generate_int_comparison() -> None:
+    operations = ["eq", "ltS", "lteS", "ltU", "lteU"]
+    for operation in operations:
+        const1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 42)
+        const2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 10)
+        comparison = JeffOp(
+            "int",
+            operation,
+            [const1.outputs[0], const2.outputs[0]],
+            [JeffValue(IntType(1))],
+        )
+        _create_and_write_module(
+            [const1, const2, comparison], f"unit_int_{operation}.jeff"
+        )
+
+
+@register_generator
 def generate_qureg_free() -> None:
     num_qubits = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
     alloc = JeffOp(
