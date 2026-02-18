@@ -43,6 +43,11 @@ def _create_and_write_module(operations: list[JeffOp], output_filename: str) -> 
     module.write_out(output_file)
 
 
+# ===----------------------------------------------------------------------=== #
+# Qubit operations
+# ===----------------------------------------------------------------------=== #
+
+
 @register_generator
 def generate_qubit_alloc() -> None:
     alloc = qubit_alloc()
@@ -94,6 +99,11 @@ def generate_qubit_reset() -> None:
     reset = JeffOp("qubit", "reset", [alloc.outputs[0]], [JeffValue(QubitType())])
     free = qubit_free(reset.outputs[0])
     _create_and_write_module([alloc, reset, free], "unit_qubit_reset.jeff")
+
+
+# ===----------------------------------------------------------------------=== #
+# Gate operations
+# ===----------------------------------------------------------------------=== #
 
 
 @register_generator
@@ -328,6 +338,11 @@ def generate_ppr_crxy() -> None:
         [alloc1, alloc2, alloc3, rotation, gate, free1, free2, free3],
         "unit_gate_ppr_crxy.jeff",
     )
+
+
+# ===----------------------------------------------------------------------=== #
+# Qureg operations
+# ===----------------------------------------------------------------------=== #
 
 
 @register_generator
@@ -566,6 +581,11 @@ def generate_qureg_free() -> None:
     _create_and_write_module([num_qubits, alloc, free], "unit_qureg_free.jeff")
 
 
+# ===----------------------------------------------------------------------=== #
+# Int operations
+# ===----------------------------------------------------------------------=== #
+
+
 @register_generator
 def generate_int_const1() -> None:
     const = JeffOp("int", "const1", [], [JeffValue(IntType(1))], True)
@@ -576,7 +596,7 @@ def generate_int_const1() -> None:
 def generate_int_const() -> None:
     for bit_width in [8, 16, 32, 64]:
         const = JeffOp(
-            "int", f"const{bit_width}", [], [JeffValue(IntType(bit_width))], 5
+            "int", f"const{bit_width}", [], [JeffValue(IntType(bit_width))], 3
         )
         _create_and_write_module([const], f"unit_int_const{bit_width}.jeff")
 
@@ -585,7 +605,7 @@ def generate_int_const() -> None:
 def generate_int_unary() -> None:
     operations = ["not", "abs"]
     for operation in operations:
-        const = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 42)
+        const = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
         unary = JeffOp("int", operation, [const.outputs[0]], [JeffValue(IntType(32))])
         _create_and_write_module([const, unary], f"unit_int_{operation}.jeff")
 
@@ -612,8 +632,8 @@ def generate_int_binary() -> None:
         "shr",
     ]
     for operation in operations:
-        const1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 42)
-        const2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 10)
+        const1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
+        const2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
         binary = JeffOp(
             "int",
             operation,
@@ -627,8 +647,8 @@ def generate_int_binary() -> None:
 def generate_int_comparison() -> None:
     operations = ["eq", "ltS", "lteS", "ltU", "lteU"]
     for operation in operations:
-        const1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 42)
-        const2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 10)
+        const1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
+        const2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
         comparison = JeffOp(
             "int",
             operation,
@@ -638,6 +658,11 @@ def generate_int_comparison() -> None:
         _create_and_write_module(
             [const1, const2, comparison], f"unit_int_{operation}.jeff"
         )
+
+
+# ===----------------------------------------------------------------------=== #
+# IntArray operations
+# ===----------------------------------------------------------------------=== #
 
 
 @register_generator
@@ -757,6 +782,106 @@ def generate_int_array_create() -> None:
     )
 
 
+# ===----------------------------------------------------------------------=== #
+# Float operations
+# ===----------------------------------------------------------------------=== #
+
+
+@register_generator
+def generate_float_const() -> None:
+    for bit_width in [32, 64]:
+        const = JeffOp(
+            "float", f"const{bit_width}", [], [JeffValue(FloatType(bit_width))], 0.3
+        )
+        _create_and_write_module([const], f"unit_float_const{bit_width}.jeff")
+
+
+@register_generator
+def generate_float_unary() -> None:
+    operations = [
+        "sqrt",
+        "abs",
+        "ceil",
+        "floor",
+        "exp",
+        "log",
+        "sin",
+        "cos",
+        "tan",
+        "asin",
+        "acos",
+        "atan",
+        "sinh",
+        "cosh",
+        "tanh",
+        "asinh",
+        "acosh",
+        "atanh",
+    ]
+    for operation in operations:
+        const = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.3)
+        unary = JeffOp(
+            "float",
+            operation,
+            [const.outputs[0]],
+            [JeffValue(FloatType(32))],
+        )
+        _create_and_write_module([const, unary], f"unit_float_{operation}.jeff")
+
+
+@register_generator
+def generate_float_binary() -> None:
+    operations = ["add", "sub", "mul", "pow", "atan2", "max", "min"]
+    for operation in operations:
+        const1 = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.3)
+        const2 = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.5)
+        binary = JeffOp(
+            "float",
+            operation,
+            [const1.outputs[0], const2.outputs[0]],
+            [JeffValue(FloatType(32))],
+        )
+        _create_and_write_module(
+            [const1, const2, binary], f"unit_float_{operation}.jeff"
+        )
+
+
+@register_generator
+def generate_float_comparison() -> None:
+    operations = ["eq", "lt", "lte"]
+    for operation in operations:
+        const1 = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.3)
+        const2 = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.5)
+        comparison = JeffOp(
+            "float",
+            operation,
+            [const1.outputs[0], const2.outputs[0]],
+            [JeffValue(IntType(1))],
+        )
+        _create_and_write_module(
+            [const1, const2, comparison], f"unit_float_{operation}.jeff"
+        )
+
+
+@register_generator
+def generate_float_is() -> None:
+    operations = ["isNan", "isInf"]
+    for operation in operations:
+        const = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.3)
+        is_op = JeffOp(
+            "float",
+            operation,
+            [const.outputs[0]],
+            [JeffValue(IntType(1))],
+        )
+        _create_and_write_module([const, is_op], f"unit_float_{operation}.jeff")
+
+
+# ===----------------------------------------------------------------------=== #
+# SCF operations
+# ===----------------------------------------------------------------------=== #
+
+
 @register_generator
 def generate_scf_while() -> None:
     alloc = qubit_alloc()
@@ -844,6 +969,11 @@ def generate_scf_do_while() -> None:
         [alloc, counter, scf_do_while, free],
         "unit_scf_do_while.jeff",
     )
+
+
+# ===----------------------------------------------------------------------=== #
+# Integration tests
+# ===----------------------------------------------------------------------=== #
 
 
 @register_generator

@@ -897,6 +897,19 @@ void serializeIntArray(jeff::Op::Builder builder, mlir::Operation* operation,
 // Float operations
 //===----------------------------------------------------------------------===//
 
+void serializeFloatConst32(jeff::Op::Builder builder,
+                           mlir::jeff::FloatConst32Op op,
+                           SerializationContext& ctx) {
+  auto floatBuilder = builder.initInstruction().initFloat();
+  auto value = static_cast<float>(op.getVal().convertToDouble());
+  floatBuilder.setConst32(value);
+
+  builder.initInputs(0);
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getConstant()));
+}
+
 void serializeFloatConst64(jeff::Op::Builder builder,
                            mlir::jeff::FloatConst64Op op,
                            SerializationContext& ctx) {
@@ -910,10 +923,175 @@ void serializeFloatConst64(jeff::Op::Builder builder,
   outputs.set(0, ctx.getValueId(op.getConstant()));
 }
 
+void serializeFloatUnary(jeff::Op::Builder builder, mlir::jeff::FloatUnaryOp op,
+                         SerializationContext& ctx) {
+  auto floatBuilder = builder.initInstruction().initFloat();
+  switch (op.getOp()) {
+  case mlir::jeff::FloatUnaryOperation::_sqrt:
+    floatBuilder.setSqrt();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_abs:
+    floatBuilder.setAbs();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_ceil:
+    floatBuilder.setCeil();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_floor:
+    floatBuilder.setFloor();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_exp:
+    floatBuilder.setExp();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_log:
+    floatBuilder.setLog();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_sin:
+    floatBuilder.setSin();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_cos:
+    floatBuilder.setCos();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_tan:
+    floatBuilder.setTan();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_asin:
+    floatBuilder.setAsin();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_acos:
+    floatBuilder.setAcos();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_atan:
+    floatBuilder.setAtan();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_sinh:
+    floatBuilder.setSinh();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_cosh:
+    floatBuilder.setCosh();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_tanh:
+    floatBuilder.setTanh();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_asinh:
+    floatBuilder.setAsinh();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_acosh:
+    floatBuilder.setAcosh();
+    break;
+  case mlir::jeff::FloatUnaryOperation::_atanh:
+    floatBuilder.setAtanh();
+    break;
+  default:
+    llvm::report_fatal_error("Unknown float unary operation");
+  }
+
+  auto inputs = builder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getA()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getB()));
+}
+
+void serializeFloatBinary(jeff::Op::Builder builder,
+                          mlir::jeff::FloatBinaryOp op,
+                          SerializationContext& ctx) {
+  auto floatBuilder = builder.initInstruction().initFloat();
+  switch (op.getOp()) {
+  case mlir::jeff::FloatBinaryOperation::_add:
+    floatBuilder.setAdd();
+    break;
+  case mlir::jeff::FloatBinaryOperation::_sub:
+    floatBuilder.setSub();
+    break;
+  case mlir::jeff::FloatBinaryOperation::_mul:
+    floatBuilder.setMul();
+    break;
+  case mlir::jeff::FloatBinaryOperation::_pow:
+    floatBuilder.setPow();
+    break;
+  case mlir::jeff::FloatBinaryOperation::_atan2:
+    floatBuilder.setAtan2();
+    break;
+  case mlir::jeff::FloatBinaryOperation::_max:
+    floatBuilder.setMax();
+    break;
+  case mlir::jeff::FloatBinaryOperation::_min:
+    floatBuilder.setMin();
+    break;
+  default:
+    llvm::report_fatal_error("Unknown float binary operation");
+  }
+
+  auto inputs = builder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getA()));
+  inputs.set(1, ctx.getValueId(op.getB()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getC()));
+}
+
+void serializeFloatComparison(jeff::Op::Builder builder,
+                              mlir::jeff::FloatComparisonOp op,
+                              SerializationContext& ctx) {
+  auto floatBuilder = builder.initInstruction().initFloat();
+  switch (op.getOp()) {
+  case mlir::jeff::FloatComparisonOperation::_eq:
+    floatBuilder.setEq();
+    break;
+  case mlir::jeff::FloatComparisonOperation::_lt:
+    floatBuilder.setLt();
+    break;
+  case mlir::jeff::FloatComparisonOperation::_lte:
+    floatBuilder.setLte();
+    break;
+  default:
+    llvm::report_fatal_error("Unknown float comparison operation");
+  }
+
+  auto inputs = builder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getA()));
+  inputs.set(1, ctx.getValueId(op.getB()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getC()));
+}
+
+void serializeFloatIs(jeff::Op::Builder builder, mlir::jeff::FloatIsOp op,
+                      SerializationContext& ctx) {
+  auto floatBuilder = builder.initInstruction().initFloat();
+  switch (op.getOp()) {
+  case mlir::jeff::FloatIsOperation::_isNan:
+    floatBuilder.setIsNan();
+    break;
+  case mlir::jeff::FloatIsOperation::_isInf:
+    floatBuilder.setIsInf();
+    break;
+  default:
+    llvm::report_fatal_error("Unknown float is operation");
+  }
+
+  auto inputs = builder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getA()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getResult()));
+}
+
 void serializeFloat(jeff::Op::Builder builder, mlir::Operation* operation,
                     SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst64Op>(operation)) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst32Op>(operation)) {
+    serializeFloatConst32(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst64Op>(operation)) {
     serializeFloatConst64(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatUnaryOp>(operation)) {
+    serializeFloatUnary(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatBinaryOp>(operation)) {
+    serializeFloatBinary(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::FloatComparisonOp>(operation)) {
+    serializeFloatComparison(builder, op, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatIsOp>(operation)) {
+    serializeFloatIs(builder, op, ctx);
   } else {
     llvm::errs() << "Cannot serialize float operation " << operation->getName()
                  << "\n";
