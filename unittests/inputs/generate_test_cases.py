@@ -17,6 +17,8 @@ from jeff import (
     WhileSCF,
     IntArrayType,
     DoWhileSCF,
+    FloatArrayType,
+    schema,
 )
 
 # Registry for generator functions
@@ -875,6 +877,120 @@ def generate_float_is() -> None:
             [JeffValue(IntType(1))],
         )
         _create_and_write_module([const, is_op], f"unit_float_{operation}.jeff")
+
+
+# ===----------------------------------------------------------------------=== #
+# FloatArray operations
+# ===----------------------------------------------------------------------=== #
+
+
+@register_generator
+def generate_float_array_const() -> None:
+    for bit_width in [32, 64]:
+        const = JeffOp(
+            "floatArray",
+            f"const{bit_width}",
+            [],
+            [JeffValue(FloatArrayType(bit_width))],
+            [0.1, 0.2, 0.3],
+        )
+        _create_and_write_module([const], f"unit_float_array_const{bit_width}.jeff")
+
+
+@register_generator
+def generate_float_array_zero() -> None:
+    length = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
+    zero = JeffOp(
+        "floatArray",
+        "zero",
+        [length.outputs[0]],
+        [JeffValue(FloatArrayType(32))],
+        schema.FloatPrecision.float32,
+    )
+    _create_and_write_module([length, zero], "unit_float_array_zero.jeff")
+
+
+@register_generator
+def generate_float_array_get_index() -> None:
+    index = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 2)
+    array = JeffOp(
+        "floatArray",
+        "const32",
+        [],
+        [JeffValue(FloatArrayType(32))],
+        [0.1, 0.2, 0.3],
+    )
+    get_index = JeffOp(
+        "floatArray",
+        "getIndex",
+        [array.outputs[0], index.outputs[0]],
+        [JeffValue(FloatType(32))],
+    )
+    _create_and_write_module(
+        [index, array, get_index],
+        "unit_float_array_get_index.jeff",
+    )
+
+
+@register_generator
+def generate_float_array_set_index() -> None:
+    index = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 2)
+    value = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.5)
+    array = JeffOp(
+        "floatArray",
+        "const32",
+        [],
+        [JeffValue(FloatArrayType(32))],
+        [0.1, 0.2, 0.3],
+    )
+    set_index = JeffOp(
+        "floatArray",
+        "setIndex",
+        [array.outputs[0], index.outputs[0], value.outputs[0]],
+        [JeffValue(FloatArrayType(32))],
+    )
+    _create_and_write_module(
+        [index, value, array, set_index],
+        "unit_float_array_set_index.jeff",
+    )
+
+
+@register_generator
+def generate_float_array_length() -> None:
+    array = JeffOp(
+        "floatArray",
+        "const32",
+        [],
+        [JeffValue(FloatArrayType(32))],
+        [0.1, 0.2, 0.3],
+    )
+    length = JeffOp(
+        "floatArray",
+        "length",
+        [array.outputs[0]],
+        [JeffValue(IntType(32))],
+    )
+    _create_and_write_module(
+        [array, length],
+        "unit_float_array_length.jeff",
+    )
+
+
+@register_generator
+def generate_float_array_create() -> None:
+    value1 = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.1)
+    value2 = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.2)
+    value3 = JeffOp("float", "const32", [], [JeffValue(FloatType(32))], 0.3)
+    array_create = JeffOp(
+        "floatArray",
+        "create",
+        [value1.outputs[0], value2.outputs[0], value3.outputs[0]],
+        [JeffValue(FloatArrayType(32))],
+    )
+    _create_and_write_module(
+        [value1, value2, value3, array_create],
+        "unit_float_array_create.jeff",
+    )
 
 
 # ===----------------------------------------------------------------------=== #

@@ -1100,6 +1100,150 @@ void serializeFloat(jeff::Op::Builder builder, mlir::Operation* operation,
 }
 
 //===----------------------------------------------------------------------===//
+// FloatArray operations
+//===----------------------------------------------------------------------===//
+
+void serializeFloatArrayConst32(jeff::Op::Builder builder,
+                                mlir::jeff::FloatArrayConst32Op op,
+                                SerializationContext& ctx) {
+  auto floatArrayBuilder = builder.initInstruction().initFloatArray();
+  auto values = op.getInArray();
+  auto listBuilder = floatArrayBuilder.initConst32(values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    listBuilder.set(i, static_cast<float>(values[i]));
+  }
+
+  builder.initInputs(0);
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeFloatArrayConst64(jeff::Op::Builder builder,
+                                mlir::jeff::FloatArrayConst64Op op,
+                                SerializationContext& ctx) {
+  auto floatArrayBuilder = builder.initInstruction().initFloatArray();
+  auto values = op.getInArray();
+  auto listBuilder = floatArrayBuilder.initConst64(values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    listBuilder.set(i, static_cast<double>(values[i]));
+  }
+
+  builder.initInputs(0);
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeFloatArrayZero(jeff::Op::Builder builder,
+                             mlir::jeff::FloatArrayZeroOp op,
+                             SerializationContext& ctx) {
+  auto floatArrayBuilder = builder.initInstruction().initFloatArray();
+  auto tensorType =
+      llvm::cast<mlir::RankedTensorType>(op.getOutArray().getType());
+  auto elementType = llvm::cast<mlir::FloatType>(tensorType.getElementType());
+  if (elementType.getWidth() == 32) {
+    floatArrayBuilder.setZero(jeff::FloatPrecision::FLOAT32);
+  } else if (elementType.getWidth() == 64) {
+    floatArrayBuilder.setZero(jeff::FloatPrecision::FLOAT64);
+  } else {
+    llvm::report_fatal_error("Unknown float array element type");
+  }
+
+  auto inputs = builder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getLength()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeFloatArrayGetIndex(jeff::Op::Builder builder,
+                                 mlir::jeff::FloatArrayGetIndexOp op,
+                                 SerializationContext& ctx) {
+  auto floatArrayBuilder = builder.initInstruction().initFloatArray();
+  floatArrayBuilder.setGetIndex();
+
+  auto inputs = builder.initInputs(2);
+  inputs.set(0, ctx.getValueId(op.getInArray()));
+  inputs.set(1, ctx.getValueId(op.getIndex()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getValue()));
+}
+
+void serializeFloatArraySetIndex(jeff::Op::Builder builder,
+                                 mlir::jeff::FloatArraySetIndexOp op,
+                                 SerializationContext& ctx) {
+  auto floatArrayBuilder = builder.initInstruction().initFloatArray();
+  floatArrayBuilder.setSetIndex();
+
+  auto inputs = builder.initInputs(3);
+  inputs.set(0, ctx.getValueId(op.getInArray()));
+  inputs.set(1, ctx.getValueId(op.getIndex()));
+  inputs.set(2, ctx.getValueId(op.getValue()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeFloatArrayLength(jeff::Op::Builder builder,
+                               mlir::jeff::FloatArrayLengthOp op,
+                               SerializationContext& ctx) {
+  auto floatArrayBuilder = builder.initInstruction().initFloatArray();
+  floatArrayBuilder.setLength();
+
+  auto inputs = builder.initInputs(1);
+  inputs.set(0, ctx.getValueId(op.getInArray()));
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getLength()));
+}
+
+void serializeFloatArrayCreate(jeff::Op::Builder builder,
+                               mlir::jeff::FloatArrayCreateOp op,
+                               SerializationContext& ctx) {
+  auto floatArrayBuilder = builder.initInstruction().initFloatArray();
+  floatArrayBuilder.setCreate();
+
+  auto inputs = builder.initInputs(op.getInArray().size());
+  for (size_t i = 0; i < op.getInArray().size(); ++i) {
+    inputs.set(i, ctx.getValueId(op.getInArray()[i]));
+  }
+
+  auto outputs = builder.initOutputs(1);
+  outputs.set(0, ctx.getValueId(op.getOutArray()));
+}
+
+void serializeFloatArray(jeff::Op::Builder builder, mlir::Operation* operation,
+                         SerializationContext& ctx) {
+  if (auto op = llvm::dyn_cast<mlir::jeff::FloatArrayConst32Op>(operation)) {
+    serializeFloatArrayConst32(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::FloatArrayConst64Op>(operation)) {
+    serializeFloatArrayConst64(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::FloatArrayZeroOp>(operation)) {
+    serializeFloatArrayZero(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::FloatArrayGetIndexOp>(operation)) {
+    serializeFloatArrayGetIndex(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::FloatArraySetIndexOp>(operation)) {
+    serializeFloatArraySetIndex(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::FloatArrayLengthOp>(operation)) {
+    serializeFloatArrayLength(builder, op, ctx);
+  } else if (auto op =
+                 llvm::dyn_cast<mlir::jeff::FloatArrayCreateOp>(operation)) {
+    serializeFloatArrayCreate(builder, op, ctx);
+  } else {
+    llvm::errs() << "Cannot serialize float array operation "
+                 << operation->getName() << "\n";
+    llvm::report_fatal_error("Unknown float array operation");
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Types
 //===----------------------------------------------------------------------===//
 
@@ -1179,6 +1323,8 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
     serializeIntArray(builder, operation, ctx);
   } else if (llvm::isa<mlir::jeff::FloatOperation>(operation)) {
     serializeFloat(builder, operation, ctx);
+  } else if (llvm::isa<mlir::jeff::FloatArrayOperation>(operation)) {
+    serializeFloatArray(builder, operation, ctx);
   } else {
     llvm::errs() << "Cannot serialize operation " << operation->getName()
                  << "\n";

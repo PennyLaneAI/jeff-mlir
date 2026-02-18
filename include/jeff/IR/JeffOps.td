@@ -1787,7 +1787,7 @@ def FloatArrayZeroOp : FloatArray_Op<"float_array_zero", []> {
     let description = [{}];
 
     let arguments = (ins
-        I32Attr:$length
+        I32:$length
     );
 
     let results = (outs
@@ -1862,7 +1862,7 @@ def FloatArrayCreateOp : FloatArray_Op<"float_array_create", []> {
     let description = [{}];
 
     let arguments = (ins
-        SupportedFloatArrayAttrType:$in_array
+        Variadic<SupportedFloatType>:$in_array
     );
 
     let results = (outs
@@ -1871,7 +1871,7 @@ def FloatArrayCreateOp : FloatArray_Op<"float_array_create", []> {
 
     // %1 = jeff.float_array_create %0 : f64
     let assemblyFormat = [{
-        attr-dict `:` type(results)
+        $in_array attr-dict `:` type($in_array) `->` type(results)
     }];
 }
 
