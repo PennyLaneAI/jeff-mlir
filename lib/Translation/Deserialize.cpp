@@ -1697,7 +1697,17 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   }
 
   // Set metadata
+  const auto entryPoint = mlirStrings[jeffModule.getEntrypoint()];
+  mlirModule->setAttr("jeff.entrypoint", builder.getStringAttr(entryPoint));
+
   mlirModule->setAttr("jeff.strings", builder.getStrArrayAttr(mlirStrings));
+
+  const auto tool = std::string_view(jeffModule.getTool().cStr());
+  mlirModule->setAttr("jeff.tool", builder.getStringAttr(tool));
+
+  const auto toolVersion = std::string_view(jeffModule.getToolVersion().cStr());
+  mlirModule->setAttr("jeff.toolVersion", builder.getStringAttr(toolVersion));
+
   const auto jeffVersion = std::to_string(jeffModule.getVersion());
   mlirModule->setAttr("jeff.version", builder.getStringAttr(jeffVersion));
 

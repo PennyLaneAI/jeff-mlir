@@ -29,7 +29,7 @@ namespace {
 
 struct SerializationContext {
   llvm::DenseMap<mlir::Value, uint32_t> valueMap;
-  llvm::DenseMap<mlir::func::FuncOp, uint32_t> funcMap;
+  llvm::DenseMap<llvm::StringRef, uint32_t> funcMap;
   std::unordered_map<std::string, uint32_t> strings;
   llvm::SmallVector<mlir::Value> mlirValues;
 
@@ -45,6 +45,15 @@ struct SerializationContext {
     }
     mlirValues[id] = value;
     return id;
+  }
+
+  uint32_t getFuncId(llvm::StringRef funcName) {
+    auto it = funcMap.find(funcName);
+    if (it == funcMap.end()) {
+      llvm::errs() << "Function not found in funcMap: " << funcName << "\n";
+      llvm::report_fatal_error("Function not found");
+    }
+    return it->second;
   }
 };
 
@@ -1538,6 +1547,28 @@ void serializeSCF(jeff::Op::Builder builder, mlir::Operation* operation,
 }
 
 //===----------------------------------------------------------------------===//
+// Func operations
+//===----------------------------------------------------------------------===//
+
+void serializeCall(jeff::Op::Builder builder, mlir::func::CallOp op,
+                   SerializationContext& ctx) {
+  auto funcBuilder = builder.initInstruction().initFunc();
+  funcBuilder.setFuncCall(ctx.getFuncId(op.getCallee()));
+
+  const auto numInputs = op.getNumOperands();
+  auto inputs = builder.initInputs(numInputs);
+  for (size_t i = 0; i < numInputs; ++i) {
+    inputs.set(i, ctx.getValueId(op.getOperand(i)));
+  }
+
+  const auto numOutputs = op.getNumResults();
+  auto outputs = builder.initOutputs(numOutputs);
+  for (size_t i = 0; i < numOutputs; ++i) {
+    outputs.set(i, ctx.getValueId(op.getResult(i)));
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Types
 //===----------------------------------------------------------------------===//
 
@@ -1621,6 +1652,8 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
     serializeFloatArray(builder, operation, ctx);
   } else if (llvm::isa<mlir::jeff::SCFOperation>(operation)) {
     serializeSCF(builder, operation, ctx);
+  } else if (auto op = llvm::dyn_cast<mlir::func::CallOp>(operation)) {
+    serializeCall(builder, op, ctx);
   } else {
     llvm::errs() << "Cannot serialize operation " << operation->getName()
                  << "\n";
@@ -1630,6 +1663,9 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
 
 void serializeFunction(jeff::Function::Builder funcBuilder,
                        mlir::func::FuncOp func, SerializationContext& ctx) {
+  ctx.valueMap.clear();
+  ctx.mlirValues.clear();
+
   auto defBuilder = funcBuilder.initDefinition();
   auto& entryBlock = func.getRegion().front();
 
@@ -1643,14 +1679,6 @@ void serializeFunction(jeff::Function::Builder funcBuilder,
     sourcesBuilder.set(i, ctx.getValueId(entryBlock.getArgument(i)));
   }
 
-  // Set targets
-  auto returnOp = llvm::cast<mlir::func::ReturnOp>(entryBlock.back());
-  const auto numTargets = returnOp.getNumOperands();
-  auto targetsBuilder = bodyBuilder.initTargets(numTargets);
-  for (unsigned i = 0; i < numTargets; ++i) {
-    targetsBuilder.set(i, ctx.getValueId(returnOp.getOperand(i)));
-  }
-
   // Serialize operations
   const auto numOperations = entryBlock.getOperations().size() - 1;
   auto operationBuilders = bodyBuilder.initOperations(numOperations);
@@ -1661,6 +1689,14 @@ void serializeFunction(jeff::Function::Builder funcBuilder,
     }
     serializeOperation(operationBuilders[i], &operation, ctx);
     ++i;
+  }
+
+  // Set targets
+  auto returnOp = llvm::cast<mlir::func::ReturnOp>(entryBlock.back());
+  const auto numTargets = returnOp.getNumOperands();
+  auto targetsBuilder = bodyBuilder.initTargets(numTargets);
+  for (unsigned i = 0; i < numTargets; ++i) {
+    targetsBuilder.set(i, ctx.getValueId(returnOp.getOperand(i)));
   }
 
   // Build values
@@ -1688,27 +1724,47 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
   const auto numStrings = stringsAttr.size();
   auto stringsBuilder = moduleBuilder.initStrings(numStrings);
   for (auto i = 0; i < numStrings; ++i) {
-    auto str = llvm::cast<mlir::StringAttr>(stringsAttr[i]).getValue().str();
+    const auto str =
+        llvm::cast<mlir::StringAttr>(stringsAttr[i]).getValue().str();
     ctx.strings[str] = i;
     stringsBuilder.set(i, str);
   }
 
-  // Get functions
-  llvm::SmallVector<mlir::func::FuncOp> functions;
-  module.walk([&](mlir::func::FuncOp func) { functions.push_back(func); });
-
   // Build functions
-  auto functionsBuilder = moduleBuilder.initFunctions(functions.size());
+  uint32_t id = 0;
+  llvm::SmallVector<mlir::func::FuncOp> functions;
+  module.walk([&](mlir::func::FuncOp func) {
+    ctx.funcMap[func.getSymName()] = id++;
+    functions.push_back(func);
+  });
 
-  // TODO: Support multiple functions
-  auto function = functions[0];
-  auto functionBuilder = functionsBuilder[0];
-  functionBuilder.setName(ctx.strings[function.getName().str()]);
-  serializeFunction(functionBuilder, function, ctx);
+  const auto numFunctions = functions.size();
+  auto functionBuilders = moduleBuilder.initFunctions(numFunctions);
+
+  for (size_t i = 0; i < numFunctions; ++i) {
+    auto function = functions[i];
+    auto functionBuilder = functionBuilders[i];
+    functionBuilder.setName(ctx.strings[function.getName().str()]);
+    serializeFunction(functionBuilder, function, ctx);
+  }
 
   // Set metadata
-  moduleBuilder.setTool("");
-  moduleBuilder.setToolVersion("");
+  const auto entryPointString =
+      llvm::cast<mlir::StringAttr>(module->getAttr("jeff.entrypoint"))
+          .getValue()
+          .str();
+  const auto entryPoint = ctx.strings[entryPointString];
+  moduleBuilder.setEntrypoint(entryPoint);
+
+  moduleBuilder.setTool(
+      llvm::cast<mlir::StringAttr>(module->getAttr("jeff.tool"))
+          .getValue()
+          .str());
+
+  moduleBuilder.setToolVersion(
+      llvm::cast<mlir::StringAttr>(module->getAttr("jeff.toolVersion"))
+          .getValue()
+          .str());
 
   return capnp::messageToFlatArray(message);
 }

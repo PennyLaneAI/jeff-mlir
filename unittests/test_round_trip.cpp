@@ -224,4 +224,9 @@ INSTANTIATE_TEST_SUITE_P(
         RoundTripTestCase{"unit_scf_switch.jeff"},
         RoundTripTestCase{"unit_scf_while.jeff"},
         // Integration tests
-        RoundTripTestCase{"bell_pair.jeff"}));
+        RoundTripTestCase{"bell_pair.jeff"},
+        // RoundTripTestCase{"catalyst_simple.jeff"},
+        // RoundTripTestCase{"catalyst_tket_opt.jeff"},
+        // RoundTripTestCase{"entangled_calls.jeff"},
+        // RoundTripTestCase{"entangled_qs.jeff"},
+        RoundTripTestCase{"python_optimization.jeff"}));
