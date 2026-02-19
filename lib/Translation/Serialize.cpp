@@ -1758,7 +1758,7 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
   // Set metadata
   moduleBuilder.setEntrypoint(
       llvm::cast<mlir::IntegerAttr>(module->getAttr("jeff.entrypoint"))
-          .getInt());
+          .getUInt());
 
   moduleBuilder.setTool(
       llvm::cast<mlir::StringAttr>(module->getAttr("jeff.tool"))
