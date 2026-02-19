@@ -1,3 +1,5 @@
+#include "jeff/Translation/Deserialize.hpp"
+
 #include "jeff/IR/JeffDialect.h"
 #include "jeff/IR/JeffOps.h"
 
