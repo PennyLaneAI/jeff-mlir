@@ -28,30 +28,34 @@
 namespace {
 
 struct SerializationContext {
-  llvm::DenseMap<mlir::Value, uint32_t> valueMap;
-  llvm::DenseMap<llvm::StringRef, uint32_t> funcMap;
+  llvm::DenseMap<mlir::Value, uint32_t> values;
+  llvm::DenseMap<llvm::StringRef, uint32_t> funcs;
   std::unordered_map<std::string, uint32_t> strings;
-  llvm::SmallVector<mlir::Value> mlirValues;
 
   uint32_t getValueId(mlir::Value value) {
-    auto it = valueMap.find(value);
-    if (it != valueMap.end()) {
+    auto it = values.find(value);
+    if (it != values.end()) {
       return it->second;
     }
-    uint32_t id = valueMap.size();
-    valueMap[value] = id;
-    if (id >= mlirValues.size()) {
-      mlirValues.resize(id + 1);
-    }
-    mlirValues[id] = value;
+    auto id = values.size();
+    values[value] = id;
     return id;
   }
 
   uint32_t getFuncId(llvm::StringRef funcName) {
-    auto it = funcMap.find(funcName);
-    if (it == funcMap.end()) {
-      llvm::errs() << "Function not found in funcMap: " << funcName << "\n";
+    auto it = funcs.find(funcName);
+    if (it == funcs.end()) {
+      llvm::errs() << "Function " << funcName << " not found\n";
       llvm::report_fatal_error("Function not found");
+    }
+    return it->second;
+  }
+
+  uint32_t getStringId(llvm::StringRef str) {
+    auto it = strings.find(str.str());
+    if (it == strings.end()) {
+      llvm::errs() << "String " << str << " not found\n";
+      llvm::report_fatal_error("String not found");
     }
     return it->second;
   }
@@ -298,7 +302,7 @@ void serializeCustom(jeff::Op::Builder builder, mlir::jeff::CustomOp op,
   gateBuilder.setAdjoint(op.getIsAdjoint());
   gateBuilder.setPower(op.getPower());
   auto customBuilder = gateBuilder.initCustom();
-  customBuilder.setName(ctx.strings[op.getName().str()]);
+  customBuilder.setName(ctx.getStringId(op.getName().str()));
   customBuilder.setNumQubits(op.getNumTargets());
   customBuilder.setNumParams(op.getNumParams());
 
@@ -1663,8 +1667,7 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
 
 void serializeFunction(jeff::Function::Builder funcBuilder,
                        mlir::func::FuncOp func, SerializationContext& ctx) {
-  ctx.valueMap.clear();
-  ctx.mlirValues.clear();
+  ctx.values.clear();
 
   auto defBuilder = funcBuilder.initDefinition();
   auto& entryBlock = func.getRegion().front();
@@ -1700,12 +1703,16 @@ void serializeFunction(jeff::Function::Builder funcBuilder,
   }
 
   // Build values
-  // TODO: Just use valueMap?
-  auto valuesBuilder = defBuilder.initValues(ctx.mlirValues.size());
-  for (size_t i = 0; i < ctx.mlirValues.size(); ++i) {
+  const auto numValues = ctx.values.size();
+  auto valuesBuilder = defBuilder.initValues(numValues);
+  llvm::SmallVector<mlir::Value> values(numValues);
+  for (auto& pair : ctx.values) {
+    values[pair.second] = pair.first;
+  }
+  for (size_t i = 0, j = 0; i < numValues; ++i) {
     auto valueBuilder = valuesBuilder[i];
     auto typeBuilder = valueBuilder.initType();
-    serializeType(typeBuilder, ctx.mlirValues[i].getType());
+    serializeType(typeBuilder, values[i].getType());
   }
 }
 
@@ -1734,7 +1741,7 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
   uint32_t id = 0;
   llvm::SmallVector<mlir::func::FuncOp> functions;
   module.walk([&](mlir::func::FuncOp func) {
-    ctx.funcMap[func.getSymName()] = id++;
+    ctx.funcs[func.getSymName()] = id++;
     functions.push_back(func);
   });
 
@@ -1744,17 +1751,14 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
   for (size_t i = 0; i < numFunctions; ++i) {
     auto function = functions[i];
     auto functionBuilder = functionBuilders[i];
-    functionBuilder.setName(ctx.strings[function.getName().str()]);
+    functionBuilder.setName(ctx.getStringId(function.getName().str()));
     serializeFunction(functionBuilder, function, ctx);
   }
 
   // Set metadata
-  const auto entryPointString =
-      llvm::cast<mlir::StringAttr>(module->getAttr("jeff.entrypoint"))
-          .getValue()
-          .str();
-  const auto entryPoint = ctx.strings[entryPointString];
-  moduleBuilder.setEntrypoint(entryPoint);
+  moduleBuilder.setEntrypoint(
+      llvm::cast<mlir::IntegerAttr>(module->getAttr("jeff.entrypoint"))
+          .getInt());
 
   moduleBuilder.setTool(
       llvm::cast<mlir::StringAttr>(module->getAttr("jeff.tool"))
