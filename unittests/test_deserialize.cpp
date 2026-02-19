@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
-#include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/MLIRContext.h>
 #include <vector>
@@ -14,8 +13,7 @@ namespace fs = std::filesystem;
 
 int main() {
   mlir::DialectRegistry registry;
-  registry.insert<mlir::jeff::JeffDialect, mlir::func::FuncDialect,
-                  mlir::tensor::TensorDialect>();
+  registry.insert<mlir::jeff::JeffDialect, mlir::func::FuncDialect>();
 
   mlir::MLIRContext context(registry);
   context.loadAllAvailableDialects();

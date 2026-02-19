@@ -5,7 +5,6 @@ add_mlir_library(
   LINK_LIBS
   MLIRJeff
   MLIRFuncDialect
-  MLIRTensorDialect
   CapnProto::capnp
   DISABLE_INSTALL)
 

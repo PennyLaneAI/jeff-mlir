@@ -145,7 +145,6 @@ def PPROp : Gate_Op<"ppr", [AttrSizedOperandSegments, AttrSizedResultSegments, M
         I8Attr:$num_ctrls,
         I1Attr:$is_adjoint,
         I8Attr:$power,
-        // TODO: Use I32EnumAttr instead of DenseI32ArrayAttr
         DenseI32ArrayAttr:$pauli_gates
     );
 

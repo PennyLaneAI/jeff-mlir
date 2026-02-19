@@ -1,4 +1,4 @@
-add_executable(jeff-mlir-deserialize test.cpp)
+add_executable(jeff-mlir-deserialize test_deserialize.cpp)
 
 target_link_libraries(jeff-mlir-deserialize PRIVATE MLIRJeff MLIRJeffTranslation)
 

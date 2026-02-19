@@ -14,7 +14,6 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
-#include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/IR/MLIRContext.h>
 #include <ostream>
 #include <string>
@@ -52,14 +51,12 @@ TEST_P(RoundTripTest, RoundTrip) {
   const auto& testCase = GetParam();
 
   mlir::DialectRegistry registry;
-  registry.insert<mlir::jeff::JeffDialect, mlir::func::FuncDialect,
-                  mlir::tensor::TensorDialect>();
+  registry.insert<mlir::jeff::JeffDialect, mlir::func::FuncDialect>();
 
   mlir::MLIRContext context(registry);
   context.loadAllAvailableDialects();
 
   const fs::path inputsDir = TEST_INPUTS_DIR;
-
   const auto& path = inputsDir / testCase.fileName;
 
   auto original = readJeffFile(path.string());
