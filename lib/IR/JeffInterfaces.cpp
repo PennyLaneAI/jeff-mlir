@@ -15,7 +15,7 @@
 #include "jeff/IR/JeffInterfaces.h"
 
 using namespace mlir;
-using namespace jeff;
+using namespace mlir::jeff;
 
 //===----------------------------------------------------------------------===//
 // jeff interface definitions.

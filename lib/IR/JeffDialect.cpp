@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir/IR/DialectImplementation.h" // needed for generated type parser
-#include "llvm/ADT/TypeSwitch.h"           // needed for generated type parser
-
 #include "jeff/IR/JeffDialect.h"
+
+// IWYU pragma: begin_keep
 #include "jeff/IR/JeffOps.h"
 
+#include <llvm/ADT/TypeSwitch.h>           // needed for generated type parser
+#include <mlir/IR/DialectImplementation.h> // needed for generated type parser
+// IWYU pragma: end_keep
+
 using namespace mlir;
-using namespace jeff;
+using namespace mlir::jeff;
 
 //===----------------------------------------------------------------------===//
 // jeff dialect definitions.
@@ -27,22 +30,21 @@ using namespace jeff;
 
 #include "jeff/IR/JeffOpsDialect.cpp.inc"
 
-void JeffDialect::initialize()
-{
-    addTypes<
+void JeffDialect::initialize() {
+  addTypes<
 #define GET_TYPEDEF_LIST
 #include "jeff/IR/JeffOpsTypes.cpp.inc"
-        >();
+      >();
 
-    addAttributes<
+  addAttributes<
 #define GET_ATTRDEF_LIST
 #include "jeff/IR/JeffAttributes.cpp.inc"
-        >();
+      >();
 
-    addOperations<
+  addOperations<
 #define GET_OP_LIST
 #include "jeff/IR/JeffOps.cpp.inc"
-        >();
+      >();
 }
 
 //===----------------------------------------------------------------------===//
