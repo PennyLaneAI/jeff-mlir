@@ -15,6 +15,7 @@
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringMap.h>
+#include <llvm/ADT/TypeSwitch.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
@@ -25,7 +26,6 @@
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/Types.h>
 #include <mlir/IR/Value.h>
-#include <string>
 
 namespace {
 
@@ -260,41 +260,63 @@ void serializeGPhase(jeff::Op::Builder builder, mlir::jeff::GPhaseOp op,
 }
 
 void serializeWellKnownGate(jeff::Op::Builder builder,
-                            mlir::Operation* operation,
+                            mlir::jeff::WellKnownGate operation,
                             SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::XOp>(operation)) {
-    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::X, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::YOp>(operation)) {
-    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::Y, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::ZOp>(operation)) {
-    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::Z, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::SOp>(operation)) {
-    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::S, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::TOp>(operation)) {
-    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::T, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::R1Op>(operation)) {
-    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::R1, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::RxOp>(operation)) {
-    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RX, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::RyOp>(operation)) {
-    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RY, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::RzOp>(operation)) {
-    serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RZ, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::HOp>(operation)) {
-    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::H, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::UOp>(operation)) {
-    serializeU(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::SwapOp>(operation)) {
-    serializeSwap(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IOp>(operation)) {
-    serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::I, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::GPhaseOp>(operation)) {
-    serializeGPhase(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize well-known gate " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown well-known gate");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::XOp>([&](auto op) {
+        serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::X,
+                                        ctx);
+      })
+      .Case<mlir::jeff::YOp>([&](auto op) {
+        serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::Y,
+                                        ctx);
+      })
+      .Case<mlir::jeff::ZOp>([&](auto op) {
+        serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::Z,
+                                        ctx);
+      })
+      .Case<mlir::jeff::SOp>([&](auto op) {
+        serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::S,
+                                        ctx);
+      })
+      .Case<mlir::jeff::TOp>([&](auto op) {
+        serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::T,
+                                        ctx);
+      })
+      .Case<mlir::jeff::R1Op>([&](auto op) {
+        serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::R1,
+                                       ctx);
+      })
+      .Case<mlir::jeff::RxOp>([&](auto op) {
+        serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RX,
+                                       ctx);
+      })
+      .Case<mlir::jeff::RyOp>([&](auto op) {
+        serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RY,
+                                       ctx);
+      })
+      .Case<mlir::jeff::RzOp>([&](auto op) {
+        serializeOneTargetOneParameter(builder, op, jeff::WellKnownGate::RZ,
+                                       ctx);
+      })
+      .Case<mlir::jeff::HOp>([&](auto op) {
+        serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::H,
+                                        ctx);
+      })
+      .Case<mlir::jeff::UOp>([&](auto op) { serializeU(builder, op, ctx); })
+      .Case<mlir::jeff::SwapOp>(
+          [&](auto op) { serializeSwap(builder, op, ctx); })
+      .Case<mlir::jeff::IOp>([&](auto op) {
+        serializeOneTargetZeroParameter(builder, op, jeff::WellKnownGate::I,
+                                        ctx);
+      })
+      .Case<mlir::jeff::GPhaseOp>(
+          [&](auto op) { serializeGPhase(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize well-known gate "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown well-known gate");
+      });
 }
 
 void serializeCustom(jeff::Op::Builder builder, mlir::jeff::CustomOp op,
@@ -360,43 +382,45 @@ void serializePpr(jeff::Op::Builder builder, mlir::jeff::PPROp op,
   }
 }
 
-void serializeGate(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeGate(jeff::Op::Builder builder,
+                   mlir::jeff::MultipleCtrlQubitsGate operation,
                    SerializationContext& ctx) {
-  if (llvm::isa<mlir::jeff::WellKnownGate>(operation)) {
-    serializeWellKnownGate(builder, operation, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::CustomOp>(operation)) {
-    serializeCustom(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::PPROp>(operation)) {
-    serializePpr(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize gate operation " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown gate operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::WellKnownGate>(
+          [&](auto op) { serializeWellKnownGate(builder, op, ctx); })
+      .Case<mlir::jeff::CustomOp>(
+          [&](auto op) { serializeCustom(builder, op, ctx); })
+      .Case<mlir::jeff::PPROp>([&](auto op) { serializePpr(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize gate operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown gate operation");
+      });
 }
 
-void serializeQubit(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeQubit(jeff::Op::Builder builder,
+                    mlir::jeff::QubitOperation operation,
                     SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::QubitAllocOp>(operation)) {
-    serializeQubitAlloc(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitFreeOp>(operation)) {
-    serializeQubitFree(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitFreeZeroOp>(operation)) {
-    serializeQubitFreeZero(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitMeasureOp>(operation)) {
-    serializeMeasure(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QubitMeasureNDOp>(operation)) {
-    serializeMeasureNd(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QubitResetOp>(operation)) {
-    serializeReset(builder, op, ctx);
-  } else if (llvm::isa<mlir::jeff::MultipleCtrlQubitsGate>(operation)) {
-    serializeGate(builder, operation, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize qubit operation " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown qubit operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::QubitAllocOp>(
+          [&](auto op) { serializeQubitAlloc(builder, op, ctx); })
+      .Case<mlir::jeff::QubitFreeOp>(
+          [&](auto op) { serializeQubitFree(builder, op, ctx); })
+      .Case<mlir::jeff::QubitFreeZeroOp>(
+          [&](auto op) { serializeQubitFreeZero(builder, op, ctx); })
+      .Case<mlir::jeff::QubitMeasureOp>(
+          [&](auto op) { serializeMeasure(builder, op, ctx); })
+      .Case<mlir::jeff::QubitMeasureNDOp>(
+          [&](auto op) { serializeMeasureNd(builder, op, ctx); })
+      .Case<mlir::jeff::QubitResetOp>(
+          [&](auto op) { serializeReset(builder, op, ctx); })
+      .Case<mlir::jeff::MultipleCtrlQubitsGate>(
+          [&](auto op) { serializeGate(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize qubit operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown qubit operation");
+      });
 }
 
 //===----------------------------------------------------------------------===//
@@ -554,39 +578,37 @@ void serializeQuregFree(jeff::Op::Builder builder, mlir::jeff::QuregFreeOp op,
   builder.initOutputs(0);
 }
 
-void serializeQureg(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeQureg(jeff::Op::Builder builder,
+                    mlir::jeff::QuregOperation operation,
                     SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::QuregAllocOp>(operation)) {
-    serializeQuregAlloc(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeZeroOp>(operation)) {
-    serializeQuregFreeZero(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregExtractIndexOp>(operation)) {
-    serializeQuregExtractIndex(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregInsertIndexOp>(operation)) {
-    serializeQuregInsertIndex(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregExtractSliceOp>(operation)) {
-    serializeQuregExtractSlice(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::QuregInsertSliceOp>(operation)) {
-    serializeQuregInsertSlice(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregLengthOp>(operation)) {
-    serializeQuregLength(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregSplitOp>(operation)) {
-    serializeQuregSplit(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregJoinOp>(operation)) {
-    serializeQuregJoin(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregCreateOp>(operation)) {
-    serializeQuregCreate(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::QuregFreeOp>(operation)) {
-    serializeQuregFree(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize qureg operation " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown qureg operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::QuregAllocOp>(
+          [&](auto op) { serializeQuregAlloc(builder, op, ctx); })
+      .Case<mlir::jeff::QuregFreeZeroOp>(
+          [&](auto op) { serializeQuregFreeZero(builder, op, ctx); })
+      .Case<mlir::jeff::QuregExtractIndexOp>(
+          [&](auto op) { serializeQuregExtractIndex(builder, op, ctx); })
+      .Case<mlir::jeff::QuregInsertIndexOp>(
+          [&](auto op) { serializeQuregInsertIndex(builder, op, ctx); })
+      .Case<mlir::jeff::QuregExtractSliceOp>(
+          [&](auto op) { serializeQuregExtractSlice(builder, op, ctx); })
+      .Case<mlir::jeff::QuregInsertSliceOp>(
+          [&](auto op) { serializeQuregInsertSlice(builder, op, ctx); })
+      .Case<mlir::jeff::QuregLengthOp>(
+          [&](auto op) { serializeQuregLength(builder, op, ctx); })
+      .Case<mlir::jeff::QuregSplitOp>(
+          [&](auto op) { serializeQuregSplit(builder, op, ctx); })
+      .Case<mlir::jeff::QuregJoinOp>(
+          [&](auto op) { serializeQuregJoin(builder, op, ctx); })
+      .Case<mlir::jeff::QuregCreateOp>(
+          [&](auto op) { serializeQuregCreate(builder, op, ctx); })
+      .Case<mlir::jeff::QuregFreeOp>(
+          [&](auto op) { serializeQuregFree(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize qureg operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown qureg operation");
+      });
 }
 
 //===----------------------------------------------------------------------===//
@@ -734,29 +756,30 @@ void serializeIntComparison(jeff::Op::Builder builder,
   outputs.set(0, ctx.getValueId(op.getResult()));
 }
 
-void serializeInt(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeInt(jeff::Op::Builder builder, mlir::jeff::IntOperation operation,
                   SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::IntConst1Op>(operation)) {
-    serializeIntConst1(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst8Op>(operation)) {
-    serializeIntConst8(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst16Op>(operation)) {
-    serializeIntConst16(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst32Op>(operation)) {
-    serializeIntConst32(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntConst64Op>(operation)) {
-    serializeIntConst64(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntUnaryOp>(operation)) {
-    serializeIntUnary(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntBinaryOp>(operation)) {
-    serializeIntBinary(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntComparisonOp>(operation)) {
-    serializeIntComparison(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize int operation " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown int operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::IntConst1Op>(
+          [&](auto op) { serializeIntConst1(builder, op, ctx); })
+      .Case<mlir::jeff::IntConst8Op>(
+          [&](auto op) { serializeIntConst8(builder, op, ctx); })
+      .Case<mlir::jeff::IntConst16Op>(
+          [&](auto op) { serializeIntConst16(builder, op, ctx); })
+      .Case<mlir::jeff::IntConst32Op>(
+          [&](auto op) { serializeIntConst32(builder, op, ctx); })
+      .Case<mlir::jeff::IntConst64Op>(
+          [&](auto op) { serializeIntConst64(builder, op, ctx); })
+      .Case<mlir::jeff::IntUnaryOp>(
+          [&](auto op) { serializeIntUnary(builder, op, ctx); })
+      .Case<mlir::jeff::IntBinaryOp>(
+          [&](auto op) { serializeIntBinary(builder, op, ctx); })
+      .Case<mlir::jeff::IntComparisonOp>(
+          [&](auto op) { serializeIntComparison(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize int operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown int operation");
+      });
 }
 
 //===----------------------------------------------------------------------===//
@@ -876,41 +899,35 @@ void serializeIntArrayCreate(jeff::Op::Builder builder,
   outputs.set(0, ctx.getValueId(op.getOutArray()));
 }
 
-void serializeIntArray(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeIntArray(jeff::Op::Builder builder,
+                       mlir::jeff::IntArrayOperation operation,
                        SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::IntArrayConst1Op>(operation)) {
-    serializeIntArrayConst1(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArrayConst8Op>(operation)) {
-    serializeIntArrayConst8(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArrayConst16Op>(operation)) {
-    serializeIntArrayConst16(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArrayConst32Op>(operation)) {
-    serializeIntArrayConst32(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArrayConst64Op>(operation)) {
-    serializeIntArrayConst64(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::IntArrayZeroOp>(operation)) {
-    serializeIntArrayZero(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArrayGetIndexOp>(operation)) {
-    serializeIntArrayGetIndex(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArraySetIndexOp>(operation)) {
-    serializeIntArraySetIndex(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArrayLengthOp>(operation)) {
-    serializeIntArrayLength(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::IntArrayCreateOp>(operation)) {
-    serializeIntArrayCreate(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize int array operation "
-                 << operation->getName() << "\n";
-    llvm::report_fatal_error("Unknown int array operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::IntArrayConst1Op>(
+          [&](auto op) { serializeIntArrayConst1(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayConst8Op>(
+          [&](auto op) { serializeIntArrayConst8(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayConst16Op>(
+          [&](auto op) { serializeIntArrayConst16(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayConst32Op>(
+          [&](auto op) { serializeIntArrayConst32(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayConst64Op>(
+          [&](auto op) { serializeIntArrayConst64(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayZeroOp>(
+          [&](auto op) { serializeIntArrayZero(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayGetIndexOp>(
+          [&](auto op) { serializeIntArrayGetIndex(builder, op, ctx); })
+      .Case<mlir::jeff::IntArraySetIndexOp>(
+          [&](auto op) { serializeIntArraySetIndex(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayLengthOp>(
+          [&](auto op) { serializeIntArrayLength(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayCreateOp>(
+          [&](auto op) { serializeIntArrayCreate(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize int array operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown int array operation");
+      });
 }
 
 //===----------------------------------------------------------------------===//
@@ -1097,26 +1114,27 @@ void serializeFloatIs(jeff::Op::Builder builder, mlir::jeff::FloatIsOp op,
   outputs.set(0, ctx.getValueId(op.getResult()));
 }
 
-void serializeFloat(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeFloat(jeff::Op::Builder builder,
+                    mlir::jeff::FloatOperation operation,
                     SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst32Op>(operation)) {
-    serializeFloatConst32(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatConst64Op>(operation)) {
-    serializeFloatConst64(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatUnaryOp>(operation)) {
-    serializeFloatUnary(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatBinaryOp>(operation)) {
-    serializeFloatBinary(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::FloatComparisonOp>(operation)) {
-    serializeFloatComparison(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::FloatIsOp>(operation)) {
-    serializeFloatIs(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize float operation " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown float operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::FloatConst32Op>(
+          [&](auto op) { serializeFloatConst32(builder, op, ctx); })
+      .Case<mlir::jeff::FloatConst64Op>(
+          [&](auto op) { serializeFloatConst64(builder, op, ctx); })
+      .Case<mlir::jeff::FloatUnaryOp>(
+          [&](auto op) { serializeFloatUnary(builder, op, ctx); })
+      .Case<mlir::jeff::FloatBinaryOp>(
+          [&](auto op) { serializeFloatBinary(builder, op, ctx); })
+      .Case<mlir::jeff::FloatComparisonOp>(
+          [&](auto op) { serializeFloatComparison(builder, op, ctx); })
+      .Case<mlir::jeff::FloatIsOp>(
+          [&](auto op) { serializeFloatIs(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize float operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown float operation");
+      });
 }
 
 //===----------------------------------------------------------------------===//
@@ -1234,34 +1252,31 @@ void serializeFloatArrayCreate(jeff::Op::Builder builder,
   outputs.set(0, ctx.getValueId(op.getOutArray()));
 }
 
-void serializeFloatArray(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeFloatArray(jeff::Op::Builder builder,
+                         mlir::jeff::FloatArrayOperation operation,
                          SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::FloatArrayConst32Op>(operation)) {
-    serializeFloatArrayConst32(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::FloatArrayConst64Op>(operation)) {
-    serializeFloatArrayConst64(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::FloatArrayZeroOp>(operation)) {
-    serializeFloatArrayZero(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::FloatArrayGetIndexOp>(operation)) {
-    serializeFloatArrayGetIndex(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::FloatArraySetIndexOp>(operation)) {
-    serializeFloatArraySetIndex(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::FloatArrayLengthOp>(operation)) {
-    serializeFloatArrayLength(builder, op, ctx);
-  } else if (auto op =
-                 llvm::dyn_cast<mlir::jeff::FloatArrayCreateOp>(operation)) {
-    serializeFloatArrayCreate(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize float array operation "
-                 << operation->getName() << "\n";
-    llvm::report_fatal_error("Unknown float array operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::FloatArrayConst32Op>(
+          [&](auto op) { serializeFloatArrayConst32(builder, op, ctx); })
+      .Case<mlir::jeff::FloatArrayConst64Op>(
+          [&](auto op) { serializeFloatArrayConst64(builder, op, ctx); })
+      .Case<mlir::jeff::FloatArrayZeroOp>(
+          [&](auto op) { serializeFloatArrayZero(builder, op, ctx); })
+      .Case<mlir::jeff::FloatArrayGetIndexOp>(
+          [&](auto op) { serializeFloatArrayGetIndex(builder, op, ctx); })
+      .Case<mlir::jeff::FloatArraySetIndexOp>(
+          [&](auto op) { serializeFloatArraySetIndex(builder, op, ctx); })
+      .Case<mlir::jeff::FloatArrayLengthOp>(
+          [&](auto op) { serializeFloatArrayLength(builder, op, ctx); })
+      .Case<mlir::jeff::FloatArrayCreateOp>(
+          [&](auto op) { serializeFloatArrayCreate(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize float array operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown float array operation");
+      });
 }
+
 //===----------------------------------------------------------------------===//
 // SCF operations
 //===----------------------------------------------------------------------===//
@@ -1535,21 +1550,21 @@ void serializeDoWhile(jeff::Op::Builder builder, mlir::jeff::DoWhileOp op,
   }
 }
 
-void serializeSCF(jeff::Op::Builder builder, mlir::Operation* operation,
+void serializeSCF(jeff::Op::Builder builder, mlir::jeff::SCFOperation operation,
                   SerializationContext& ctx) {
-  if (auto op = llvm::dyn_cast<mlir::jeff::SwitchOp>(operation)) {
-    serializeSwitch(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::ForOp>(operation)) {
-    serializeFor(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::WhileOp>(operation)) {
-    serializeWhile(builder, op, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::jeff::DoWhileOp>(operation)) {
-    serializeDoWhile(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize SCF operation " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown SCF operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::SwitchOp>(
+          [&](auto op) { serializeSwitch(builder, op, ctx); })
+      .Case<mlir::jeff::ForOp>([&](auto op) { serializeFor(builder, op, ctx); })
+      .Case<mlir::jeff::WhileOp>(
+          [&](auto op) { serializeWhile(builder, op, ctx); })
+      .Case<mlir::jeff::DoWhileOp>(
+          [&](auto op) { serializeDoWhile(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize SCF operation "
+                     << operation->getName() << "\n";
+        llvm::report_fatal_error("Unknown SCF operation");
+      });
 }
 
 //===----------------------------------------------------------------------===//
@@ -1582,19 +1597,17 @@ void serializeQubitType(jeff::Type::Builder builder) { builder.setQubit(); }
 
 void serializeQuregType(jeff::Type::Builder builder) { builder.setQureg(); }
 
-void serializeIntType(jeff::Type::Builder builder, mlir::Type type) {
-  auto intType = llvm::cast<mlir::IntegerType>(type);
+void serializeIntType(jeff::Type::Builder builder, mlir::IntegerType intType) {
   builder.setInt(intType.getWidth());
 }
 
-void serializeIntArrayType(jeff::Type::Builder builder, mlir::Type type) {
-  auto tensorType = llvm::cast<mlir::RankedTensorType>(type);
-  auto elementType = llvm::cast<mlir::IntegerType>(tensorType.getElementType());
+void serializeIntArrayType(jeff::Type::Builder builder,
+                           mlir::IntegerType elementType) {
   builder.setIntArray(elementType.getWidth());
 }
 
-void serializeFloatType(jeff::Type::Builder builder, mlir::Type type) {
-  auto floatType = llvm::cast<mlir::FloatType>(type);
+void serializeFloatType(jeff::Type::Builder builder,
+                        mlir::FloatType floatType) {
   if (floatType.getWidth() == 32) {
     builder.setFloat(jeff::FloatPrecision::FLOAT32);
   } else if (floatType.getWidth() == 64) {
@@ -1606,9 +1619,8 @@ void serializeFloatType(jeff::Type::Builder builder, mlir::Type type) {
   }
 }
 
-void serializeFloatArrayType(jeff::Type::Builder builder, mlir::Type type) {
-  auto tensorType = llvm::cast<mlir::RankedTensorType>(type);
-  auto elementType = llvm::cast<mlir::FloatType>(tensorType.getElementType());
+void serializeFloatArrayType(jeff::Type::Builder builder,
+                             mlir::FloatType elementType) {
   if (elementType.getWidth() == 32) {
     builder.setFloatArray(jeff::FloatPrecision::FLOAT32);
   } else if (elementType.getWidth() == 64) {
@@ -1620,51 +1632,60 @@ void serializeFloatArrayType(jeff::Type::Builder builder, mlir::Type type) {
   }
 }
 
+void serializeRankedTensorType(jeff::Type::Builder builder,
+                               mlir::RankedTensorType tensorType) {
+  llvm::TypeSwitch<mlir::Type, void>(tensorType.getElementType())
+      .Case<mlir::IntegerType>([&](auto elementType) {
+        serializeIntArrayType(builder, elementType);
+      })
+      .Case<mlir::FloatType>([&](auto elementType) {
+        serializeFloatArrayType(builder, elementType);
+      })
+      .Default([&](auto elementType) {
+        llvm::errs() << "Cannot serialize ranked tensor with element type "
+                     << elementType << "\n";
+        llvm::report_fatal_error("Unknown ranked tensor type");
+      });
+}
+
 void serializeType(jeff::Type::Builder builder, mlir::Type type) {
-  if (llvm::isa<mlir::jeff::QubitType>(type)) {
-    serializeQubitType(builder);
-  } else if (llvm::isa<mlir::jeff::QuregType>(type)) {
-    serializeQuregType(builder);
-  } else if (llvm::isa<mlir::IntegerType>(type)) {
-    serializeIntType(builder, type);
-  } else if (auto tensorType = llvm::dyn_cast<mlir::RankedTensorType>(type)) {
-    if (llvm::isa<mlir::IntegerType>(tensorType.getElementType())) {
-      serializeIntArrayType(builder, type);
-    } else if (llvm::isa<mlir::FloatType>(tensorType.getElementType())) {
-      serializeFloatArrayType(builder, type);
-    } else {
-      llvm::report_fatal_error("Unknown tensor element type");
-    }
-  } else if (llvm::isa<mlir::FloatType>(type)) {
-    serializeFloatType(builder, type);
-  } else {
-    llvm::report_fatal_error("Unknown type");
-  }
+  llvm::TypeSwitch<mlir::Type, void>(type)
+      .Case<mlir::jeff::QubitType>([&](auto) { serializeQubitType(builder); })
+      .Case<mlir::jeff::QuregType>([&](auto) { serializeQuregType(builder); })
+      .Case<mlir::IntegerType>(
+          [&](auto intType) { serializeIntType(builder, intType); })
+      .Case<mlir::RankedTensorType>([&](auto tensorType) {
+        serializeRankedTensorType(builder, tensorType);
+      })
+      .Case<mlir::FloatType>(
+          [&](auto floatType) { serializeFloatType(builder, floatType); })
+      .Default([&](auto) { llvm::report_fatal_error("Unknown type"); });
 }
 
 void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
                         SerializationContext& ctx) {
-  if (llvm::isa<mlir::jeff::QubitOperation>(operation)) {
-    serializeQubit(builder, operation, ctx);
-  } else if (llvm::isa<mlir::jeff::QuregOperation>(operation)) {
-    serializeQureg(builder, operation, ctx);
-  } else if (llvm::isa<mlir::jeff::IntOperation>(operation)) {
-    serializeInt(builder, operation, ctx);
-  } else if (llvm::isa<mlir::jeff::IntArrayOperation>(operation)) {
-    serializeIntArray(builder, operation, ctx);
-  } else if (llvm::isa<mlir::jeff::FloatOperation>(operation)) {
-    serializeFloat(builder, operation, ctx);
-  } else if (llvm::isa<mlir::jeff::FloatArrayOperation>(operation)) {
-    serializeFloatArray(builder, operation, ctx);
-  } else if (llvm::isa<mlir::jeff::SCFOperation>(operation)) {
-    serializeSCF(builder, operation, ctx);
-  } else if (auto op = llvm::dyn_cast<mlir::func::CallOp>(operation)) {
-    serializeCall(builder, op, ctx);
-  } else {
-    llvm::errs() << "Cannot serialize operation " << operation->getName()
-                 << "\n";
-    llvm::report_fatal_error("Unknown operation");
-  }
+  llvm::TypeSwitch<mlir::Operation*, void>(operation)
+      .Case<mlir::jeff::QubitOperation>(
+          [&](auto op) { serializeQubit(builder, op, ctx); })
+      .Case<mlir::jeff::QuregOperation>(
+          [&](auto op) { serializeQureg(builder, op, ctx); })
+      .Case<mlir::jeff::IntOperation>(
+          [&](auto op) { serializeInt(builder, op, ctx); })
+      .Case<mlir::jeff::IntArrayOperation>(
+          [&](auto op) { serializeIntArray(builder, op, ctx); })
+      .Case<mlir::jeff::FloatOperation>(
+          [&](auto op) { serializeFloat(builder, op, ctx); })
+      .Case<mlir::jeff::FloatArrayOperation>(
+          [&](auto op) { serializeFloatArray(builder, op, ctx); })
+      .Case<mlir::jeff::SCFOperation>(
+          [&](auto op) { serializeSCF(builder, op, ctx); })
+      .Case<mlir::func::CallOp>(
+          [&](auto op) { serializeCall(builder, op, ctx); })
+      .Default([&](auto) {
+        llvm::errs() << "Cannot serialize operation " << operation->getName()
+                     << "\n";
+        llvm::report_fatal_error("Unknown operation");
+      });
 }
 
 void serializeFunction(jeff::Function::Builder funcBuilder,
