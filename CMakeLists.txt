@@ -32,7 +32,7 @@ include(FetchContent)
 FetchContent_Declare(
   jeff
   GIT_REPOSITORY https://github.com/unitaryfoundation/jeff/
-  GIT_TAG main)
+  GIT_TAG jeff-v0.1.0)
 FetchContent_MakeAvailable(jeff)
 
 # Get CapnProto
