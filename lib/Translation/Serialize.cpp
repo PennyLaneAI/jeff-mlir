@@ -14,6 +14,7 @@
 #include <kj/array.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringMap.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
@@ -25,14 +26,13 @@
 #include <mlir/IR/Types.h>
 #include <mlir/IR/Value.h>
 #include <string>
-#include <unordered_map>
 
 namespace {
 
 struct SerializationContext {
   llvm::DenseMap<mlir::Value, uint32_t> values;
-  llvm::DenseMap<llvm::StringRef, uint32_t> funcs;
-  std::unordered_map<std::string, uint32_t> strings;
+  llvm::StringMap<uint32_t> funcs;
+  llvm::StringMap<uint32_t> strings;
 
   uint32_t getValueId(mlir::Value value) {
     auto it = values.find(value);
@@ -54,7 +54,7 @@ struct SerializationContext {
   }
 
   uint32_t getStringId(llvm::StringRef str) {
-    auto it = strings.find(str.str());
+    auto it = strings.find(str);
     if (it == strings.end()) {
       llvm::errs() << "String " << str << " not found\n";
       llvm::report_fatal_error("String not found");

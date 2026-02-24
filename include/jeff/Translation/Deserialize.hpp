@@ -1,9 +1,9 @@
 #pragma once
 
+#include <llvm/ADT/StringRef.h>
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OwningOpRef.h>
-#include <string>
 
 /**
  * @brief Deserialize a .jeff file into an MLIR module.
@@ -12,4 +12,4 @@
  * @return An owning reference to the deserialized MLIR module.
  */
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              const std::string& path);
+                                              const llvm::StringRef& path);

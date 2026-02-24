@@ -34,7 +34,7 @@ namespace {
 struct DeserializationContext {
   llvm::DenseMap<uint32_t, mlir::Value> values;
   llvm::DenseMap<uint32_t, mlir::func::FuncOp> funcs;
-  llvm::SmallVector<llvm::StringRef> strings;
+  llvm::SmallVector<std::string> strings;
 
   mlir::Value getValue(uint32_t id) {
     auto it = values.find(id);
@@ -1457,8 +1457,8 @@ mlir::Type deserializeIntArrayType(mlir::OpBuilder& builder,
   }
 }
 
-mlir::Type deserializeFloatType(mlir::OpBuilder& builder,
-                                jeff::Type::Reader type) {
+mlir::FloatType deserializeFloatType(mlir::OpBuilder& builder,
+                                     jeff::Type::Reader type) {
   switch (type.getFloat()) {
   case jeff::FloatPrecision::FLOAT32:
     return builder.getF32Type();
@@ -1623,11 +1623,11 @@ void deserializeFunction(mlir::OpBuilder& builder,
 } // namespace
 
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              const std::string& path) {
+                                              const llvm::StringRef& path) {
   DeserializationContext ctx;
 
   // Get Jeff module from file
-  const auto fd = open(path.c_str(), O_RDONLY, 0);
+  const auto fd = open(path.str().c_str(), O_RDONLY, 0);
   if (fd < 0) {
     llvm::report_fatal_error("Could not open file");
   }
@@ -1646,7 +1646,7 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   auto strings = jeffModule.getStrings();
   ctx.strings.reserve(strings.size());
   for (auto string : strings) {
-    ctx.strings.push_back(string.cStr());
+    ctx.strings.push_back(std::string(string.cStr()));
   }
 
   // Get functions
@@ -1666,7 +1666,12 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
       "jeff.entrypoint",
       builder.getIntegerAttr(builder.getIntegerType(16, false), entryPoint));
 
-  mlirModule->setAttr("jeff.strings", builder.getStrArrayAttr(ctx.strings));
+  llvm::SmallVector<llvm::StringRef> stringRefs;
+  stringRefs.reserve(ctx.strings.size());
+  for (const auto& str : ctx.strings) {
+    stringRefs.push_back(str);
+  }
+  mlirModule->setAttr("jeff.strings", builder.getStrArrayAttr(stringRefs));
 
   const auto tool = std::string_view(jeffModule.getTool().cStr());
   mlirModule->setAttr("jeff.tool", builder.getStringAttr(tool));
