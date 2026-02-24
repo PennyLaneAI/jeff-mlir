@@ -1007,7 +1007,7 @@ def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
 }
 
 def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
-    let summary = "Insert a single qubit from a qubit register.";
+    let summary = "Insert a single qubit into a qubit register.";
     let description = [{}];
 
     let arguments = (ins
