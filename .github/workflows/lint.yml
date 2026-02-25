@@ -56,7 +56,7 @@ jobs:
         with:
           llvm-version: 21.1.8
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
       - name: Build
         run: cmake --build build --config Debug
       - name: Run cpp-linter

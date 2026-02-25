@@ -11,6 +11,22 @@ if(NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD LESS 17)
       CACHE STRING "C++ standard to conform to")
 endif()
 
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+  set(JEFF_MLIR_MAIN_PROJECT ON)
+else()
+  set(JEFF_MLIR_MAIN_PROJECT OFF)
+endif()
+
+option(BUILD_JEFF_MLIR_DOCS "Build docs for the Jeff MLIR project" ${JEFF_MLIR_MAIN_PROJECT})
+option(BUILD_JEFF_MLIR_TESTS "Build tests for the Jeff MLIR project" ${JEFF_MLIR_MAIN_PROJECT})
+option(BUILD_JEFF_MLIR_TRANSLATION "Build the translation submodule of the Jeff MLIR project" ON)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS
+    ON
+    CACHE BOOL "Export compile commands" FORCE)
+
+include(cmake/ExternalDependencies.cmake)
+
 find_package(MLIR REQUIRED CONFIG)
 
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
@@ -27,33 +43,11 @@ include_directories(SYSTEM ${LLVM_INCLUDE_DIRS} ${MLIR_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_BINARY_DIR}/include)
 
-# Get Jeff
-include(FetchContent)
-FetchContent_Declare(
-  jeff
-  GIT_REPOSITORY https://github.com/unitaryfoundation/jeff/
-  GIT_TAG jeff-v0.1.0)
-FetchContent_MakeAvailable(jeff)
-
-# Get CapnProto
-find_package(CapnProto REQUIRED)
-
-# Get GoogleTest
-set(gtest_force_shared_crt
-    ON
-    CACHE BOOL "" FORCE)
-set(INSTALL_GTEST
-    OFF
-    CACHE BOOL "" FORCE)
-set(GTEST_VERSION
-    1.17.0
-    CACHE STRING "Google Test version")
-set(GTEST_URL https://github.com/google/googletest/archive/refs/tags/v${GTEST_VERSION}.tar.gz)
-FetchContent_Declare(googletest URL ${GTEST_URL} FIND_PACKAGE_ARGS ${GTEST_VERSION} NAMES GTest)
-FetchContent_MakeAvailable(googletest)
-include(GoogleTest)
-enable_testing()
-
 add_subdirectory(include)
 add_subdirectory(lib)
-add_subdirectory(unittests)
+
+if(BUILD_JEFF_MLIR_TESTS)
+  enable_testing()
+  include(GoogleTest)
+  add_subdirectory(unittests)
+endif()
