@@ -1,7 +1,3 @@
-add_executable(jeff-mlir-deserialize test_deserialize.cpp)
-
-target_link_libraries(jeff-mlir-deserialize PRIVATE MLIRJeff MLIRJeffTranslation)
-
 set(test_name "jeff-mlir-round-trip-test")
 
 if(NOT TARGET ${test_name})
