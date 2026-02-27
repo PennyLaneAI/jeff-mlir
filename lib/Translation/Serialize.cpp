@@ -521,8 +521,9 @@ void serializeQuregLength(jeff::Op::Builder builder,
   auto inputs = builder.initInputs(1);
   inputs.set(0, ctx.getValueId(op.getInQreg()));
 
-  auto outputs = builder.initOutputs(1);
+  auto outputs = builder.initOutputs(2);
   outputs.set(0, ctx.getValueId(op.getOutQreg()));
+  outputs.set(1, ctx.getValueId(op.getLength()));
 }
 
 void serializeQuregSplit(jeff::Op::Builder builder, mlir::jeff::QuregSplitOp op,
