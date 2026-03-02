@@ -1794,5 +1794,16 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
           .getValue()
           .str());
 
+  moduleBuilder.setVersion(
+      llvm::cast<mlir::IntegerAttr>(module->getAttr("jeff.version")).getUInt());
+
+  moduleBuilder.setVersionMinor(
+      llvm::cast<mlir::IntegerAttr>(module->getAttr("jeff.versionMinor"))
+          .getUInt());
+
+  moduleBuilder.setVersionPatch(
+      llvm::cast<mlir::IntegerAttr>(module->getAttr("jeff.versionPatch"))
+          .getUInt());
+
   return capnp::messageToFlatArray(message);
 }

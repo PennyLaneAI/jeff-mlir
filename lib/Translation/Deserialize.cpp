@@ -1663,10 +1663,11 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   }
 
   // Set metadata
+  auto uint16Type = builder.getIntegerType(16, false);
+
   const auto entryPoint = jeffModule.getEntrypoint();
-  mlirModule->setAttr(
-      "jeff.entrypoint",
-      builder.getIntegerAttr(builder.getIntegerType(16, false), entryPoint));
+  mlirModule->setAttr("jeff.entrypoint",
+                      builder.getIntegerAttr(uint16Type, entryPoint));
 
   llvm::SmallVector<llvm::StringRef> stringRefs;
   stringRefs.reserve(ctx.strings.size());
@@ -1681,8 +1682,17 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   const auto toolVersion = std::string_view(jeffModule.getToolVersion().cStr());
   mlirModule->setAttr("jeff.toolVersion", builder.getStringAttr(toolVersion));
 
-  const auto jeffVersion = std::to_string(jeffModule.getVersion());
-  mlirModule->setAttr("jeff.version", builder.getStringAttr(jeffVersion));
+  const auto jeffVersion = jeffModule.getVersion();
+  mlirModule->setAttr("jeff.version",
+                      builder.getIntegerAttr(uint16Type, jeffVersion));
+
+  const auto jeffVersionMinor = jeffModule.getVersionMinor();
+  mlirModule->setAttr("jeff.versionMinor",
+                      builder.getIntegerAttr(uint16Type, jeffVersionMinor));
+
+  const auto jeffVersionPatch = jeffModule.getVersionPatch();
+  mlirModule->setAttr("jeff.versionPatch",
+                      builder.getIntegerAttr(uint16Type, jeffVersionPatch));
 
   return mlirModule;
 }
