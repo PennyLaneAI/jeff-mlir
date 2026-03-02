@@ -75,54 +75,56 @@ struct DeserializationContext {
 // Qubit operations
 //===----------------------------------------------------------------------===//
 
-void deserializeQubitAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeQubitAlloc(mlir::ImplicitLocOpBuilder& builder,
+                           jeff::Op::Reader operation,
                            DeserializationContext& ctx) {
-  auto allocOp =
-      builder.create<mlir::jeff::QubitAllocOp>(builder.getUnknownLoc());
+  auto allocOp = mlir::jeff::QubitAllocOp::create(builder);
   ctx.setValue(operation.getOutputs()[0], allocOp.getResult());
 }
 
-void deserializeQubitFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeQubitFree(mlir::ImplicitLocOpBuilder& builder,
+                          jeff::Op::Reader operation,
                           DeserializationContext& ctx) {
-  builder.create<mlir::jeff::QubitFreeOp>(
-      builder.getUnknownLoc(), ctx.getValue(operation.getInputs()[0]));
+  mlir::jeff::QubitFreeOp::create(builder,
+                                  ctx.getValue(operation.getInputs()[0]));
 }
 
-void deserializeQubitFreeZero(mlir::OpBuilder& builder,
+void deserializeQubitFreeZero(mlir::ImplicitLocOpBuilder& builder,
                               jeff::Op::Reader operation,
                               DeserializationContext& ctx) {
-  builder.create<mlir::jeff::QubitFreeZeroOp>(
-      builder.getUnknownLoc(), ctx.getValue(operation.getInputs()[0]));
+  mlir::jeff::QubitFreeZeroOp::create(builder,
+                                      ctx.getValue(operation.getInputs()[0]));
 }
 
-void deserializeMeasure(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeMeasure(mlir::ImplicitLocOpBuilder& builder,
+                        jeff::Op::Reader operation,
                         DeserializationContext& ctx) {
-  auto op = builder.create<mlir::jeff::QubitMeasureOp>(
-      builder.getUnknownLoc(), ctx.getValue(operation.getInputs()[0]));
+  auto op = mlir::jeff::QubitMeasureOp::create(
+      builder, ctx.getValue(operation.getInputs()[0]));
   ctx.setValue(operation.getOutputs()[0], op.getResult());
 }
 
-void deserializeMeasureNd(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeMeasureNd(mlir::ImplicitLocOpBuilder& builder,
+                          jeff::Op::Reader operation,
                           DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QubitMeasureNDOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]));
+  auto op =
+      mlir::jeff::QubitMeasureNDOp::create(builder, ctx.getValue(inputs[0]));
   ctx.setValue(outputs[0], op.getOutQubit());
   ctx.setValue(outputs[1], op.getResult());
 }
 
-void deserializeReset(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationContext& ctx) {
+void deserializeReset(mlir::ImplicitLocOpBuilder& builder,
+                      jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QubitResetOp>(builder.getUnknownLoc(),
-                                                     ctx.getValue(inputs[0]));
+  auto op = mlir::jeff::QubitResetOp::create(builder, ctx.getValue(inputs[0]));
   ctx.setValue(outputs[0], op.getOutQubit());
 }
 
 template <typename OpType>
-void deserializeOneTargetZeroParameter(mlir::OpBuilder& builder,
+void deserializeOneTargetZeroParameter(mlir::ImplicitLocOpBuilder& builder,
                                        jeff::Op::Reader operation,
                                        DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -133,10 +135,9 @@ void deserializeOneTargetZeroParameter(mlir::OpBuilder& builder,
   for (uint8_t i = 1; i < 1 + numControls; ++i) {
     controls.push_back(ctx.getValue(inputs[i]));
   }
-  auto op =
-      builder.create<OpType>(builder.getUnknownLoc(), ctx.getValue(inputs[0]),
-                             controls, static_cast<uint8_t>(controls.size()),
-                             gate.getAdjoint(), gate.getPower());
+  auto op = OpType::create(builder, ctx.getValue(inputs[0]), controls,
+                           static_cast<uint8_t>(controls.size()),
+                           gate.getAdjoint(), gate.getPower());
   ctx.setValue(outputs[0], op.getOutQubit());
   for (uint8_t i = 1; i < 1 + numControls; ++i) {
     ctx.setValue(outputs[i], op.getOutCtrlQubits()[i - 1]);
@@ -144,7 +145,7 @@ void deserializeOneTargetZeroParameter(mlir::OpBuilder& builder,
 }
 
 template <typename OpType>
-void deserializeOneTargetOneParameter(mlir::OpBuilder& builder,
+void deserializeOneTargetOneParameter(mlir::ImplicitLocOpBuilder& builder,
                                       jeff::Op::Reader operation,
                                       DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -156,18 +157,17 @@ void deserializeOneTargetOneParameter(mlir::OpBuilder& builder,
     controls.push_back(ctx.getValue(inputs[i]));
   }
   auto rotation = ctx.getValue(inputs[1 + numControls]);
-  auto op = builder.create<OpType>(builder.getUnknownLoc(),
-                                   ctx.getValue(inputs[0]), rotation, controls,
-                                   static_cast<uint8_t>(controls.size()),
-                                   gate.getAdjoint(), gate.getPower());
+  auto op = OpType::create(builder, ctx.getValue(inputs[0]), rotation, controls,
+                           static_cast<uint8_t>(controls.size()),
+                           gate.getAdjoint(), gate.getPower());
   ctx.setValue(outputs[0], op.getOutQubit());
   for (uint8_t i = 1; i < 1 + numControls; ++i) {
     ctx.setValue(outputs[i], op.getOutCtrlQubits()[i - 1]);
   }
 }
 
-void deserializeU(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                  DeserializationContext& ctx) {
+void deserializeU(mlir::ImplicitLocOpBuilder& builder,
+                  jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   const auto gate = operation.getInstruction().getQubit().getGate();
@@ -179,18 +179,18 @@ void deserializeU(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   auto theta = ctx.getValue(inputs[1 + numControls]);
   auto phi = ctx.getValue(inputs[2 + numControls]);
   auto lambda = ctx.getValue(inputs[3 + numControls]);
-  auto op = builder.create<mlir::jeff::UOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), theta, phi, lambda,
-      controls, static_cast<uint8_t>(controls.size()), gate.getAdjoint(),
-      gate.getPower());
+  auto op = mlir::jeff::UOp::create(builder, ctx.getValue(inputs[0]), theta,
+                                    phi, lambda, controls,
+                                    static_cast<uint8_t>(controls.size()),
+                                    gate.getAdjoint(), gate.getPower());
   ctx.setValue(outputs[0], op.getOutQubit());
   for (uint8_t i = 1; i < 1 + numControls; ++i) {
     ctx.setValue(outputs[i], op.getOutCtrlQubits()[i - 1]);
   }
 }
 
-void deserializeSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                     DeserializationContext& ctx) {
+void deserializeSwap(mlir::ImplicitLocOpBuilder& builder,
+                     jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   const auto gate = operation.getInstruction().getQubit().getGate();
@@ -199,10 +199,10 @@ void deserializeSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   for (uint8_t i = 2; i < 2 + numControls; ++i) {
     controls.push_back(ctx.getValue(inputs[i]));
   }
-  auto op = builder.create<mlir::jeff::SwapOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
-      controls, static_cast<uint8_t>(controls.size()), gate.getAdjoint(),
-      gate.getPower());
+  auto op = mlir::jeff::SwapOp::create(builder, ctx.getValue(inputs[0]),
+                                       ctx.getValue(inputs[1]), controls,
+                                       static_cast<uint8_t>(controls.size()),
+                                       gate.getAdjoint(), gate.getPower());
   ctx.setValue(outputs[0], op.getOutQubitOne());
   ctx.setValue(outputs[1], op.getOutQubitTwo());
   for (uint8_t i = 2; i < 2 + numControls; ++i) {
@@ -210,7 +210,8 @@ void deserializeSwap(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void deserializeGPhase(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeGPhase(mlir::ImplicitLocOpBuilder& builder,
+                       jeff::Op::Reader operation,
                        DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -221,16 +222,16 @@ void deserializeGPhase(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     controls.push_back(ctx.getValue(inputs[i]));
   }
   auto rotation = ctx.getValue(inputs[numControls]);
-  auto op = builder.create<mlir::jeff::GPhaseOp>(
-      builder.getUnknownLoc(), rotation, controls,
-      static_cast<uint8_t>(controls.size()), gate.getAdjoint(),
-      gate.getPower());
+  auto op = mlir::jeff::GPhaseOp::create(builder, rotation, controls,
+                                         static_cast<uint8_t>(controls.size()),
+                                         gate.getAdjoint(), gate.getPower());
   for (uint8_t i = 0; i < numControls; ++i) {
     ctx.setValue(outputs[i], op.getOutCtrlQubits()[i]);
   }
 }
 
-void deserializeWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeWellKnown(mlir::ImplicitLocOpBuilder& builder,
+                          jeff::Op::Reader operation,
                           DeserializationContext& ctx) {
   const auto wellKnown =
       operation.getInstruction().getQubit().getGate().getWellKnown();
@@ -284,7 +285,8 @@ void deserializeWellKnown(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void deserializeCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeCustom(mlir::ImplicitLocOpBuilder& builder,
+                       jeff::Op::Reader operation,
                        DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
@@ -307,9 +309,9 @@ void deserializeCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   for (uint32_t i = numQubits; i < numQubits + numParams; ++i) {
     params.push_back(ctx.getValue(inputs[i]));
   }
-  auto op = builder.create<mlir::jeff::CustomOp>(
-      builder.getUnknownLoc(), targets, controls, params, numControls,
-      gate.getAdjoint(), gate.getPower(), name, numTargets, numParams);
+  auto op = mlir::jeff::CustomOp::create(
+      builder, targets, controls, params, numControls, gate.getAdjoint(),
+      gate.getPower(), name, numTargets, numParams);
   for (uint32_t i = 0; i < numTargets; ++i) {
     ctx.setValue(outputs[i], op.getOutTargetQubits()[i]);
   }
@@ -318,8 +320,8 @@ void deserializeCustom(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void deserializePpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                    DeserializationContext& ctx) {
+void deserializePpr(mlir::ImplicitLocOpBuilder& builder,
+                    jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   const auto gate = operation.getInstruction().getQubit().getGate();
@@ -342,9 +344,9 @@ void deserializePpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
   auto pauliStringArrayAttr =
       mlir::DenseI32ArrayAttr::get(builder.getContext(), pauliStringVector);
-  auto op = builder.create<mlir::jeff::PPROp>(
-      builder.getUnknownLoc(), targets, controls, rotation, numControls,
-      gate.getAdjoint(), gate.getPower(), pauliStringArrayAttr);
+  auto op = mlir::jeff::PPROp::create(builder, targets, controls, rotation,
+                                      numControls, gate.getAdjoint(),
+                                      gate.getPower(), pauliStringArrayAttr);
   for (uint32_t i = 0; i < numTargets; ++i) {
     ctx.setValue(outputs[i], op.getOutQubits()[i]);
   }
@@ -353,8 +355,8 @@ void deserializePpr(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void deserializeGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                     DeserializationContext& ctx) {
+void deserializeGate(mlir::ImplicitLocOpBuilder& builder,
+                     jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto gate = operation.getInstruction().getQubit().getGate();
   switch (gate.which()) {
   case jeff::QubitGate::WELL_KNOWN:
@@ -373,8 +375,8 @@ void deserializeGate(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void deserializeQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationContext& ctx) {
+void deserializeQubit(mlir::ImplicitLocOpBuilder& builder,
+                      jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto qubit = operation.getInstruction().getQubit();
   switch (qubit.which()) {
   case jeff::QubitOp::ALLOC:
@@ -409,99 +411,98 @@ void deserializeQubit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 // Qureg operations
 //===----------------------------------------------------------------------===//
 
-void deserializeQuregAlloc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeQuregAlloc(mlir::ImplicitLocOpBuilder& builder,
+                           jeff::Op::Reader operation,
                            DeserializationContext& ctx) {
-  auto allocOp = builder.create<mlir::jeff::QuregAllocOp>(
-      builder.getUnknownLoc(), ctx.getValue(operation.getInputs()[0]));
+  auto allocOp = mlir::jeff::QuregAllocOp::create(
+      builder, ctx.getValue(operation.getInputs()[0]));
   ctx.setValue(operation.getOutputs()[0], allocOp.getResult());
 }
 
-void deserializeQuregFreeZero(mlir::OpBuilder& builder,
+void deserializeQuregFreeZero(mlir::ImplicitLocOpBuilder& builder,
                               jeff::Op::Reader operation,
                               DeserializationContext& ctx) {
-  builder.create<mlir::jeff::QuregFreeZeroOp>(
-      builder.getUnknownLoc(), ctx.getValue(operation.getInputs()[0]));
+  mlir::jeff::QuregFreeZeroOp::create(builder,
+                                      ctx.getValue(operation.getInputs()[0]));
 }
 
-void deserializeQuregExtractIndex(mlir::OpBuilder& builder,
+void deserializeQuregExtractIndex(mlir::ImplicitLocOpBuilder& builder,
                                   jeff::Op::Reader operation,
                                   DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QuregExtractIndexOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]),
-      ctx.getValue(inputs[1]));
+  auto op = mlir::jeff::QuregExtractIndexOp::create(
+      builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]));
   ctx.setValue(outputs[0], op.getOutQreg());
   ctx.setValue(outputs[1], op.getOutQubit());
 }
 
-void deserializeQuregInsertIndex(mlir::OpBuilder& builder,
+void deserializeQuregInsertIndex(mlir::ImplicitLocOpBuilder& builder,
                                  jeff::Op::Reader operation,
                                  DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QuregInsertIndexOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[2]),
+  auto op = mlir::jeff::QuregInsertIndexOp::create(
+      builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[2]),
       ctx.getValue(inputs[1]));
   ctx.setValue(outputs[0], op.getOutQreg());
 }
 
-void deserializeQuregExtractSlice(mlir::OpBuilder& builder,
+void deserializeQuregExtractSlice(mlir::ImplicitLocOpBuilder& builder,
                                   jeff::Op::Reader operation,
                                   DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QuregExtractSliceOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
+  auto op = mlir::jeff::QuregExtractSliceOp::create(
+      builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
       ctx.getValue(inputs[2]));
   ctx.setValue(outputs[0], op.getOutQreg());
   ctx.setValue(outputs[1], op.getNewQreg());
 }
 
-void deserializeQuregInsertSlice(mlir::OpBuilder& builder,
+void deserializeQuregInsertSlice(mlir::ImplicitLocOpBuilder& builder,
                                  jeff::Op::Reader operation,
                                  DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QuregInsertSliceOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[2]),
+  auto op = mlir::jeff::QuregInsertSliceOp::create(
+      builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[2]),
       ctx.getValue(inputs[1]));
   ctx.setValue(outputs[0], op.getOutQreg());
 }
 
-void deserializeQuregLength(mlir::OpBuilder& builder,
+void deserializeQuregLength(mlir::ImplicitLocOpBuilder& builder,
                             jeff::Op::Reader operation,
                             DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QuregLengthOp>(builder.getUnknownLoc(),
-                                                      ctx.getValue(inputs[0]));
+  auto op = mlir::jeff::QuregLengthOp::create(builder, ctx.getValue(inputs[0]));
   ctx.setValue(outputs[0], op.getOutQreg());
   ctx.setValue(outputs[1], op.getLength());
 }
 
-void deserializeQuregSplit(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeQuregSplit(mlir::ImplicitLocOpBuilder& builder,
+                           jeff::Op::Reader operation,
                            DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QuregSplitOp>(builder.getUnknownLoc(),
-                                                     ctx.getValue(inputs[0]),
-                                                     ctx.getValue(inputs[1]));
+  auto op = mlir::jeff::QuregSplitOp::create(builder, ctx.getValue(inputs[0]),
+                                             ctx.getValue(inputs[1]));
   ctx.setValue(outputs[0], op.getOutQregOne());
   ctx.setValue(outputs[1], op.getOutQregTwo());
 }
 
-void deserializeQuregJoin(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeQuregJoin(mlir::ImplicitLocOpBuilder& builder,
+                          jeff::Op::Reader operation,
                           DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::QuregJoinOp>(builder.getUnknownLoc(),
-                                                    ctx.getValue(inputs[0]),
-                                                    ctx.getValue(inputs[1]));
+  auto op = mlir::jeff::QuregJoinOp::create(builder, ctx.getValue(inputs[0]),
+                                            ctx.getValue(inputs[1]));
   ctx.setValue(outputs[0], op.getOutQreg());
 }
 
-void deserializeQuregCreate(mlir::OpBuilder& builder,
+void deserializeQuregCreate(mlir::ImplicitLocOpBuilder& builder,
                             jeff::Op::Reader operation,
                             DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -511,21 +512,20 @@ void deserializeQuregCreate(mlir::OpBuilder& builder,
   for (auto input : inputs) {
     inQreg.push_back(ctx.getValue(input));
   }
-  auto op = builder.create<mlir::jeff::QuregCreateOp>(builder.getUnknownLoc(),
-                                                      inQreg);
+  auto op = mlir::jeff::QuregCreateOp::create(builder, inQreg);
   ctx.setValue(outputs[0], op.getOutQreg());
 }
 
-void deserializeQuregFree(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeQuregFree(mlir::ImplicitLocOpBuilder& builder,
+                          jeff::Op::Reader operation,
                           DeserializationContext& ctx) {
-  builder.create<mlir::jeff::QuregFreeOp>(
-      builder.getUnknownLoc(), ctx.getValue(operation.getInputs()[0]));
+  mlir::jeff::QuregFreeOp::create(builder,
+                                  ctx.getValue(operation.getInputs()[0]));
 }
 
-void deserializeQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationContext& ctx) {
-  const auto instruction = operation.getInstruction();
-  const auto qureg = instruction.getQureg();
+void deserializeQureg(mlir::ImplicitLocOpBuilder& builder,
+                      jeff::Op::Reader operation, DeserializationContext& ctx) {
+  const auto qureg = operation.getInstruction().getQureg();
   switch (qureg.which()) {
   case jeff::QuregOp::ALLOC:
     deserializeQuregAlloc(builder, operation, ctx);
@@ -572,15 +572,15 @@ void deserializeQureg(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 //===----------------------------------------------------------------------===//
 
 #define DESERIALIZE_INT_CONST(BIT_WIDTH)                                       \
-  void deserializeIntConst##BIT_WIDTH(mlir::OpBuilder& builder,                \
+  void deserializeIntConst##BIT_WIDTH(mlir::ImplicitLocOpBuilder& builder,     \
                                       jeff::Op::Reader operation,              \
                                       DeserializationContext& ctx) {           \
     const auto value =                                                         \
         operation.getInstruction().getInt().getConst##BIT_WIDTH();             \
     auto intType = builder.getI##BIT_WIDTH##Type();                            \
     auto intAttr = mlir::IntegerAttr::get(intType, value);                     \
-    auto op = builder.create<mlir::jeff::IntConst##BIT_WIDTH##Op>(             \
-        builder.getUnknownLoc(), intType, intAttr);                            \
+    auto op = mlir::jeff::IntConst##BIT_WIDTH##Op::create(builder, intType,    \
+                                                          intAttr);            \
     ctx.setValue(operation.getOutputs()[0], op.getConstant());                 \
   }
 
@@ -592,36 +592,37 @@ DESERIALIZE_INT_CONST(64)
 
 #undef DESERIALIZE_INT_CONST
 
-void deserializeIntUnaryOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeIntUnaryOp(mlir::ImplicitLocOpBuilder& builder,
+                           jeff::Op::Reader operation,
                            mlir::jeff::IntUnaryOperation unaryOperation,
                            DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::IntUnaryOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), unaryOperation);
+  auto op = mlir::jeff::IntUnaryOp::create(builder, ctx.getValue(inputs[0]),
+                                           unaryOperation);
   ctx.setValue(outputs[0], op.getB());
 }
 
-void deserializeIntBinaryOp(mlir::OpBuilder& builder,
+void deserializeIntBinaryOp(mlir::ImplicitLocOpBuilder& builder,
                             jeff::Op::Reader operation,
                             mlir::jeff::IntBinaryOperation binaryOperation,
                             DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::IntBinaryOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
-      binaryOperation);
+  auto op =
+      mlir::jeff::IntBinaryOp::create(builder, ctx.getValue(inputs[0]),
+                                      ctx.getValue(inputs[1]), binaryOperation);
   ctx.setValue(outputs[0], op.getC());
 }
 
 void deserializeIntComparisonOp(
-    mlir::OpBuilder& builder, jeff::Op::Reader operation,
+    mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader operation,
     mlir::jeff::IntComparisonOperation comparisonOperation,
     DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::IntComparisonOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
+  auto op = mlir::jeff::IntComparisonOp::create(
+      builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
       comparisonOperation);
   ctx.setValue(outputs[0], op.getC());
 }
@@ -652,8 +653,8 @@ void deserializeIntComparisonOp(
         mlir::jeff::IntComparisonOperation::_##MLIR_ENUM_SUFFIX, ctx);         \
     break;
 
-void deserializeInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                    DeserializationContext& ctx) {
+void deserializeInt(mlir::ImplicitLocOpBuilder& builder,
+                    jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto intInstr = operation.getInstruction().getInt();
   switch (intInstr.which()) {
     ADD_CONST_CASE(1)
@@ -701,7 +702,7 @@ void deserializeInt(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 // IntArray operations
 //===----------------------------------------------------------------------===//
 
-void deserializeIntArrayConst1(mlir::OpBuilder& builder,
+void deserializeIntArrayConst1(mlir::ImplicitLocOpBuilder& builder,
                                jeff::Op::Reader operation,
                                DeserializationContext& ctx) {
   const auto values = operation.getInstruction().getIntArray().getConst1();
@@ -714,15 +715,15 @@ void deserializeIntArrayConst1(mlir::OpBuilder& builder,
       mlir::DenseBoolArrayAttr::get(builder.getContext(), inArray);
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inArray.size())}, builder.getI1Type());
-  auto op = builder.create<mlir::jeff::IntArrayConst1Op>(
-      builder.getUnknownLoc(), tensorType, inArrayAttr);
+  auto op =
+      mlir::jeff::IntArrayConst1Op::create(builder, tensorType, inArrayAttr);
   ctx.setValue(operation.getOutputs()[0], op.getOutArray());
 }
 
 #define DESERIALIZE_INT_ARRAY_CONST(BIT_WIDTH)                                 \
-  void deserializeIntArrayConst##BIT_WIDTH(mlir::OpBuilder& builder,           \
-                                           jeff::Op::Reader operation,         \
-                                           DeserializationContext& ctx) {      \
+  void deserializeIntArrayConst##BIT_WIDTH(                                    \
+      mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader operation,         \
+      DeserializationContext& ctx) {                                           \
     const auto values =                                                        \
         operation.getInstruction().getIntArray().getConst##BIT_WIDTH();        \
     llvm::SmallVector<int##BIT_WIDTH##_t> inArray;                             \
@@ -735,8 +736,8 @@ void deserializeIntArrayConst1(mlir::OpBuilder& builder,
     auto tensorType =                                                          \
         mlir::RankedTensorType::get({static_cast<int64_t>(inArray.size())},    \
                                     builder.getI##BIT_WIDTH##Type());          \
-    auto op = builder.create<mlir::jeff::IntArrayConst##BIT_WIDTH##Op>(        \
-        builder.getUnknownLoc(), tensorType, inArrayAttr);                     \
+    auto op = mlir::jeff::IntArrayConst##BIT_WIDTH##Op::create(                \
+        builder, tensorType, inArrayAttr);                                     \
     ctx.setValue(operation.getOutputs()[0], op.getOutArray());                 \
   }
 
@@ -747,7 +748,7 @@ DESERIALIZE_INT_ARRAY_CONST(64)
 
 #undef DESERIALIZE_INT_ARRAY_CONST
 
-void deserializeIntArrayZero(mlir::OpBuilder& builder,
+void deserializeIntArrayZero(mlir::ImplicitLocOpBuilder& builder,
                              jeff::Op::Reader operation,
                              DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -755,12 +756,12 @@ void deserializeIntArrayZero(mlir::OpBuilder& builder,
   const auto zero = operation.getInstruction().getIntArray().getZero();
   auto tensorType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
                                                 builder.getIntegerType(zero));
-  auto op = builder.create<mlir::jeff::IntArrayZeroOp>(
-      builder.getUnknownLoc(), tensorType, ctx.getValue(inputs[0]));
+  auto op = mlir::jeff::IntArrayZeroOp::create(builder, tensorType,
+                                               ctx.getValue(inputs[0]));
   ctx.setValue(outputs[0], op.getOutArray());
 }
 
-void deserializeIntArrayGetIndex(mlir::OpBuilder& builder,
+void deserializeIntArrayGetIndex(mlir::ImplicitLocOpBuilder& builder,
                                  jeff::Op::Reader operation,
                                  DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -768,35 +769,34 @@ void deserializeIntArrayGetIndex(mlir::OpBuilder& builder,
   auto tensorType = ctx.getValue(inputs[0]).getType();
   auto entryType =
       llvm::cast<mlir::RankedTensorType>(tensorType).getElementType();
-  auto op = builder.create<mlir::jeff::IntArrayGetIndexOp>(
-      builder.getUnknownLoc(), entryType, ctx.getValue(inputs[0]),
-      ctx.getValue(inputs[1]));
+  auto op = mlir::jeff::IntArrayGetIndexOp::create(
+      builder, entryType, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]));
   ctx.setValue(outputs[0], op.getValue());
 }
 
-void deserializeIntArraySetIndex(mlir::OpBuilder& builder,
+void deserializeIntArraySetIndex(mlir::ImplicitLocOpBuilder& builder,
                                  jeff::Op::Reader operation,
                                  DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   auto tensorType = ctx.getValue(inputs[0]).getType();
-  auto op = builder.create<mlir::jeff::IntArraySetIndexOp>(
-      builder.getUnknownLoc(), tensorType, ctx.getValue(inputs[0]),
-      ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
+  auto op = mlir::jeff::IntArraySetIndexOp::create(
+      builder, tensorType, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
+      ctx.getValue(inputs[2]));
   ctx.setValue(outputs[0], op.getOutArray());
 }
 
-void deserializeIntArrayLength(mlir::OpBuilder& builder,
+void deserializeIntArrayLength(mlir::ImplicitLocOpBuilder& builder,
                                jeff::Op::Reader operation,
                                DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::IntArrayLengthOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]));
+  auto op =
+      mlir::jeff::IntArrayLengthOp::create(builder, ctx.getValue(inputs[0]));
   ctx.setValue(outputs[0], op.getLength());
 }
 
-void deserializeIntArrayCreate(mlir::OpBuilder& builder,
+void deserializeIntArrayCreate(mlir::ImplicitLocOpBuilder& builder,
                                jeff::Op::Reader operation,
                                DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -808,12 +808,12 @@ void deserializeIntArrayCreate(mlir::OpBuilder& builder,
   }
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inputs.size())}, ctx.getValue(inputs[0]).getType());
-  auto op = builder.create<mlir::jeff::IntArrayCreateOp>(
-      builder.getUnknownLoc(), tensorType, inArray);
+  auto op = mlir::jeff::IntArrayCreateOp::create(builder, tensorType, inArray);
   ctx.setValue(outputs[0], op.getOutArray());
 }
 
-void deserializeIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeIntArray(mlir::ImplicitLocOpBuilder& builder,
+                         jeff::Op::Reader operation,
                          DeserializationContext& ctx) {
   const auto intArray = operation.getInstruction().getIntArray();
   switch (intArray.which()) {
@@ -859,15 +859,15 @@ void deserializeIntArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 //===----------------------------------------------------------------------===//
 
 #define DESERIALIZE_FLOAT_CONST(BIT_WIDTH)                                     \
-  void deserializeFloatConst##BIT_WIDTH(mlir::OpBuilder& builder,              \
+  void deserializeFloatConst##BIT_WIDTH(mlir::ImplicitLocOpBuilder& builder,   \
                                         jeff::Op::Reader operation,            \
                                         DeserializationContext& ctx) {         \
     const auto value =                                                         \
         operation.getInstruction().getFloat().getConst##BIT_WIDTH();           \
     auto floatType = builder.getF##BIT_WIDTH##Type();                          \
     auto floatAttr = mlir::FloatAttr::get(floatType, value);                   \
-    auto op = builder.create<mlir::jeff::FloatConst##BIT_WIDTH##Op>(           \
-        builder.getUnknownLoc(), floatType, floatAttr);                        \
+    auto op = mlir::jeff::FloatConst##BIT_WIDTH##Op::create(                   \
+        builder, floatType, floatAttr);                                        \
     ctx.setValue(operation.getOutputs()[0], op.getConstant());                 \
   }
 
@@ -876,48 +876,49 @@ DESERIALIZE_FLOAT_CONST(64)
 
 #undef DESERIALIZE_FLOAT_CONST
 
-void deserializeFloatUnaryOp(mlir::OpBuilder& builder,
+void deserializeFloatUnaryOp(mlir::ImplicitLocOpBuilder& builder,
                              jeff::Op::Reader operation,
                              mlir::jeff::FloatUnaryOperation unaryOperation,
                              DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::FloatUnaryOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), unaryOperation);
+  auto op = mlir::jeff::FloatUnaryOp::create(builder, ctx.getValue(inputs[0]),
+                                             unaryOperation);
   ctx.setValue(outputs[0], op.getB());
 }
 
-void deserializeFloatBinaryOp(mlir::OpBuilder& builder,
+void deserializeFloatBinaryOp(mlir::ImplicitLocOpBuilder& builder,
                               jeff::Op::Reader operation,
                               mlir::jeff::FloatBinaryOperation binaryOperation,
                               DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::FloatBinaryOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
-      binaryOperation);
+  auto op = mlir::jeff::FloatBinaryOp::create(builder, ctx.getValue(inputs[0]),
+                                              ctx.getValue(inputs[1]),
+                                              binaryOperation);
   ctx.setValue(outputs[0], op.getC());
 }
 
 void deserializeFloatComparisonOp(
-    mlir::OpBuilder& builder, jeff::Op::Reader operation,
+    mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader operation,
     mlir::jeff::FloatComparisonOperation comparisonOperation,
     DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::FloatComparisonOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
+  auto op = mlir::jeff::FloatComparisonOp::create(
+      builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
       comparisonOperation);
   ctx.setValue(outputs[0], op.getC());
 }
 
-void deserializeFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeFloatIsOp(mlir::ImplicitLocOpBuilder& builder,
+                          jeff::Op::Reader operation,
                           mlir::jeff::FloatIsOperation isOperation,
                           DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::FloatIsOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]), isOperation);
+  auto op = mlir::jeff::FloatIsOp::create(builder, ctx.getValue(inputs[0]),
+                                          isOperation);
   ctx.setValue(outputs[0], op.getResult());
 }
 
@@ -954,8 +955,8 @@ void deserializeFloatIsOp(mlir::OpBuilder& builder, jeff::Op::Reader operation,
                          ctx);                                                 \
     break;
 
-void deserializeFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                      DeserializationContext& ctx) {
+void deserializeFloat(mlir::ImplicitLocOpBuilder& builder,
+                      jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto floatInstr = operation.getInstruction().getFloat();
   switch (floatInstr.which()) {
     ADD_CONST_CASE(32)
@@ -1007,7 +1008,7 @@ void deserializeFloat(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 // FloatArray operations
 //===----------------------------------------------------------------------===//
 
-void deserializeFloatArrayConst32(mlir::OpBuilder& builder,
+void deserializeFloatArrayConst32(mlir::ImplicitLocOpBuilder& builder,
                                   jeff::Op::Reader operation,
                                   DeserializationContext& ctx) {
   const auto values = operation.getInstruction().getFloatArray().getConst32();
@@ -1020,12 +1021,12 @@ void deserializeFloatArrayConst32(mlir::OpBuilder& builder,
       mlir::DenseF32ArrayAttr::get(builder.getContext(), inArray);
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inArray.size())}, builder.getF32Type());
-  auto op = builder.create<mlir::jeff::FloatArrayConst32Op>(
-      builder.getUnknownLoc(), tensorType, inArrayAttr);
+  auto op =
+      mlir::jeff::FloatArrayConst32Op::create(builder, tensorType, inArrayAttr);
   ctx.setValue(operation.getOutputs()[0], op.getOutArray());
 }
 
-void deserializeFloatArrayConst64(mlir::OpBuilder& builder,
+void deserializeFloatArrayConst64(mlir::ImplicitLocOpBuilder& builder,
                                   jeff::Op::Reader operation,
                                   DeserializationContext& ctx) {
   const auto values = operation.getInstruction().getFloatArray().getConst64();
@@ -1038,12 +1039,12 @@ void deserializeFloatArrayConst64(mlir::OpBuilder& builder,
       mlir::DenseF64ArrayAttr::get(builder.getContext(), inArray);
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inArray.size())}, builder.getF64Type());
-  auto op = builder.create<mlir::jeff::FloatArrayConst64Op>(
-      builder.getUnknownLoc(), tensorType, inArrayAttr);
+  auto op =
+      mlir::jeff::FloatArrayConst64Op::create(builder, tensorType, inArrayAttr);
   ctx.setValue(operation.getOutputs()[0], op.getOutArray());
 }
 
-void deserializeFloatArrayZero(mlir::OpBuilder& builder,
+void deserializeFloatArrayZero(mlir::ImplicitLocOpBuilder& builder,
                                jeff::Op::Reader operation,
                                DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -1062,12 +1063,12 @@ void deserializeFloatArrayZero(mlir::OpBuilder& builder,
   }
   auto tensorType =
       mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, floatType);
-  auto op = builder.create<mlir::jeff::FloatArrayZeroOp>(
-      builder.getUnknownLoc(), tensorType, ctx.getValue(inputs[0]));
+  auto op = mlir::jeff::FloatArrayZeroOp::create(builder, tensorType,
+                                                 ctx.getValue(inputs[0]));
   ctx.setValue(outputs[0], op.getOutArray());
 }
 
-void deserializeFloatArrayGetIndex(mlir::OpBuilder& builder,
+void deserializeFloatArrayGetIndex(mlir::ImplicitLocOpBuilder& builder,
                                    jeff::Op::Reader operation,
                                    DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -1075,35 +1076,34 @@ void deserializeFloatArrayGetIndex(mlir::OpBuilder& builder,
   auto tensorType = ctx.getValue(inputs[0]).getType();
   auto entryType =
       llvm::cast<mlir::RankedTensorType>(tensorType).getElementType();
-  auto op = builder.create<mlir::jeff::FloatArrayGetIndexOp>(
-      builder.getUnknownLoc(), entryType, ctx.getValue(inputs[0]),
-      ctx.getValue(inputs[1]));
+  auto op = mlir::jeff::FloatArrayGetIndexOp::create(
+      builder, entryType, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]));
   ctx.setValue(outputs[0], op.getValue());
 }
 
-void deserializeFloatArraySetIndex(mlir::OpBuilder& builder,
+void deserializeFloatArraySetIndex(mlir::ImplicitLocOpBuilder& builder,
                                    jeff::Op::Reader operation,
                                    DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   auto tensorType = ctx.getValue(inputs[0]).getType();
-  auto op = builder.create<mlir::jeff::FloatArraySetIndexOp>(
-      builder.getUnknownLoc(), tensorType, ctx.getValue(inputs[0]),
-      ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
+  auto op = mlir::jeff::FloatArraySetIndexOp::create(
+      builder, tensorType, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
+      ctx.getValue(inputs[2]));
   ctx.setValue(outputs[0], op.getOutArray());
 }
 
-void deserializeFloatArrayLength(mlir::OpBuilder& builder,
+void deserializeFloatArrayLength(mlir::ImplicitLocOpBuilder& builder,
                                  jeff::Op::Reader operation,
                                  DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
-  auto op = builder.create<mlir::jeff::FloatArrayLengthOp>(
-      builder.getUnknownLoc(), ctx.getValue(inputs[0]));
+  auto op =
+      mlir::jeff::FloatArrayLengthOp::create(builder, ctx.getValue(inputs[0]));
   ctx.setValue(outputs[0], op.getLength());
 }
 
-void deserializeFloatArrayCreate(mlir::OpBuilder& builder,
+void deserializeFloatArrayCreate(mlir::ImplicitLocOpBuilder& builder,
                                  jeff::Op::Reader operation,
                                  DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
@@ -1115,12 +1115,13 @@ void deserializeFloatArrayCreate(mlir::OpBuilder& builder,
   }
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(inputs.size())}, ctx.getValue(inputs[0]).getType());
-  auto op = builder.create<mlir::jeff::FloatArrayCreateOp>(
-      builder.getUnknownLoc(), tensorType, inArray);
+  auto op =
+      mlir::jeff::FloatArrayCreateOp::create(builder, tensorType, inArray);
   ctx.setValue(outputs[0], op.getOutArray());
 }
 
-void deserializeFloatArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeFloatArray(mlir::ImplicitLocOpBuilder& builder,
+                           jeff::Op::Reader operation,
                            DeserializationContext& ctx) {
   const auto floatArray = operation.getInstruction().getFloatArray();
   switch (floatArray.which()) {
@@ -1158,11 +1159,12 @@ void deserializeFloatArray(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
 // Forward declaration
 void deserializeOperations(
-    mlir::OpBuilder& builder,
+    mlir::ImplicitLocOpBuilder& builder,
     capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
     DeserializationContext& ctx);
 
-void deserializeSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeSwitch(mlir::ImplicitLocOpBuilder& builder,
+                       jeff::Op::Reader operation,
                        DeserializationContext& ctx) {
   auto loc = builder.getUnknownLoc();
   const auto inputs = operation.getInputs();
@@ -1178,8 +1180,8 @@ void deserializeSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     outTypes.push_back(ctx.getValue(inputs[i]).getType());
   }
 
-  auto op = builder.create<mlir::jeff::SwitchOp>(
-      loc, outTypes, ctx.getValue(inputs[0]), inValues, branches.size());
+  auto op = mlir::jeff::SwitchOp::create(
+      builder, outTypes, ctx.getValue(inputs[0]), inValues, branches.size());
 
   for (size_t i = 0; i < branches.size(); ++i) {
     auto& block = op.getBranches()[i].emplaceBlock();
@@ -1203,7 +1205,7 @@ void deserializeSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       targetValues.push_back(ctx.getValue(branch.getTargets()[j]));
     }
 
-    builder.create<mlir::jeff::YieldOp>(loc, targetValues);
+    mlir::jeff::YieldOp::create(builder, targetValues);
   }
 
   if (switchInstr.hasDefault()) {
@@ -1228,7 +1230,7 @@ void deserializeSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       targetValues.push_back(ctx.getValue(defaultRegion.getTargets()[i]));
     }
 
-    builder.create<mlir::jeff::YieldOp>(loc, targetValues);
+    mlir::jeff::YieldOp::create(builder, targetValues);
   }
 
   llvm::SmallVector<mlir::Value> outValues;
@@ -1238,8 +1240,8 @@ void deserializeSwitch(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void deserializeFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                    DeserializationContext& ctx) {
+void deserializeFor(mlir::ImplicitLocOpBuilder& builder,
+                    jeff::Op::Reader operation, DeserializationContext& ctx) {
   auto loc = builder.getUnknownLoc();
   const auto inputs = operation.getInputs();
   const auto forInstr = operation.getInstruction().getScf().getFor();
@@ -1253,8 +1255,8 @@ void deserializeFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     outTypes.push_back(ctx.getValue(inputs[i]).getType());
   }
 
-  auto op = builder.create<mlir::jeff::ForOp>(
-      loc, outTypes, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
+  auto op = mlir::jeff::ForOp::create(
+      builder, outTypes, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
       ctx.getValue(inputs[2]), inValues);
 
   {
@@ -1281,7 +1283,7 @@ void deserializeFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       outValues.push_back(ctx.getValue(forInstr.getTargets()[i]));
     }
 
-    builder.create<mlir::jeff::YieldOp>(loc, outValues);
+    mlir::jeff::YieldOp::create(builder, outValues);
   }
 
   llvm::SmallVector<mlir::Value> outValues;
@@ -1292,7 +1294,8 @@ void deserializeFor(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 }
 
 template <typename MLIR_WHILE_OP_TYPE, typename JEFF_WHILE_OP_READER_TYPE>
-void deserializeWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
+void deserializeWhile(mlir::ImplicitLocOpBuilder& builder,
+                      jeff::Op::Reader operation,
                       JEFF_WHILE_OP_READER_TYPE reader,
                       DeserializationContext& ctx) {
   auto loc = builder.getUnknownLoc();
@@ -1307,7 +1310,7 @@ void deserializeWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
     outTypes.push_back(ctx.getValue(input).getType());
   }
 
-  auto op = builder.create<MLIR_WHILE_OP_TYPE>(loc, outTypes, inValues);
+  auto op = MLIR_WHILE_OP_TYPE::create(builder, outTypes, inValues);
 
   {
     auto& block = op.getCondition().emplaceBlock();
@@ -1326,7 +1329,7 @@ void deserializeWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 
     // Retrieve target from map
     auto result = ctx.getValue(condition.getTargets()[0]);
-    builder.create<mlir::jeff::YieldOp>(loc, result);
+    mlir::jeff::YieldOp::create(builder, result);
   }
 
   {
@@ -1351,7 +1354,7 @@ void deserializeWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
       targetValues.push_back(ctx.getValue(body.getTargets()[i]));
     }
 
-    builder.create<mlir::jeff::YieldOp>(loc, targetValues);
+    mlir::jeff::YieldOp::create(builder, targetValues);
   }
 
   llvm::SmallVector<mlir::Value> outValues;
@@ -1361,8 +1364,8 @@ void deserializeWhile(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   }
 }
 
-void deserializeScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                    DeserializationContext& ctx) {
+void deserializeScf(mlir::ImplicitLocOpBuilder& builder,
+                    jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto scf = operation.getInstruction().getScf();
   switch (scf.which()) {
   case jeff::ScfOp::SWITCH:
@@ -1390,8 +1393,8 @@ void deserializeScf(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 // Func operations
 //===----------------------------------------------------------------------===//
 
-void deserializeFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
-                     DeserializationContext& ctx) {
+void deserializeFunc(mlir::ImplicitLocOpBuilder& builder,
+                     jeff::Op::Reader operation, DeserializationContext& ctx) {
   const auto inputs = operation.getInputs();
   const auto outputs = operation.getOutputs();
   const auto func = operation.getInstruction().getFunc();
@@ -1401,8 +1404,7 @@ void deserializeFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
   for (const auto input : inputs) {
     mlirInputs.push_back(ctx.getValue(input));
   }
-  auto op = builder.create<mlir::func::CallOp>(builder.getUnknownLoc(),
-                                               mlirFunc, mlirInputs);
+  auto op = mlir::func::CallOp::create(builder, mlirFunc, mlirInputs);
   for (size_t i = 0; i < outputs.size(); ++i) {
     ctx.setValue(outputs[i], op.getResult(i));
   }
@@ -1412,7 +1414,7 @@ void deserializeFunc(mlir::OpBuilder& builder, jeff::Op::Reader operation,
 // Types
 //===----------------------------------------------------------------------===//
 
-mlir::Type deserializeIntType(mlir::OpBuilder& builder,
+mlir::Type deserializeIntType(mlir::ImplicitLocOpBuilder& builder,
                               jeff::Type::Reader type) {
   switch (type.getInt()) {
   case 1:
@@ -1432,7 +1434,7 @@ mlir::Type deserializeIntType(mlir::OpBuilder& builder,
   }
 }
 
-mlir::Type deserializeIntArrayType(mlir::OpBuilder& builder,
+mlir::Type deserializeIntArrayType(mlir::ImplicitLocOpBuilder& builder,
                                    jeff::Type::Reader type) {
   switch (type.getIntArray()) {
   case 1:
@@ -1457,7 +1459,7 @@ mlir::Type deserializeIntArrayType(mlir::OpBuilder& builder,
   }
 }
 
-mlir::FloatType deserializeFloatType(mlir::OpBuilder& builder,
+mlir::FloatType deserializeFloatType(mlir::ImplicitLocOpBuilder& builder,
                                      jeff::Type::Reader type) {
   switch (type.getFloat()) {
   case jeff::FloatPrecision::FLOAT32:
@@ -1471,7 +1473,7 @@ mlir::FloatType deserializeFloatType(mlir::OpBuilder& builder,
   }
 }
 
-mlir::Type deserializeFloatArrayType(mlir::OpBuilder& builder,
+mlir::Type deserializeFloatArrayType(mlir::ImplicitLocOpBuilder& builder,
                                      jeff::Type::Reader type) {
   switch (type.getFloatArray()) {
   case jeff::FloatPrecision::FLOAT32:
@@ -1487,7 +1489,8 @@ mlir::Type deserializeFloatArrayType(mlir::OpBuilder& builder,
   }
 }
 
-mlir::Type deserializeType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
+mlir::Type deserializeType(mlir::ImplicitLocOpBuilder& builder,
+                           jeff::Type::Reader type) {
   switch (type.which()) {
   case jeff::Type::QUBIT:
     return mlir::jeff::QubitType::get(builder.getContext());
@@ -1509,7 +1512,7 @@ mlir::Type deserializeType(mlir::OpBuilder& builder, jeff::Type::Reader type) {
 }
 
 void deserializeOperations(
-    mlir::OpBuilder& builder,
+    mlir::ImplicitLocOpBuilder& builder,
     capnp::List<jeff::Op, capnp::Kind::STRUCT>::Reader operations,
     DeserializationContext& ctx) {
   for (auto operation : operations) {
@@ -1547,7 +1550,7 @@ void deserializeOperations(
   }
 }
 
-void deserializeFunction(mlir::OpBuilder& builder,
+void deserializeFunction(mlir::ImplicitLocOpBuilder& builder,
                          jeff::Function::Reader function,
                          DeserializationContext& ctx) {
   ctx.values.clear();
@@ -1596,8 +1599,7 @@ void deserializeFunction(mlir::OpBuilder& builder,
   // Create function
   const auto funcName = ctx.strings[function.getName()];
   auto funcType = builder.getFunctionType(sourceTypes, targetTypes);
-  auto func = builder.create<mlir::func::FuncOp>(builder.getUnknownLoc(),
-                                                 funcName, funcType);
+  auto func = mlir::func::FuncOp::create(builder, funcName, funcType);
   ctx.setFunc(function.getName(), func);
 
   mlir::OpBuilder::InsertionGuard guard(builder);
@@ -1617,7 +1619,7 @@ void deserializeFunction(mlir::OpBuilder& builder,
   }
 
   // Create return statement
-  builder.create<mlir::func::ReturnOp>(builder.getUnknownLoc(), results);
+  mlir::func::ReturnOp::create(builder, results);
 }
 
 } // namespace
@@ -1635,11 +1637,11 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
   // Create MLIR builder
-  mlir::OpBuilder builder(context);
+  mlir::ImplicitLocOpBuilder builder(mlir::UnknownLoc::get(context), context);
 
   // Create MLIR module
   mlir::OpBuilder::InsertionGuard guard(builder);
-  auto mlirModule = builder.create<mlir::ModuleOp>(builder.getUnknownLoc());
+  auto mlirModule = mlir::ModuleOp::create(builder);
   builder.setInsertionPointToStart(mlirModule.getBody());
 
   // Get strings
