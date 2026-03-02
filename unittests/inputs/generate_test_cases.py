@@ -1,3 +1,12 @@
+#!/usr/bin/python3
+
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#   "jeff-format",
+# ]
+# ///
+
 from pathlib import Path
 from typing import Callable
 from jeff import (
