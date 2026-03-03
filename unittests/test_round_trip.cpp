@@ -85,7 +85,7 @@ TEST_P(RoundTripTest, RoundTrip) {
 
   // Deserialize and serialize again
   auto mlirModule = deserialize(&context, path.string());
-  auto serialized = serialize(*mlirModule);
+  auto serialized = serializeToArray(*mlirModule);
 
   llvm::outs() << "Deserialized MLIR module:\n";
   mlirModule->print(llvm::outs());

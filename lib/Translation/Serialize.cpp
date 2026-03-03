@@ -10,11 +10,13 @@
 #include <capnp/serialize.h>
 #include <cstddef>
 #include <cstdint>
+#include <fcntl.h>
 #include <jeff.capnp.h>
 #include <kj/array.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringMap.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/TypeSwitch.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
@@ -1740,13 +1742,9 @@ void serializeFunction(jeff::Function::Builder funcBuilder,
   }
 }
 
-} // namespace
-
-kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
+void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
   SerializationContext ctx;
 
-  // Create capnp message
-  capnp::MallocMessageBuilder message;
   auto moduleBuilder = message.initRoot<jeff::Module>();
 
   // Get strings
@@ -1804,6 +1802,23 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
   moduleBuilder.setVersionPatch(
       llvm::cast<mlir::IntegerAttr>(module->getAttr("jeff.versionPatch"))
           .getUInt());
+}
 
+} // namespace
+
+kj::Array<capnp::word> serializeToArray(mlir::ModuleOp module) {
+  capnp::MallocMessageBuilder message;
+  writeMessage(module, message);
   return capnp::messageToFlatArray(message);
+}
+
+void serialize(mlir::ModuleOp module, llvm::StringRef path) {
+  const auto fd = open(path.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (fd < 0) {
+    llvm::report_fatal_error("Could not open file");
+  }
+
+  capnp::MallocMessageBuilder message;
+  writeMessage(module, message);
+  capnp::writeMessageToFd(fd, message);
 }

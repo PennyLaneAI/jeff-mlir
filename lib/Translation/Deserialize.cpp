@@ -1625,7 +1625,7 @@ void deserializeFunction(mlir::ImplicitLocOpBuilder& builder,
 } // namespace
 
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              const llvm::StringRef& path) {
+                                              llvm::StringRef path) {
   DeserializationContext ctx;
 
   // Get Jeff module from file
