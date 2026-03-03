@@ -28,6 +28,7 @@
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/Types.h>
 #include <mlir/IR/Value.h>
+#include <unistd.h>
 
 namespace {
 
@@ -1821,4 +1822,6 @@ void serialize(mlir::ModuleOp module, llvm::StringRef path) {
   capnp::MallocMessageBuilder message;
   writeMessage(module, message);
   capnp::writeMessageToFd(fd, message);
+
+  close(fd);
 }

@@ -28,6 +28,7 @@
 #include <mlir/IR/Value.h>
 #include <string>
 #include <string_view>
+#include <unistd.h>
 
 namespace {
 
@@ -1634,6 +1635,7 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
     llvm::report_fatal_error("Could not open file");
   }
   capnp::StreamFdMessageReader message(fd);
+  close(fd);
   jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
   // Create MLIR builder
