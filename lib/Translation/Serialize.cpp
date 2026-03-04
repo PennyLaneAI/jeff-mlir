@@ -1807,12 +1807,6 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
 
 } // namespace
 
-kj::Array<capnp::word> serializeToArray(mlir::ModuleOp module) {
-  capnp::MallocMessageBuilder message;
-  writeMessage(module, message);
-  return capnp::messageToFlatArray(message);
-}
-
 void serialize(mlir::ModuleOp module, llvm::StringRef path) {
   int fd = -1;
   const auto ec = llvm::sys::fs::openFileForWrite(path, fd);

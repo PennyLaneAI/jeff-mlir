@@ -11,6 +11,7 @@
 #include <jeff.capnp.h>
 #include <kj/array.h>
 #include <kj/string-tree.h>
+#include <llvm/ADT/SmallString.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
@@ -37,7 +38,7 @@ class RoundTripTest : public ::testing::Test,
                       public ::testing::WithParamInterface<RoundTripTestCase> {
 };
 
-kj::Array<capnp::word> readJeffFile(const std::string& path) {
+kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
   int fd = -1;
   const auto ec = llvm::sys::fs::openFileForRead(path, fd);
   if (ec) {
@@ -85,15 +86,34 @@ TEST_P(RoundTripTest, RoundTrip) {
   const fs::path inputsDir = TEST_INPUTS_DIR;
   const auto& path = inputsDir / testCase.fileName;
 
+  // Load original Jeff module
   auto original = readJeffFile(path.string());
 
-  // Deserialize and serialize again
+  // Deserialize Jeff module
   auto mlirModule = deserialize(&context, path.string());
-  auto serialized = serializeToArray(*mlirModule);
 
   llvm::outs() << "Deserialized MLIR module:\n";
   mlirModule->print(llvm::outs());
   llvm::outs() << "\n\n";
+
+  // Create temporary file
+  llvm::SmallString<128> tempFilePath;
+  int fd;
+  const auto ec =
+      llvm::sys::fs::createTemporaryFile("test", "jeff", fd, tempFilePath);
+  if (ec) {
+    llvm::report_fatal_error("Could not create temporary file");
+  }
+  ::close(fd);
+
+  // Serialize MLIR module
+  serialize(*mlirModule, tempFilePath.str());
+
+  // Load serialized Jeff module
+  auto serialized = readJeffFile(tempFilePath.str());
+
+  // Remove temporary file
+  llvm::sys::fs::remove(tempFilePath);
 
   // Compare textual representations
   capnp::FlatArrayMessageReader originalMessage(original);
