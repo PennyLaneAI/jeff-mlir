@@ -99,10 +99,10 @@ TEST_P(RoundTripTest, RoundTrip) {
 
   // Create temporary file
   llvm::SmallString<128> tempFilePath;
-  int fd;
-  const auto ec =
+  int fd = -1;
+  const auto createEc =
       llvm::sys::fs::createTemporaryFile("test", "jeff", fd, tempFilePath);
-  if (ec) {
+  if (createEc) {
     llvm::report_fatal_error("Could not create temporary file");
   }
   ::close(fd);
@@ -114,7 +114,10 @@ TEST_P(RoundTripTest, RoundTrip) {
   auto serialized = readJeffFile(tempFilePath.str());
 
   // Remove temporary file
-  llvm::sys::fs::remove(tempFilePath);
+  const auto removeEc = llvm::sys::fs::remove(tempFilePath);
+  if (removeEc) {
+    llvm::errs() << "Failed to remove temporary file\n";
+  }
 
   // Compare textual representations
   capnp::FlatArrayMessageReader originalMessage(original);
