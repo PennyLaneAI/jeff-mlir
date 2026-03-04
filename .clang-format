@@ -3,9 +3,11 @@ IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^".*"'
     Priority: 1
-  - Regex: "^<(llvm|mlir)/"
+  - Regex: '^<unistd\.h>'
+    Priority: 3
+  - Regex: '^<.*\.(h|hpp)>'
     Priority: 2
-  - Regex: ".*"
+  - Regex: "^<.*>"
     Priority: 3
 PointerAlignment: Left
 Standard: c++17

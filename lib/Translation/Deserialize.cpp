@@ -3,6 +3,10 @@
 #include "jeff/IR/JeffDialect.h"
 #include "jeff/IR/JeffOps.h"
 
+#include <capnp/common.h>
+#include <capnp/list.h>
+#include <capnp/serialize.h>
+#include <jeff.capnp.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -21,12 +25,8 @@
 #include <mlir/IR/OwningOpRef.h>
 #include <mlir/IR/Value.h>
 
-#include <capnp/common.h>
-#include <capnp/list.h>
-#include <capnp/serialize.h>
 #include <cstddef>
 #include <cstdint>
-#include <jeff.capnp.h>
 #include <string>
 #include <string_view>
 #include <unistd.h>
