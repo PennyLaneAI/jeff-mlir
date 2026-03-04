@@ -10,7 +10,6 @@
 #include <capnp/serialize.h>
 #include <cstddef>
 #include <cstdint>
-#include <fcntl.h>
 #include <jeff.capnp.h>
 #include <kj/array.h>
 #include <llvm/ADT/DenseMap.h>
@@ -20,6 +19,7 @@
 #include <llvm/ADT/TypeSwitch.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/IR/BuiltinAttributes.h>
@@ -1814,8 +1814,10 @@ kj::Array<capnp::word> serializeToArray(mlir::ModuleOp module) {
 }
 
 void serialize(mlir::ModuleOp module, llvm::StringRef path) {
-  const auto fd = open(path.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-  if (fd < 0) {
+  int fd = -1;
+  const auto ec = llvm::sys::fs::openFileForWrite(path, fd);
+  if (ec) {
+    llvm::errs() << "Failed to open file: " << path << "\n";
     llvm::report_fatal_error("Could not open file");
   }
 
@@ -1823,5 +1825,5 @@ void serialize(mlir::ModuleOp module, llvm::StringRef path) {
   writeMessage(module, message);
   capnp::writeMessageToFd(fd, message);
 
-  close(fd);
+  ::close(fd);
 }

@@ -6,18 +6,19 @@
 #include <capnp/common.h>
 #include <capnp/message.h>
 #include <capnp/serialize.h>
-#include <fcntl.h>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <jeff.capnp.h>
 #include <kj/array.h>
 #include <kj/string-tree.h>
 #include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/IR/MLIRContext.h>
 #include <ostream>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -37,13 +38,15 @@ class RoundTripTest : public ::testing::Test,
 };
 
 kj::Array<capnp::word> readJeffFile(const std::string& path) {
-  const auto fd = open(path.c_str(), O_RDONLY, 0);
-  if (fd < 0) {
+  int fd = -1;
+  const auto ec = llvm::sys::fs::openFileForRead(path, fd);
+  if (ec) {
     llvm::errs() << "Failed to open file: " << path << "\n";
     llvm::report_fatal_error("Could not open file");
   }
   capnp::MallocMessageBuilder message;
   capnp::readMessageCopyFromFd(fd, message);
+  ::close(fd);
   return capnp::messageToFlatArray(message);
 }
 
