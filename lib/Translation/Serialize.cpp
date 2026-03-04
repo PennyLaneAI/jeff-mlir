@@ -1763,10 +1763,10 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
   // Build functions
   uint32_t id = 0;
   llvm::SmallVector<mlir::func::FuncOp> functions;
-  module.walk([&](mlir::func::FuncOp func) {
+  for (auto func : module.getOps<mlir::func::FuncOp>()) {
     ctx.funcs[func.getSymName()] = id++;
     functions.push_back(func);
-  });
+  }
 
   const auto numFunctions = functions.size();
   auto functionBuilders = moduleBuilder.initFunctions(numFunctions);
