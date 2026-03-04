@@ -14,8 +14,6 @@
 
 #include "jeff/IR/JeffOps.h"
 
-#include <cassert>
-#include <cstddef>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/ErrorHandling.h>
@@ -26,6 +24,9 @@
 #include <mlir/IR/OperationSupport.h>
 #include <mlir/IR/ValueRange.h>
 #include <mlir/Support/LogicalResult.h>
+
+#include <cassert>
+#include <cstddef>
 
 using namespace mlir;
 using namespace mlir::jeff;

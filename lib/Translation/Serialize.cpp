@@ -4,14 +4,6 @@
 #include "jeff/IR/JeffInterfaces.h"
 #include "jeff/IR/JeffOps.h"
 
-#include <capnp/common.h>
-#include <capnp/list.h>
-#include <capnp/message.h>
-#include <capnp/serialize.h>
-#include <cstddef>
-#include <cstdint>
-#include <jeff.capnp.h>
-#include <kj/array.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringMap.h>
@@ -28,6 +20,15 @@
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/Types.h>
 #include <mlir/IR/Value.h>
+
+#include <capnp/common.h>
+#include <capnp/list.h>
+#include <capnp/message.h>
+#include <capnp/serialize.h>
+#include <cstddef>
+#include <cstdint>
+#include <jeff.capnp.h>
+#include <kj/array.h>
 #include <unistd.h>
 
 namespace {

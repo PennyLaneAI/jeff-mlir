@@ -1,4 +1,11 @@
 BasedOnStyle: LLVM
 IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^".*"'
+    Priority: 1
+  - Regex: "^<(llvm|mlir)/"
+    Priority: 2
+  - Regex: ".*"
+    Priority: 3
 PointerAlignment: Left
 Standard: c++17

@@ -2,6 +2,13 @@
 #include "jeff/Translation/Deserialize.hpp"
 #include "jeff/Translation/Serialize.hpp"
 
+#include <llvm/ADT/SmallString.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/raw_ostream.h>
+#include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/IR/MLIRContext.h>
+
 #include <algorithm>
 #include <capnp/common.h>
 #include <capnp/message.h>
@@ -11,12 +18,6 @@
 #include <jeff.capnp.h>
 #include <kj/array.h>
 #include <kj/string-tree.h>
-#include <llvm/ADT/SmallString.h>
-#include <llvm/Support/ErrorHandling.h>
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/raw_ostream.h>
-#include <mlir/Dialect/Func/IR/FuncOps.h>
-#include <mlir/IR/MLIRContext.h>
 #include <ostream>
 #include <string>
 #include <unistd.h>
