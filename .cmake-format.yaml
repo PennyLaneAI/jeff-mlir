@@ -1,5 +1,7 @@
 format:
   line_width: 100
+  tab_size: 4
+  dangle_parens: true
   keyword_case: "upper"
   autosort: true
 
