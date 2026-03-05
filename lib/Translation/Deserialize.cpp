@@ -1519,14 +1519,18 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::
     DeserializationContext ctx;
 
     // Get Jeff module from file
-    int fd = -1;
-    if (llvm::sys::fs::openFileForRead(path, fd)) {
-        llvm::errs() << "Failed to open file: " << path << "\n";
+    llvm::sys::fs::file_t file;
+    if (llvm::sys::fs::openFileForRead(path, file)) {
         llvm::report_fatal_error("Could not open file");
     }
 
-    kj::AutoCloseFd autoCloseFd(fd);
+#ifdef _WIN32
+    kj::AutoCloseHandle autoCloseHandle(file);
+    kj::HandleInputStream input(std::move(autoCloseHandle));
+#else
+    kj::AutoCloseFd autoCloseFd(file);
     kj::FdInputStream input(std::move(autoCloseFd));
+#endif
 
     capnp::MallocMessageBuilder message;
     capnp::readMessageCopy(input, message);

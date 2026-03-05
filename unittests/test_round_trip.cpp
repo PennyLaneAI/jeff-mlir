@@ -40,14 +40,19 @@ class RoundTripTest : public ::testing::Test,
                       public ::testing::WithParamInterface<RoundTripTestCase> {};
 
 kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
-    int fd = -1;
-    if (llvm::sys::fs::openFileForRead(path, fd)) {
+    llvm::sys::fs::file_t file;
+    if (llvm::sys::fs::openFileForRead(path, file)) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
-    kj::AutoCloseFd autoCloseFd(fd);
+#ifdef _WIN32
+    kj::AutoCloseHandle autoCloseHandle(file);
+    kj::HandleInputStream input(std::move(autoCloseHandle));
+#else
+    kj::AutoCloseFd autoCloseFd(file);
     kj::FdInputStream input(std::move(autoCloseFd));
+#endif
 
     capnp::MallocMessageBuilder message;
     capnp::readMessageCopy(input, message);
