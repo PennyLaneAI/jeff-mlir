@@ -1519,7 +1519,7 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::
     DeserializationContext ctx;
 
     // Get Jeff module from file
-    llvm::sys::fs::file_t file;
+    llvm::sys::fs::file_t file = 0;
     if (llvm::sys::fs::openFileForRead(path, file)) {
         llvm::report_fatal_error("Could not open file");
     }

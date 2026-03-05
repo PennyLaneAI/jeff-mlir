@@ -40,7 +40,7 @@ class RoundTripTest : public ::testing::Test,
                       public ::testing::WithParamInterface<RoundTripTestCase> {};
 
 kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
-    llvm::sys::fs::file_t file;
+    llvm::sys::fs::file_t file = 0;
     if (llvm::sys::fs::openFileForRead(path, file)) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");

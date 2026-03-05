@@ -1686,7 +1686,7 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
 } // namespace
 
 void serialize(mlir::ModuleOp module, llvm::StringRef path) {
-    llvm::sys::fs::file_t file;
+    llvm::sys::fs::file_t file = 0;
     if (llvm::sys::fs::openFileForWrite(path, file)) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
