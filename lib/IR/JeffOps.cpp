@@ -44,278 +44,268 @@ namespace {
 
 // Adapted from
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L480
-void printInitializationList(OpAsmPrinter& p,
-                             Block::BlockArgListType blocksArgs,
-                             ValueRange initializers,
-                             llvm::StringRef prefix = "") {
-  assert(blocksArgs.size() == initializers.size() &&
-         "expected same length of arguments and initializers");
+void printInitializationList(OpAsmPrinter& p, Block::BlockArgListType blocksArgs,
+                             ValueRange initializers, llvm::StringRef prefix = "") {
+    assert(blocksArgs.size() == initializers.size() &&
+           "expected same length of arguments and initializers");
 
-  p << prefix << '(';
-  llvm::interleaveComma(llvm::zip(blocksArgs, initializers), p, [&](auto it) {
-    p << std::get<0>(it) << " = " << std::get<1>(it);
-  });
-  p << ")";
+    p << prefix << '(';
+    llvm::interleaveComma(llvm::zip(blocksArgs, initializers), p,
+                          [&](auto it) { p << std::get<0>(it) << " = " << std::get<1>(it); });
+    p << ")";
 }
 
 template <typename OpType>
-LogicalResult verifyRegionArgs(OpType op, ValueRange inValues,
-                               ValueRange outValues,
+LogicalResult verifyRegionArgs(OpType op, ValueRange inValues, ValueRange outValues,
                                Block::BlockArgListType regionArgs) {
-  if (regionArgs.size() != outValues.size()) {
-    return op.emitOpError(
-        "mismatch in number of basic block args and output values");
-  }
-
-  unsigned i = 0;
-  for (auto e : llvm::zip(inValues, regionArgs, outValues)) {
-    if (std::get<0>(e).getType() != std::get<2>(e).getType()) {
-      return op.emitOpError() << "types mismatch between " << i
-                              << "th iter operand and output value";
-    }
-    if (std::get<1>(e).getType() != std::get<2>(e).getType()) {
-      return op.emitOpError() << "types mismatch between " << i
-                              << "th iter region arg and output value";
+    if (regionArgs.size() != outValues.size()) {
+        return op.emitOpError("mismatch in number of basic block args and output values");
     }
 
-    ++i;
-  }
+    unsigned i = 0;
+    for (auto e : llvm::zip(inValues, regionArgs, outValues)) {
+        if (std::get<0>(e).getType() != std::get<2>(e).getType()) {
+            return op.emitOpError()
+                   << "types mismatch between " << i << "th iter operand and output value";
+        }
+        if (std::get<1>(e).getType() != std::get<2>(e).getType()) {
+            return op.emitOpError()
+                   << "types mismatch between " << i << "th iter region arg and output value";
+        }
 
-  return success();
+        ++i;
+    }
+
+    return success();
 }
 
 } // namespace
 
 void SwitchOp::print(OpAsmPrinter& p) {
-  auto inValues = getInValues();
+    auto inValues = getInValues();
 
-  p << '(' << getSelection() << ")";
-  p << " : " << getSelection().getType();
-  p << " -> (" << inValues.getTypes() << ") ";
+    p << '(' << getSelection() << ")";
+    p << " : " << getSelection().getType();
+    p << " -> (" << inValues.getTypes() << ") ";
 
-  auto branches = getBranches();
-  for (size_t i = 0; i < branches.size(); ++i) {
-    p.printNewline();
-    p << "case " << i << ' ';
-    auto& branch = branches[i];
-    auto regionArgs = branch.getArguments();
-    printInitializationList(p, regionArgs, inValues, "args");
-    p << ' ';
-    p.printRegion(branch, /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/!inValues.empty());
-  }
+    auto branches = getBranches();
+    for (size_t i = 0; i < branches.size(); ++i) {
+        p.printNewline();
+        p << "case " << i << ' ';
+        auto& branch = branches[i];
+        auto regionArgs = branch.getArguments();
+        printInitializationList(p, regionArgs, inValues, "args");
+        p << ' ';
+        p.printRegion(branch, /*printEntryBlockArgs=*/false,
+                      /*printBlockTerminators=*/!inValues.empty());
+    }
 
-  auto& defaultRegion = getDefault();
-  if (!defaultRegion.empty()) {
-    p.printNewline();
-    p << "default ";
-    auto regionArgs = defaultRegion.getArguments();
-    printInitializationList(p, regionArgs, inValues, "args");
-    p << ' ';
-    p.printRegion(defaultRegion, /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/!inValues.empty());
-  }
+    auto& defaultRegion = getDefault();
+    if (!defaultRegion.empty()) {
+        p.printNewline();
+        p << "default ";
+        auto regionArgs = defaultRegion.getArguments();
+        printInitializationList(p, regionArgs, inValues, "args");
+        p << ' ';
+        p.printRegion(defaultRegion, /*printEntryBlockArgs=*/false,
+                      /*printBlockTerminators=*/!inValues.empty());
+    }
 
-  p.printOptionalAttrDict((*this)->getAttrs());
+    p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult SwitchOp::parse(OpAsmParser& /*parser*/,
-                            OperationState& /*result*/) {
-  // TODO: Implement this
-  llvm::report_fatal_error("SwitchOp::parse is not implemented yet");
+ParseResult SwitchOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
+    // TODO: Implement this
+    llvm::report_fatal_error("SwitchOp::parse is not implemented yet");
 }
 
 LogicalResult SwitchOp::verify() {
-  if (getInValues().size() != getNumResults()) {
-    return emitOpError("mismatch in number of input and output values");
-  }
+    if (getInValues().size() != getNumResults()) {
+        return emitOpError("mismatch in number of input and output values");
+    }
 
-  return success();
+    return success();
 }
 
 LogicalResult SwitchOp::verifyRegions() {
-  llvm::SmallVector<Region*> regions;
-  auto branches = getBranches();
-  regions.reserve(1 + branches.size());
-  regions.push_back(&getDefault());
-  for (auto& branch : branches) {
-    regions.push_back(&branch);
-  }
-
-  auto inValues = getInValues();
-  auto outValues = getOutValues();
-
-  for (auto& region : regions) {
-    auto regionArgs = region->getArguments();
-    if (verifyRegionArgs(*this, inValues, outValues, regionArgs).failed()) {
-      return failure();
+    llvm::SmallVector<Region*> regions;
+    auto branches = getBranches();
+    regions.reserve(1 + branches.size());
+    regions.push_back(&getDefault());
+    for (auto& branch : branches) {
+        regions.push_back(&branch);
     }
-  }
 
-  return success();
+    auto inValues = getInValues();
+    auto outValues = getOutValues();
+
+    for (auto& region : regions) {
+        auto regionArgs = region->getArguments();
+        if (verifyRegionArgs(*this, inValues, outValues, regionArgs).failed()) {
+            return failure();
+        }
+    }
+
+    return success();
 }
 
 // Adapted from
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L496
 void ForOp::print(OpAsmPrinter& p) {
-  auto inValues = getInValues();
-  auto inductionVar = getBody().getArgument(0);
-  auto regionArgs = getBody().getArguments().drop_front(1);
+    auto inValues = getInValues();
+    auto inductionVar = getBody().getArgument(0);
+    auto regionArgs = getBody().getArguments().drop_front(1);
 
-  p << " " << inductionVar << " = " << getStart() << " to " << getStop()
-    << " step " << getStep();
+    p << " " << inductionVar << " = " << getStart() << " to " << getStop() << " step " << getStep();
 
-  if (!inValues.empty()) {
-    printInitializationList(p, regionArgs, inValues, " args");
-    p << " -> (" << inValues.getTypes() << ')';
-  }
+    if (!inValues.empty()) {
+        printInitializationList(p, regionArgs, inValues, " args");
+        p << " -> (" << inValues.getTypes() << ')';
+    }
 
-  if (Type t = inductionVar.getType(); !t.isIndex()) {
-    p << " : " << t << ' ';
-  } else {
-    p << ' ';
-  }
+    if (Type t = inductionVar.getType(); !t.isIndex()) {
+        p << " : " << t << ' ';
+    } else {
+        p << ' ';
+    }
 
-  p.printRegion(getRegion(),
-                /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/!inValues.empty());
-  p.printOptionalAttrDict((*this)->getAttrs());
+    p.printRegion(getRegion(),
+                  /*printEntryBlockArgs=*/false,
+                  /*printBlockTerminators=*/!inValues.empty());
+    p.printOptionalAttrDict((*this)->getAttrs());
 }
 
 ParseResult ForOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
-  // TODO: Implement this
-  llvm::report_fatal_error("ForOp::parse is not implemented yet");
+    // TODO: Implement this
+    llvm::report_fatal_error("ForOp::parse is not implemented yet");
 }
 
 // Adapted from
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L350
 LogicalResult ForOp::verify() {
-  if (getInValues().size() != getNumResults()) {
-    return emitOpError("mismatch in number of input and output values");
-  }
+    if (getInValues().size() != getNumResults()) {
+        return emitOpError("mismatch in number of input and output values");
+    }
 
-  return success();
+    return success();
 }
 
 // Adapted from
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L359
 LogicalResult ForOp::verifyRegions() {
-  auto inductionVar = getBody().getArgument(0);
-  if (inductionVar.getType() != getStart().getType()) {
-    return emitOpError(
-        "expected induction variable to be same type as bounds and step");
-  }
+    auto inductionVar = getBody().getArgument(0);
+    if (inductionVar.getType() != getStart().getType()) {
+        return emitOpError("expected induction variable to be same type as bounds and step");
+    }
 
-  auto inValues = getInValues();
-  auto outValues = getOutValues();
-  auto regionArgs = getBody().getArguments().drop_front(1);
-  if (verifyRegionArgs(*this, inValues, outValues, regionArgs).failed()) {
-    return failure();
-  }
+    auto inValues = getInValues();
+    auto outValues = getOutValues();
+    auto regionArgs = getBody().getArguments().drop_front(1);
+    if (verifyRegionArgs(*this, inValues, outValues, regionArgs).failed()) {
+        return failure();
+    }
 
-  return success();
+    return success();
 }
 
 void WhileOp::print(OpAsmPrinter& p) {
-  auto inValues = getInValues();
+    auto inValues = getInValues();
 
-  auto& condition = getCondition();
-  auto conditionArgs = condition.getArguments();
-  printInitializationList(p, conditionArgs, inValues, " args");
-  p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
-  p.printRegion(condition, /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/!inValues.empty());
+    auto& condition = getCondition();
+    auto conditionArgs = condition.getArguments();
+    printInitializationList(p, conditionArgs, inValues, " args");
+    p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
+    p.printRegion(condition, /*printEntryBlockArgs=*/false,
+                  /*printBlockTerminators=*/!inValues.empty());
 
-  auto& body = getBody();
-  auto bodyArgs = body.getArguments();
-  printInitializationList(p, bodyArgs, inValues, " args");
-  p << " -> (" << inValues.getTypes() << ") ";
-  p.printRegion(body, /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/!inValues.empty());
+    auto& body = getBody();
+    auto bodyArgs = body.getArguments();
+    printInitializationList(p, bodyArgs, inValues, " args");
+    p << " -> (" << inValues.getTypes() << ") ";
+    p.printRegion(body, /*printEntryBlockArgs=*/false,
+                  /*printBlockTerminators=*/!inValues.empty());
 
-  p.printOptionalAttrDict((*this)->getAttrs());
+    p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult WhileOp::parse(OpAsmParser& /*parser*/,
-                           OperationState& /*result*/) {
-  // TODO: Implement this
-  llvm::report_fatal_error("WhileOp::parse is not implemented yet");
+ParseResult WhileOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
+    // TODO: Implement this
+    llvm::report_fatal_error("WhileOp::parse is not implemented yet");
 }
 
 LogicalResult WhileOp::verify() {
-  if (getInValues().size() != getNumResults()) {
-    return emitOpError("mismatch in number of input and output values");
-  }
+    if (getInValues().size() != getNumResults()) {
+        return emitOpError("mismatch in number of input and output values");
+    }
 
-  return success();
+    return success();
 }
 
 LogicalResult WhileOp::verifyRegions() {
-  auto inValues = getInValues();
-  auto outValues = getOutValues();
+    auto inValues = getInValues();
+    auto outValues = getOutValues();
 
-  auto conditionArgs = getCondition().getArguments();
-  if (verifyRegionArgs(*this, inValues, outValues, conditionArgs).failed()) {
-    return failure();
-  }
+    auto conditionArgs = getCondition().getArguments();
+    if (verifyRegionArgs(*this, inValues, outValues, conditionArgs).failed()) {
+        return failure();
+    }
 
-  auto bodyArgs = getBody().getArguments();
-  if (verifyRegionArgs(*this, inValues, outValues, bodyArgs).failed()) {
-    return failure();
-  }
+    auto bodyArgs = getBody().getArguments();
+    if (verifyRegionArgs(*this, inValues, outValues, bodyArgs).failed()) {
+        return failure();
+    }
 
-  return success();
+    return success();
 }
 
 void DoWhileOp::print(OpAsmPrinter& p) {
-  auto inValues = getInValues();
+    auto inValues = getInValues();
 
-  auto& body = getBody();
-  auto bodyArgs = body.getArguments();
-  printInitializationList(p, bodyArgs, inValues, " args");
-  p << " -> (" << inValues.getTypes() << ") ";
-  p.printRegion(body, /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/!inValues.empty());
+    auto& body = getBody();
+    auto bodyArgs = body.getArguments();
+    printInitializationList(p, bodyArgs, inValues, " args");
+    p << " -> (" << inValues.getTypes() << ") ";
+    p.printRegion(body, /*printEntryBlockArgs=*/false,
+                  /*printBlockTerminators=*/!inValues.empty());
 
-  auto& condition = getCondition();
-  auto conditionArgs = condition.getArguments();
-  printInitializationList(p, conditionArgs, inValues, " args");
-  p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
-  p.printRegion(condition, /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/!inValues.empty());
+    auto& condition = getCondition();
+    auto conditionArgs = condition.getArguments();
+    printInitializationList(p, conditionArgs, inValues, " args");
+    p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
+    p.printRegion(condition, /*printEntryBlockArgs=*/false,
+                  /*printBlockTerminators=*/!inValues.empty());
 
-  p.printOptionalAttrDict((*this)->getAttrs());
+    p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult DoWhileOp::parse(OpAsmParser& /*parser*/,
-                             OperationState& /*result*/) {
-  // TODO: Implement this
-  llvm::report_fatal_error("DoWhileOp::parse is not implemented yet");
+ParseResult DoWhileOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
+    // TODO: Implement this
+    llvm::report_fatal_error("DoWhileOp::parse is not implemented yet");
 }
 
 LogicalResult DoWhileOp::verify() {
-  if (getInValues().size() != getNumResults()) {
-    return emitOpError("mismatch in number of input and output values");
-  }
+    if (getInValues().size() != getNumResults()) {
+        return emitOpError("mismatch in number of input and output values");
+    }
 
-  return success();
+    return success();
 }
 
 LogicalResult DoWhileOp::verifyRegions() {
-  auto inValues = getInValues();
-  auto outValues = getOutValues();
+    auto inValues = getInValues();
+    auto outValues = getOutValues();
 
-  auto conditionArgs = getCondition().getArguments();
-  if (verifyRegionArgs(*this, inValues, outValues, conditionArgs).failed()) {
-    return failure();
-  }
+    auto conditionArgs = getCondition().getArguments();
+    if (verifyRegionArgs(*this, inValues, outValues, conditionArgs).failed()) {
+        return failure();
+    }
 
-  auto bodyArgs = getBody().getArguments();
-  if (verifyRegionArgs(*this, inValues, outValues, bodyArgs).failed()) {
-    return failure();
-  }
+    auto bodyArgs = getBody().getArguments();
+    if (verifyRegionArgs(*this, inValues, outValues, bodyArgs).failed()) {
+        return failure();
+    }
 
-  return success();
+    return success();
 }
 
 //===----------------------------------------------------------------------===//

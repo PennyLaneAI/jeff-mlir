@@ -11,5 +11,4 @@
  * @param path The path to the .jeff file.
  * @return An owning reference to the deserialized MLIR module.
  */
-mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              llvm::StringRef path);
+mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::StringRef path);

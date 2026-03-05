@@ -31,20 +31,20 @@ using namespace mlir::jeff;
 #include "jeff/IR/JeffOpsDialect.cpp.inc"
 
 void JeffDialect::initialize() {
-  addTypes<
+    addTypes<
 #define GET_TYPEDEF_LIST
 #include "jeff/IR/JeffOpsTypes.cpp.inc"
-      >();
+        >();
 
-  addAttributes<
+    addAttributes<
 #define GET_ATTRDEF_LIST
 #include "jeff/IR/JeffAttributes.cpp.inc"
-      >();
+        >();
 
-  addOperations<
+    addOperations<
 #define GET_OP_LIST
 #include "jeff/IR/JeffOps.cpp.inc"
-      >();
+        >();
 }
 
 //===----------------------------------------------------------------------===//

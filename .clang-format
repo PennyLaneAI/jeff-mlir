@@ -1,4 +1,6 @@
+AccessModifierOffset: -2
 BasedOnStyle: LLVM
+ColumnLimit: 100
 IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^".*"'
@@ -9,5 +11,7 @@ IncludeCategories:
     Priority: 2
   - Regex: "^<.*>"
     Priority: 3
+IndentWidth: 4
 PointerAlignment: Left
 Standard: c++17
+TabWidth: 4
