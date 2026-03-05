@@ -24,6 +24,7 @@
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OwningOpRef.h>
 #include <mlir/IR/Value.h>
+#include <mlir/IR/Verifier.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -1698,6 +1699,12 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
   const auto jeffVersionPatch = jeffModule.getVersionPatch();
   mlirModule->setAttr("jeff.versionPatch",
                       builder.getIntegerAttr(uint16Type, jeffVersionPatch));
+
+  if (mlir::verify(mlirModule).failed()) {
+    llvm::errs() << "Verification of MLIR module failed\n";
+    mlirModule->print(llvm::errs());
+    llvm::report_fatal_error("Verification of MLIR module failed");
+  }
 
   return mlirModule;
 }

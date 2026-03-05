@@ -15,6 +15,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/Verifier.h>
 
 #include <algorithm>
 #include <filesystem>
@@ -93,9 +94,9 @@ TEST_P(RoundTripTest, RoundTrip) {
   // Deserialize Jeff module
   auto mlirModule = deserialize(&context, path.string());
 
-  llvm::outs() << "Deserialized MLIR module:\n";
-  mlirModule->print(llvm::outs());
-  llvm::outs() << "\n\n";
+  llvm::errs() << "Deserialized MLIR module:\n";
+  mlirModule->print(llvm::errs());
+  llvm::errs() << "\n\n";
 
   // Create temporary file
   llvm::SmallString<128> tempFilePath;
