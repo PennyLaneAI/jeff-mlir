@@ -21,7 +21,7 @@ def QubitOperation : OpInterface<"QubitOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -32,7 +32,7 @@ def QuregOperation : OpInterface<"QuregOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -43,7 +43,7 @@ def QubitGate : OpInterface<"QubitGate"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -54,7 +54,7 @@ def MultipleCtrlQubitsGate : OpInterface<"MultipleCtrlQubitsGate", [QubitGate]> 
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -82,7 +82,7 @@ def MultiplePauliGate : OpInterface<"MultiplePauliGate", [QubitGate]> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -110,24 +110,25 @@ def MultipleQubitsGate : OpInterface<"MultipleQubitsGate", [QubitGate]> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
     let verify = [{
         auto gate = mlir::cast<ConcreteOp>($_op);
 
-        auto provided_in_qubits = gate.getInQubits().size();
-        auto expected_qubits = gate.getNumQubits();
-        if (provided_in_qubits != expected_qubits) {
+        auto expected_target_qubits = gate.getNumTargets();
+
+        auto provided_in_target_qubits = gate.getInTargetQubits().size();
+        if (provided_in_target_qubits != expected_target_qubits) {
             return $_op->emitOpError(
-                "The number of provided input qubits does not match the expected amount");
+                "The number of provided input target qubits does not match the expected amount");
         }
 
-        auto provided_out_qubits = gate.getOutQubits().size();
-        if (provided_out_qubits != expected_qubits) {
+        auto provided_out_target_qubits = gate.getOutTargetQubits().size();
+        if (provided_out_target_qubits != expected_target_qubits) {
             return $_op->emitOpError(
-                "The number of provided output qubits does not match the expected amount");
+                "The number of provided output target qubits does not match the expected amount");
         }
 
         return mlir::success();
@@ -138,7 +139,7 @@ def MultipleParamsGate : OpInterface<"MultipleParamsGate", [QubitGate]> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -160,7 +161,7 @@ def WellKnownGate : OpInterface<"WellKnownGate"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -171,7 +172,7 @@ def IntOperation : OpInterface<"IntOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -182,7 +183,7 @@ def IntArrayOperation : OpInterface<"IntArrayOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -193,7 +194,7 @@ def FloatOperation : OpInterface<"FloatOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -204,7 +205,7 @@ def FloatArrayOperation : OpInterface<"FloatArrayOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 
@@ -215,7 +216,7 @@ def SCFOperation : OpInterface<"SCFOperation"> {
     let description = [{
     }];
 
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
 
     let methods = [];
 

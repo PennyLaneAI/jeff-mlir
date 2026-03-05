@@ -39,7 +39,7 @@ def QubitAllocOp : Qubit_Op<"qubit_alloc", []> {
         QubitType:$out_qubit
     );
 
-    // %0 = jeff.qubit_alloc : !jeff.qubit
+    // %q = jeff.qubit_alloc : !jeff.qubit
     let assemblyFormat = [{
         attr-dict `:` type(results)
     }];
@@ -53,7 +53,7 @@ def QubitFreeOp : Qubit_Op<"qubit_free", []> {
         QubitType:$in_qubit
     );
 
-    // jeff.qubit_free %0 : !jeff.qubit
+    // jeff.qubit_free %q : !jeff.qubit
     let assemblyFormat = [{
         $in_qubit attr-dict `:` type($in_qubit)
     }];
@@ -67,7 +67,7 @@ def QubitFreeZeroOp : Qubit_Op<"qubit_free_zero", []> {
         QubitType:$in_qubit
     );
 
-    // jeff.qubit_free_zero %0 : !jeff.qubit
+    // jeff.qubit_free_zero %q : !jeff.qubit
     let assemblyFormat = [{
         $in_qubit attr-dict `:` type($in_qubit)
     }];
@@ -85,7 +85,7 @@ def QubitMeasureOp : Qubit_Op<"qubit_measure", []> {
         I1:$result
     );
 
-    // %1 = jeff.qubit_measure %0 : i1
+    // %result = jeff.qubit_measure %q : i1
     let assemblyFormat = [{
         $in_qubit attr-dict `:` type(results)
     }];
@@ -100,11 +100,11 @@ def QubitMeasureNDOp : Qubit_Op<"qubit_measure_nd", []> {
     );
 
     let results = (outs
-        I1:$result,
-        QubitType:$out_qubit
+        QubitType:$out_qubit,
+        I1:$result
     );
 
-    // %1, %2 = jeff.qubit_measure_nd %0 : i1, !jeff.qubit
+    // %q_out, %result = jeff.qubit_measure_nd %q_in : !jeff.qubit, i1
     let assemblyFormat = [{
         $in_qubit attr-dict `:` type(results)
     }];
@@ -122,7 +122,7 @@ def QubitResetOp : Qubit_Op<"qubit_reset", [SameOperandsAndResultType]> {
         QubitType:$out_qubit
     );
 
-    // %1 = jeff.qubit_reset %0 : !jeff.qubit
+    // %q_out = jeff.qubit_reset %q_in : !jeff.qubit
     let assemblyFormat = [{
         $in_qubit attr-dict `:` type(results)
     }];
@@ -141,7 +141,7 @@ def PPROp : Gate_Op<"ppr", [AttrSizedOperandSegments, AttrSizedResultSegments, M
     let arguments = (ins
         Variadic<QubitType>:$in_qubits,
         Variadic<QubitType>:$in_ctrl_qubits,
-        F32:$rotation,
+        F64:$rotation,
         I8Attr:$num_ctrls,
         I1Attr:$is_adjoint,
         I8Attr:$power,
@@ -181,7 +181,7 @@ def PPROp : Gate_Op<"ppr", [AttrSizedOperandSegments, AttrSizedResultSegments, M
         }]>,
     ];
 
-    // %4, %5 = jeff.ppr (%0, %1) %2 ctrls(%3) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.ppr(%rotation, %pauli_gates) %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `,` $pauli_gates `)` attr-dict $in_qubits ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubits) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -192,57 +192,57 @@ def CustomOp : Gate_Op<"custom", [AttrSizedOperandSegments, AttrSizedResultSegme
     let description = [{}];
 
     let arguments = (ins
-        Variadic<QubitType>:$in_qubits,
+        Variadic<QubitType>:$in_target_qubits,
         Variadic<QubitType>:$in_ctrl_qubits,
-        Variadic<F32>:$params,
+        Variadic<F64>:$params,
         I8Attr:$num_ctrls,
         I1Attr:$is_adjoint,
         I8Attr:$power,
         StrAttr:$name,
-        I8Attr:$num_qubits,
+        I8Attr:$num_targets,
         I8Attr:$num_params
     );
 
     let results = (outs
-        Variadic<QubitType>:$out_qubits,
+        Variadic<QubitType>:$out_target_qubits,
         Variadic<QubitType>:$out_ctrl_qubits
     );
 
     let builders = [
         OpBuilder<
         // Convenience builder for a gate with parameters and controls
-        // Note that number of out_qubits = number of in_qubits,
+        // Note that number of out_target_qubits = number of in_target_qubits,
         // and number of out_ctrl_qubits = number of in_ctrl_qubits
         (ins
-             "mlir::ValueRange":$in_qubits,
+             "mlir::ValueRange":$in_target_qubits,
              "mlir::ValueRange":$in_ctrl_qubits,
              "mlir::ValueRange":$params,
              "uint8_t":$num_ctrls,
              "bool":$is_adjoint,
              "uint8_t":$power,
              "mlir::StringRef":$name,
-             "uint8_t":$num_qubits,
+             "uint8_t":$num_targets,
              "uint8_t":$num_params
         ),[{
             CustomOp::build($_builder, $_state,
-            /*out_qubits=*/ mlir::TypeRange(in_qubits),
+            /*out_qubits=*/ mlir::TypeRange(in_target_qubits),
             /*out_ctrl_qubits=*/ mlir::TypeRange(in_ctrl_qubits),
-            /*in_qubits=*/ in_qubits,
+            /*in_target_qubits=*/ in_target_qubits,
             /*in_ctrl_qubits=*/ in_ctrl_qubits,
             /*params=*/ params,
             /*num_ctrls=*/ num_ctrls,
             /*is_adjoint=*/ is_adjoint,
             /*power=*/ power,
             /*name=*/ name,
-            /*num_qubits=*/ num_qubits,
+            /*num_targets=*/ num_targets,
             /*num_params=*/ num_params
             );
         }]>,
     ];
 
-    // %3, %4 = jeff.custom "Rot"(%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.custom "Rot"(%params) %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
-        $name `(` $params `)` attr-dict $in_qubits ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubits) (`ctrls` type($out_ctrl_qubits)^ )?
+        $name `(` $params `)` attr-dict $in_target_qubits ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_target_qubits) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
 }
 
@@ -291,9 +291,9 @@ def GPhaseOp : WellKnownGate_Op<"gphase", []> {
         }]>,
     ];
 
-    // %2 = jeff.gphase (%0) ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q_out = jeff.gphase(%rotation) ctrls(%q_in) : ctrls !jeff.qubit
     let assemblyFormat = [{
-        `(` $rotation `)` attr-dict ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` (`ctrls` type($out_ctrl_qubits)^ )?
+        `(` $rotation `)` attr-dict ( `ctrls` `(` $in_ctrl_qubits^ `)` )? (`:` `ctrls` type($out_ctrl_qubits)^ )?
     }];
 }
 
@@ -338,7 +338,7 @@ def IOp : WellKnownGate_Op<"i", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.i %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.i %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -385,7 +385,7 @@ def XOp : WellKnownGate_Op<"x", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.x %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.x %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -432,7 +432,7 @@ def YOp : WellKnownGate_Op<"y", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.y %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.y %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -479,7 +479,7 @@ def ZOp : WellKnownGate_Op<"z", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.z %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.z %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -526,7 +526,7 @@ def SOp : WellKnownGate_Op<"s", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.s %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.s %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -573,7 +573,7 @@ def TOp : WellKnownGate_Op<"t", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.t %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.t %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -623,7 +623,7 @@ def R1Op : WellKnownGate_Op<"r1", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.r1 (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.r1(%rotation) %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -673,7 +673,7 @@ def RxOp : WellKnownGate_Op<"rx", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.rx (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.rx(%rotation) %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -723,7 +723,7 @@ def RyOp : WellKnownGate_Op<"ry", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.ry (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.ry(%rotation) %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -773,7 +773,7 @@ def RzOp : WellKnownGate_Op<"rz", []> {
         }]>,
     ];
 
-    // %3, %4 = jeff.rz (%0) %1 ctrls(%2) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.rz(%rotation) %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $rotation `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -820,7 +820,7 @@ def HOp : WellKnownGate_Op<"h", []> {
         }]>,
     ];
 
-    // %2, %3 = jeff.h %0 ctrls(%1) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.h %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -876,7 +876,7 @@ def UOp : WellKnownGate_Op<"u", []> {
         }]>,
     ];
 
-    // %5, %6 = jeff.u (%0, %1, %2) %3 ctrls(%4) : !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out = jeff.u(%theta, %phi, %lambda) %q0_in ctrls(%q1_in) : !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         `(` $theta `,` $phi `,` $lambda `)` attr-dict $in_qubit ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -928,7 +928,7 @@ def SwapOp : WellKnownGate_Op<"swap", []> {
         Variadic<QubitType>:$out_ctrl_qubits
     );
 
-    // %3, %4, %5 = jeff.swap %0 %1 ctrls(%2) : !quantum.bit !quantum.bit ctrls !quantum.bit
+    // %q0_out, %q1_out, %q2_out = jeff.u(%theta, %phi, %lambda) %q0_in %q1_in ctrls(%q2_in) : !jeff.qubit !jeff.qubit ctrls !jeff.qubit
     let assemblyFormat = [{
         attr-dict $in_qubit_one $in_qubit_two ( `ctrls` `(` $in_ctrl_qubits^ `)` )? `:` type($out_qubit_one) type($out_qubit_two) (`ctrls` type($out_ctrl_qubits)^ )?
     }];
@@ -940,25 +940,25 @@ def SwapOp : WellKnownGate_Op<"swap", []> {
 
 class Qureg_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [QuregOperation]>;
 
-def QuregAllocOp : Qubit_Op<"qureg_alloc", []> {
+def QuregAllocOp : Qureg_Op<"qureg_alloc", []> {
     let summary = "Allocates a new qubit register given a number of qubits in the |0> state.";
     let description = [{}];
 
     let arguments = (ins
-        I32Attr:$num_qubits
+        I32:$num_qubits
     );
 
     let results = (outs
         QuregType:$qreg
     );
 
-    // %1 = jeff.qureg_alloc (%0) : !jeff.qureg
+    // %qreg = jeff.qureg_alloc(%num_qubits) : !jeff.qureg
     let assemblyFormat = [{
         `(` $num_qubits `)` attr-dict `:` type(results)
     }];
 }
 
-def QuregFreeOp : Qubit_Op<"qureg_free", []> {
+def QuregFreeOp : Qureg_Op<"qureg_free", []> {
     let summary = "Frees a qubit register.";
     let description = [{}];
 
@@ -966,13 +966,13 @@ def QuregFreeOp : Qubit_Op<"qureg_free", []> {
         QuregType:$qreg
     );
 
-    // jeff.qureg_free %0 : !jeff.qureg
+    // jeff.qureg_free %qreg : !jeff.qureg
     let assemblyFormat = [{
         $qreg attr-dict `:` type($qreg)
     }];
 }
 
-def QuregFreeZeroOp : Qubit_Op<"qureg_free_zero", []> {
+def QuregFreeZeroOp : Qureg_Op<"qureg_free_zero", []> {
     let summary = "Frees a qubit register, assuming that all qubits are in the |0> state.";
     let description = [{}];
 
@@ -980,19 +980,19 @@ def QuregFreeZeroOp : Qubit_Op<"qureg_free_zero", []> {
         QuregType:$qreg
     );
 
-    // jeff.qureg_free_zero %0 : !jeff.qureg
+    // jeff.qureg_free_zero %qreg : !jeff.qureg
     let assemblyFormat = [{
         $qreg attr-dict `:` type($qreg)
     }];
 }
 
-def QuregExtractIndexOp : Qubit_Op<"qureg_extract_index", []> {
+def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
     let summary = "Extracts a single qubit from a qubit register.";
     let description = [{}];
 
     let arguments = (ins
         QuregType:$in_qreg,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
@@ -1000,40 +1000,40 @@ def QuregExtractIndexOp : Qubit_Op<"qureg_extract_index", []> {
         QubitType:$out_qubit
     );
 
-    // %2, %3 = jeff.qureg_extract_index (%0) %1 : !jeff.qureg !jeff.qubit
+    // %qreg_in, %q = jeff.qureg_extract_index(%index) %qreg_in : !jeff.qureg, !jeff.qubit
     let assemblyFormat = [{
         `(` $index `)` $in_qreg attr-dict `:` type(results)
     }];
 }
 
-def QuregInsertIndexOp : Qubit_Op<"qureg_insert_index", []> {
-    let summary = "Insert a single qubit from a qubit register.";
+def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
+    let summary = "Insert a single qubit into a qubit register.";
     let description = [{}];
 
     let arguments = (ins
         QuregType:$in_qreg,
-        QubitType:$in_qubit,
-        I32Attr:$index
+        I32:$index,
+        QubitType:$in_qubit
     );
 
     let results = (outs
         QuregType:$out_qreg
     );
 
-    // %3 = jeff.qureg_insert_index (%0) %1 %2 : !jeff.qureg !jeff.qubit -> !jeff.qureg
+    // %qreg_out = jeff.qureg_insert_index(%index) %qreg_in %q : !jeff.qureg
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg $in_qubit attr-dict `:` functional-type(operands, results)
+        `(` $index `)` $in_qreg $in_qubit attr-dict `:` type(results)
     }];
 }
 
-def QuregExtractSliceOp : Qubit_Op<"qureg_extract_slice", []> {
+def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", []> {
     let summary = "Extract a slice of qubits from a qubit register given a range of indices.";
     let description = [{}];
 
     let arguments = (ins
         QuregType:$in_qreg,
-        I32Attr:$start,
-        I32Attr:$length
+        I32:$start,
+        I32:$length
     );
 
     let results = (outs
@@ -1041,33 +1041,33 @@ def QuregExtractSliceOp : Qubit_Op<"qureg_extract_slice", []> {
         QuregType:$new_qreg
     );
 
-    // %3, %4 = jeff.qureg_extract_slice (%0, %1) %2 : !jeff.qureg !jeff.qureg
+    // %qreg_out, %qreg = jeff.qureg_extract_slice(%start, %length) %qreg_in : !jeff.qureg, !jeff.qureg
     let assemblyFormat = [{
         `(` $start `,` $length `)` $in_qreg attr-dict `:` type(results)
     }];
 }
 
-def QuregInsertSliceOp : Qubit_Op<"qureg_insert_slice", []> {
+def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", []> {
     let summary = "Insert a slice of qubits into a qubit register.";
     let description = [{}];
 
     let arguments = (ins
         QuregType:$in_qreg,
-        QuregType:$new_qreg,
-        I32Attr:$start
+        I32:$start,
+        QuregType:$new_qreg
     );
 
     let results = (outs
         QuregType:$out_qreg
     );
 
-    // %3 = jeff.qureg_insert_slice (%0) %1 %2 : !jeff.qureg !jeff.qureg -> !jeff.qureg
+    // %qreg_out = jeff.qureg_insert_slice(%start) %qreg_in %qreg : !jeff.qureg
     let assemblyFormat = [{
-        `(` $start `)` $in_qreg $new_qreg attr-dict `:` functional-type(operands, results)
+        `(` $start `)` $in_qreg $new_qreg attr-dict `:` type(results)
     }];
 }
 
-def QuregLengthOp : Qubit_Op<"qureg_length", []> {
+def QuregLengthOp : Qureg_Op<"qureg_length", []> {
     let summary = "Returns the length of the qubit register.";
     let description = [{}];
 
@@ -1080,19 +1080,19 @@ def QuregLengthOp : Qubit_Op<"qureg_length", []> {
         I32:$length
     );
 
-    // %1, %2 = jeff.qureg_length %0 : !jeff.qureg i32
+    // %qreg_out, %length = jeff.qureg_length %qreg_in : !jeff.qureg, i32
     let assemblyFormat = [{
         $in_qreg attr-dict `:` type(results)
     }];
 }
 
-def QuregSplitOp : Qubit_Op<"qureg_split", []> {
+def QuregSplitOp : Qureg_Op<"qureg_split", []> {
     let summary = "Splits a qubit register into two qubit registers at a given index.";
     let description = [{}];
 
     let arguments = (ins
         QuregType:$in_qreg,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
@@ -1100,13 +1100,13 @@ def QuregSplitOp : Qubit_Op<"qureg_split", []> {
         QuregType:$out_qreg_two
     );
 
-    // %1, %2 = jeff.qureg_split (%0) %1 : !jeff.qureg !jeff.qureg
+    // %qreg1, %qreg2 = jeff.qureg_split(%index) %qreg0 : !jeff.qureg, !jeff.qureg
     let assemblyFormat = [{
         `(` $index `)` $in_qreg attr-dict `:` type(results)
     }];
 }
 
-def QuregJoinOp : Qubit_Op<"qureg_join", [SameOperandsAndResultType]> {
+def QuregJoinOp : Qureg_Op<"qureg_join", [SameOperandsAndResultType]> {
     let summary = "Joins together two qubit registers into a single qubit register.";
     let description = [{}];
 
@@ -1119,13 +1119,13 @@ def QuregJoinOp : Qubit_Op<"qureg_join", [SameOperandsAndResultType]> {
         QuregType:$out_qreg
     );
 
-    // %2 = jeff.qureg_join %0 %1 : !jeff.qureg !jeff.qureg -> !jeff.qureg
+    // %qreg2 = jeff.qureg_join %qreg0 %qreg1 : !jeff.qureg
     let assemblyFormat = [{
-        $in_qreg_one $in_qreg_two attr-dict `:` functional-type(operands, results)
+        $in_qreg_one $in_qreg_two attr-dict `:` type(results)
     }];
 }
 
-def QuregCreateOp : Qubit_Op<"qureg_create", []> {
+def QuregCreateOp : Qureg_Op<"qureg_create", []> {
     let summary = "Creates a qubit register from a variable number of input qubits.";
     let description = [{}];
 
@@ -1137,7 +1137,7 @@ def QuregCreateOp : Qubit_Op<"qureg_create", []> {
         QuregType:$out_qreg
     );
 
-    // %1 = jeff.qureg_create %0 : !jeff.qureg
+    // %qreg = jeff.qureg_create %q0, %q1 : !jeff.qureg
     let assemblyFormat = [{
         $in_qubits attr-dict `:` type(results)
     }];
@@ -1153,7 +1153,7 @@ def IntUnaryOperation : I32EnumAttr<"IntUnaryOperation",
         I32EnumAttrCase<"_not",   0>,
         I32EnumAttrCase<"_abs",   1>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1178,7 +1178,7 @@ def IntBinaryOperation : I32EnumAttr<"IntBinaryOperation",
         I32EnumAttrCase<"_shl",   15>,
         I32EnumAttrCase<"_shr",   16>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1191,7 +1191,7 @@ def IntComparisonOperation : I32EnumAttr<"IntComparisonOperation",
         I32EnumAttrCase<"_ltU",  3>,
         I32EnumAttrCase<"_lteU",  4>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1217,7 +1217,7 @@ def FloatUnaryOperation : I32EnumAttr<"FloatUnaryOperation",
         I32EnumAttrCase<"_acosh", 16>,
         I32EnumAttrCase<"_atanh", 17>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1232,7 +1232,7 @@ def FloatBinaryOperation : I32EnumAttr<"FloatBinaryOperation",
         I32EnumAttrCase<"_max",   5>,
         I32EnumAttrCase<"_min",   6>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1243,7 +1243,7 @@ def FloatComparisonOperation : I32EnumAttr<"FloatComparisonOperation",
         I32EnumAttrCase<"_lt",   1>,
         I32EnumAttrCase<"_lte",   2>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1253,7 +1253,7 @@ def FloatIsOperation : I32EnumAttr<"FloatIsOperation",
         I32EnumAttrCase<"_isNan",  0>,
         I32EnumAttrCase<"_isInf",  1>,
     ]> {
-    let cppNamespace = "::jeff";
+    let cppNamespace = "::mlir::jeff";
     let genSpecializedAttr = 0;
 }
 
@@ -1293,7 +1293,7 @@ def IntConst1Op : Int_Op<"int_const1", []> {
         I1:$constant
     );
 
-    // %1 = jeff.int_const1 (%0) : i1
+    // %0 = jeff.int_const1(true) : i1
     let assemblyFormat = [{
         `(` $val `)` attr-dict `:` type(results)
     }];
@@ -1311,7 +1311,7 @@ def IntConst8Op : Int_Op<"int_const8", []> {
         I8:$constant
     );
 
-    // %1 = jeff.int_const8 (%0) : i8
+    // %0 = jeff.int_const8(3) : i8
     let assemblyFormat = [{
         `(` $val `)` attr-dict `:` type(results)
     }];
@@ -1329,7 +1329,7 @@ def IntConst16Op : Int_Op<"int_const16", []> {
         I16:$constant
     );
 
-    // %1 = jeff.int_const16 (%0) : i16
+    // %0 = jeff.int_const16(3) : i16
     let assemblyFormat = [{
         `(` $val `)` attr-dict `:` type(results)
     }];
@@ -1347,7 +1347,7 @@ def IntConst32Op : Int_Op<"int_const32", []> {
         I32:$constant
     );
 
-    // %1 = jeff.int_const32 (%0) : i32
+    // %0 = jeff.int_const32(3) : i32
     let assemblyFormat = [{
         `(` $val `)` attr-dict `:` type(results)
     }];
@@ -1365,7 +1365,7 @@ def IntConst64Op : Int_Op<"int_const64", []> {
         I64:$constant
     );
 
-    // %1 = jeff.int_const64 (%0) : i64
+    // %0 = jeff.int_const64(3) : i64
     let assemblyFormat = [{
         `(` $val `)` attr-dict `:` type(results)
     }];
@@ -1384,9 +1384,9 @@ def IntUnaryOp : Int_Op<"int_unary_op", [SameOperandsAndResultType]> {
         SupportedIntType:$b
     );
 
-    // %1 = jeff.int_unary_op [0] (%0) : i64
+    // %1 = jeff.int_unary_op [0] (%0) : i64 -> i64
     let assemblyFormat = [{
-        `[` $op `]` `(` $a `)` attr-dict `:` type($a) type(results)
+        `[` $op `]` `(` $a `)` attr-dict `:` type($a) `->` type($b)
     }];
 }
 
@@ -1404,9 +1404,9 @@ def IntBinaryOp : Int_Op<"int_binary_op", [SameOperandsAndResultType]> {
         SupportedIntType:$c
     );
 
-    // %2 = jeff.int_binary_op [0] (%0, %1) : i64
+    // %2 = jeff.int_binary_op [0] (%0, %1) : i64, i64 -> i64
     let assemblyFormat = [{
-        `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) type($b) type(results)
+        `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) `,` type($b) `->` type($c)
     }];
 }
 
@@ -1424,9 +1424,9 @@ def IntComparisonOp : Int_Op<"int_comp_op", []> {
         I1:$c
     );
 
-    // %2 = jeff.int_comp_op [0] (%0, %1) : i1
+    // %2 = jeff.int_comp_op [0] (%0, %1) : i64, i64 -> i1
     let assemblyFormat = [{
-        `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) type($b)
+        `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) `,` type($b) `->` type($c)
     }];
 }
 
@@ -1448,7 +1448,7 @@ def IntArrayConst1Op : IntArray_Op<"int_array_const1", []> {
         1DTensorOf<[I1]>:$out_array
     );
 
-    // %1 = jeff.int_array_const1 (%0) : i1
+    // %0 = jeff.int_array_const1([false, false, true]) : tensor<?xi1>
     let assemblyFormat = [{
         `(` $in_array `)` attr-dict `:` type(results)
     }];
@@ -1466,7 +1466,7 @@ def IntArrayConst8Op : IntArray_Op<"int_array_const8", []> {
         1DTensorOf<[I8]>:$out_array
     );
 
-    // %1 = jeff.int_array_const8 (%0) : i8
+    // %0 = jeff.int_array_const8([3, 5, 7]) : tensor<?xi8>
     let assemblyFormat = [{
         `(` $in_array `)` attr-dict `:` type(results)
     }];
@@ -1484,7 +1484,7 @@ def IntArrayConst16Op : IntArray_Op<"int_array_const16", []> {
         1DTensorOf<[I16]>:$out_array
     );
 
-    // %1 = jeff.int_array_const16 (%0) : i16
+    // %0 = jeff.int_array_const16([3, 5, 7]) : tensor<?xi16>
     let assemblyFormat = [{
         `(` $in_array `)` attr-dict `:` type(results)
     }];
@@ -1502,7 +1502,7 @@ def IntArrayConst32Op : IntArray_Op<"int_array_const32", []> {
         1DTensorOf<[I32]>:$out_array
     );
 
-    // %1 = jeff.int_array_const32 (%0) : i32
+    // %0 = jeff.int_array_const32([3, 5, 7]) : tensor<?xi32>
     let assemblyFormat = [{
         `(` $in_array `)` attr-dict `:` type(results)
     }];
@@ -1520,7 +1520,7 @@ def IntArrayConst64Op : IntArray_Op<"int_array_const64", []> {
         1DTensorOf<[I64]>:$out_array
     );
 
-    // %1 = jeff.int_array_const64 (%0) : i64
+    // %0 = jeff.int_array_const64([3, 5, 7]) : tensor<?xi64>
     let assemblyFormat = [{
         `(` $in_array `)` attr-dict `:` type(results)
     }];
@@ -1531,14 +1531,14 @@ def IntArrayZeroOp : IntArray_Op<"int_array_zero", []> {
     let description = [{}];
 
     let arguments = (ins
-        I32Attr:$length
+        I32:$length
     );
 
     let results = (outs
         1DTensorOf<[I1, I8, I16, I32, I64]>:$out_array
     );
 
-    // %1 = jeff.int_array_zero (%0) : i64
+    // %0 = jeff.int_array_zero(%length) : tensor<?xi64>
     let assemblyFormat = [{
         `(` $length `)` attr-dict `:` type(results)
     }];
@@ -1550,16 +1550,16 @@ def IntArrayGetIndexOp : IntArray_Op<"int_array_get_index", []> {
 
     let arguments = (ins
         1DTensorOf<[I1, I8, I16, I32, I64]>:$in_array,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
         SupportedIntType:$value
     );
 
-    // %2 = jeff.int_array_get_index (%0) %1 : i64
+    // %value = jeff.int_array_get_index(%index) %array : i1, tensor<?xi32> -> i32
     let assemblyFormat = [{
-        `(` $index `)` $in_array attr-dict `:` type($in_array) type(results)
+        `(` $index `)` $in_array attr-dict `:` type($index) `,` type($in_array) `->` type(results)
     }];
 }
 
@@ -1569,17 +1569,17 @@ def IntArraySetIndexOp : IntArray_Op<"int_array_set_index", []> {
 
     let arguments = (ins
         1DTensorOf<[I1, I8, I16, I32, I64]>:$in_array,
-        SupportedIntType:$value,
-        I32Attr:$index
+        I32:$index,
+        SupportedIntType:$value
     );
 
     let results = (outs
         1DTensorOf<[I1, I8, I16, I32, I64]>:$out_array
     );
 
-    // %3 = jeff.int_array_set_index (%0) %1 %2 : i64
+    // %array_out = jeff.int_array_set_index(%index) %array_in %value : i1, tensor<?xi32>, i32 -> tensor<?xi32>
     let assemblyFormat = [{
-        `(` $index `)` $in_array $value attr-dict `:` type($in_array) type($value) type(results)
+        `(` $index `)` $in_array $value attr-dict `:` type($index) `,` type($in_array) `,` type($value) `->` type($out_array)
     }];
 }
 
@@ -1595,9 +1595,9 @@ def IntArrayLengthOp : IntArray_Op<"int_array_length", []> {
         I32:$length
     );
 
-    // %1 = jeff.int_array_length %0 : i64
+    // %length = jeff.int_array_length %array_on : tensor<?xi16> -> i32
     let assemblyFormat = [{
-        $in_array attr-dict `:` type($in_array)
+        $in_array attr-dict `:` type($in_array) `->` type($length)
     }];
 }
 
@@ -1606,16 +1606,16 @@ def IntArrayCreateOp : IntArray_Op<"int_array_create", []> {
     let description = [{}];
 
     let arguments = (ins
-        SupportedIntArrayAttrType:$in_array
+        Variadic<SupportedIntType>:$in_array
     );
 
     let results = (outs
         1DTensorOf<[I1, I8, I16, I32, I64]>:$out_array
     );
 
-    // %1 = jeff.int_array_create %0 : i64
+    // %array = jeff.int_array_create %0, %1, %2 : i64, i64, i64 -> tensor<?xi64>
     let assemblyFormat = [{
-        attr-dict `:` type(results)
+        $in_array attr-dict `:` type($in_array) `->` type($out_array)
     }];
 }
 
@@ -1637,7 +1637,7 @@ def FloatConst32Op : Float_Op<"float_const32", []> {
         F32:$constant
     );
 
-    // %1 = jeff.float_const32 (%0) : f32
+    // %0 = jeff.float_const32(0.3) : f32
     let assemblyFormat = [{
         `(` $val `)` attr-dict `:` type(results)
     }];
@@ -1655,7 +1655,7 @@ def FloatConst64Op : Float_Op<"float_const64", []> {
         F64:$constant
     );
 
-    // %1 = jeff.float_const64 (%0) : f64
+    // %0 = jeff.float_const64(0.3) : f64
     let assemblyFormat = [{
         `(` $val `)` attr-dict `:` type(results)
     }];
@@ -1674,9 +1674,9 @@ def FloatUnaryOp : Float_Op<"float_unary_op", [SameOperandsAndResultType]> {
         SupportedFloatType:$b
     );
 
-    // %1 = jeff.float_unary_op [0] (%0) : f64
+    // %1 = jeff.float_unary_op [0] (%0) : f64 -> f64
     let assemblyFormat = [{
-       `[` $op `]` `(` $a `)` attr-dict `:` type($a) type(results)
+       `[` $op `]` `(` $a `)` attr-dict `:` type($a) `->` type($b)
     }];
 }
 
@@ -1694,9 +1694,9 @@ def FloatBinaryOp : Float_Op<"float_binary_op", [SameOperandsAndResultType]> {
         SupportedFloatType:$c
     );
 
-    // %2 = jeff.float_binary_op [0] (%0, %1) : f64
+    // %2 = jeff.float_binary_op [0] (%0, %1) : f64, f64 -> f64
     let assemblyFormat = [{
-       `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) type($b) type(results)
+       `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) `,` type($b) `->` type(results)
     }];
 }
 
@@ -1714,9 +1714,9 @@ def FloatComparisonOp : Float_Op<"float_comp_op", []> {
         I1:$c
     );
 
-    // %2 = jeff.float_comp_op [0] (%0, %1) : i1
+    // %2 = jeff.float_comp_op [0] (%0, %1) : f64, f64 -> i1
     let assemblyFormat = [{
-       `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) type($b)
+       `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) `,` type($b) `->` type($c)
     }];
 }
 
@@ -1733,9 +1733,9 @@ def FloatIsOp : Float_Op<"float_is_op", []> {
         I1:$b
     );
 
-    // %1 = jeff.float_is_op [0] (%0) : i1
+    // %1 = jeff.float_is_op [0] (%0) : f64 -> i1
     let assemblyFormat = [{
-       `[` $op `]` `(` $a `)` attr-dict `:` type($a)
+       `[` $op `]` `(` $a `)` attr-dict `:` type($a) `->` type($b)
     }];
 }
 
@@ -1757,7 +1757,7 @@ def FloatArrayConst32Op : FloatArray_Op<"float_array_const32", []> {
         1DTensorOf<[F32]>:$out_array
     );
 
-    // %1 = jeff.float_array_const32 (%0) : f32
+    // %0 = jeff.float_array_const32([0.1, 0.2, 0.3]) : tensor<?xf32>
     let assemblyFormat = [{
         `(` $in_array `)` attr-dict `:` type(results)
     }];
@@ -1775,7 +1775,7 @@ def FloatArrayConst64Op : FloatArray_Op<"float_array_const64", []> {
         1DTensorOf<[F64]>:$out_array
     );
 
-    // %1 = jeff.float_array_const64 (%0) : f64
+    // %0 = jeff.float_array_const64([0.1, 0.2, 0.3]) : tensor<?xf64>
     let assemblyFormat = [{
         `(` $in_array `)` attr-dict `:` type(results)
     }];
@@ -1786,14 +1786,14 @@ def FloatArrayZeroOp : FloatArray_Op<"float_array_zero", []> {
     let description = [{}];
 
     let arguments = (ins
-        I32Attr:$length
+        I32:$length
     );
 
     let results = (outs
         1DTensorOf<[F32, F64]>:$out_array
     );
 
-    // %1 = jeff.float_array_zero (%0) : f64
+    // %0 = jeff.float_array_zero(%length) : tensor<?xf64>
     let assemblyFormat = [{
         `(` $length `)` attr-dict `:` type(results)
     }];
@@ -1805,16 +1805,16 @@ def FloatArrayGetIndexOp : FloatArray_Op<"float_array_get_index", []> {
 
     let arguments = (ins
         1DTensorOf<[F32, F64]>:$in_array,
-        I32Attr:$index
+        I32:$index
     );
 
     let results = (outs
         SupportedFloatType:$value
     );
 
-    // %2 = jeff.float_array_get_index (%0) %1 : f64
+    // %value = jeff.float_array_get_index(%index) %array : i32, tensor<?xf64> -> f64
     let assemblyFormat = [{
-        `(` $index `)` $in_array attr-dict `:` type($in_array) type(results)
+        `(` $index `)` $in_array attr-dict `:` type($index) `,` type($in_array) `->` type($value)
     }];
 }
 
@@ -1824,17 +1824,17 @@ def FloatArraySetIndexOp : FloatArray_Op<"float_array_set_index", []> {
 
     let arguments = (ins
         1DTensorOf<[F32, F64]>:$in_array,
-        SupportedFloatType:$value,
-        I32Attr:$index
+        I32:$index,
+        SupportedFloatType:$value
     );
 
     let results = (outs
         1DTensorOf<[F32, F64]>:$out_array
     );
 
-    // %3 = jeff.float_array_set_index (%0) %1 %2 : f64
+    // %array_out = jeff.float_array_set_index(%index) %array_in %value : i32, tensor<?xf64>, f64 -> tensor<?xf64>
     let assemblyFormat = [{
-        `(` $index `)` $in_array $value attr-dict `:` type($in_array) type($value) type(results)
+        `(` $index `)` $in_array $value attr-dict `:` type($index) `,` type($in_array) `,` type($value) `->` type($out_array)
     }];
 }
 
@@ -1850,9 +1850,9 @@ def FloatArrayLengthOp : FloatArray_Op<"float_array_length", []> {
         I32:$length
     );
 
-    // %1 = jeff.float_array_length %0 : i64
+    // %1 = jeff.float_array_length %0 : tensor<?xf64> -> i32
     let assemblyFormat = [{
-        $in_array attr-dict `:` type($in_array)
+        $in_array attr-dict `:` type($in_array) `->` type($length)
     }];
 }
 
@@ -1861,16 +1861,16 @@ def FloatArrayCreateOp : FloatArray_Op<"float_array_create", []> {
     let description = [{}];
 
     let arguments = (ins
-        SupportedFloatArrayAttrType:$in_array
+        Variadic<SupportedFloatType>:$in_array
     );
 
     let results = (outs
         1DTensorOf<[F32, F64]>:$out_array
     );
 
-    // %1 = jeff.float_array_create %0 : f64
+    // %array = jeff.float_array_create %0, %1, %2 : f64, f64, f64 -> tensor<?xf64>
     let assemblyFormat = [{
-        attr-dict `:` type(results)
+        $in_array attr-dict `:` type($in_array) `->` type($out_array)
     }];
 }
 
@@ -1898,9 +1898,9 @@ def SwitchOp : SCF_Op<"switch", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-        `(` $selection `)` $branches ($default^)? $in_values attr-dict `:` type($selection) type($in_values) type($out_values)
-    }];
+    let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def ForOp : SCF_Op<"for", []> {
@@ -1920,9 +1920,9 @@ def ForOp : SCF_Op<"for", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-        `(` $start `,` $stop `,` $step `)` $in_values attr-dict `:` type($start) type($stop) type($step) type($in_values) type($out_values) regions
-    }];
+    let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def WhileOp : SCF_Op<"while", []> {
@@ -1942,9 +1942,9 @@ def WhileOp : SCF_Op<"while", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-        $in_values attr-dict `:` type($in_values) type($out_values) regions
-    }];
+    let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def DoWhileOp : SCF_Op<"doWhile", []> {
@@ -1964,9 +1964,9 @@ def DoWhileOp : SCF_Op<"doWhile", []> {
         Variadic<AnyType>:$out_values
     );
 
-    let assemblyFormat = [{
-       $in_values attr-dict `:` type($in_values) type($out_values) regions
-    }];
+    let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def YieldOp : SCF_Op<"yield", [Pure, ReturnLike, Terminator,

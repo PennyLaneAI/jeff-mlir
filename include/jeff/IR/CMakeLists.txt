@@ -1,8 +1,11 @@
 add_mlir_dialect(JeffOps jeff)
 add_mlir_interface(JeffInterfaces)
-add_mlir_doc(JeffDialect JeffDialect jeff/ -gen-dialect-doc)
-add_mlir_doc(JeffOps JeffOps jeff/ -gen-op-doc)
-add_mlir_doc(JeffInterfaces JeffInterfaces jeff/ -gen-op-interface-docs)
+
+if(BUILD_JEFF_MLIR_DOCS)
+    add_mlir_doc(JeffDialect JeffDialect jeff/ -gen-dialect-doc)
+    add_mlir_doc(JeffOps JeffOps jeff/ -gen-op-doc)
+    add_mlir_doc(JeffInterfaces JeffInterfaces jeff/ -gen-op-interface-docs)
+endif()
 
 set(LLVM_TARGET_DEFINITIONS JeffOps.td)
 mlir_tablegen(JeffEnums.h.inc -gen-enum-decls)
