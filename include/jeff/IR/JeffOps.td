@@ -1899,7 +1899,8 @@ def SwitchOp : SCF_Op<"switch", []> {
     );
 
     let hasCustomAssemblyFormat = 1;
-    // TODO: Add verifiers
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def ForOp : SCF_Op<"for", []> {
@@ -1920,7 +1921,8 @@ def ForOp : SCF_Op<"for", []> {
     );
 
     let hasCustomAssemblyFormat = 1;
-    // TODO: Add verifiers
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def WhileOp : SCF_Op<"while", []> {
@@ -1941,7 +1943,8 @@ def WhileOp : SCF_Op<"while", []> {
     );
 
     let hasCustomAssemblyFormat = 1;
-    // TODO: Add verifiers
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def DoWhileOp : SCF_Op<"doWhile", []> {
@@ -1962,7 +1965,8 @@ def DoWhileOp : SCF_Op<"doWhile", []> {
     );
 
     let hasCustomAssemblyFormat = 1;
-    // TODO: Add verifiers
+    let hasVerifier = 1;
+    let hasRegionVerifier = 1;
 }
 
 def YieldOp : SCF_Op<"yield", [Pure, ReturnLike, Terminator,
