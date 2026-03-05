@@ -5,8 +5,10 @@
 
 #include <capnp/common.h>
 #include <capnp/list.h>
+#include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
+#include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -30,7 +32,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -1518,13 +1520,16 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::
 
     // Get Jeff module from file
     int fd = -1;
-    const auto ec = llvm::sys::fs::openFileForRead(path, fd);
-    if (ec) {
+    if (llvm::sys::fs::openFileForRead(path, fd)) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
-    capnp::StreamFdMessageReader message(fd);
-    ::close(fd);
+
+    kj::AutoCloseFd autoCloseFd(fd);
+    kj::FdInputStream input(std::move(autoCloseFd));
+
+    capnp::MallocMessageBuilder message;
+    capnp::readMessageCopy(input, message);
     jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
     // Create MLIR builder

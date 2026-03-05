@@ -8,6 +8,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
+#include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringMap.h>
@@ -27,7 +28,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -1686,15 +1687,15 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
 
 void serialize(mlir::ModuleOp module, llvm::StringRef path) {
     int fd = -1;
-    const auto ec = llvm::sys::fs::openFileForWrite(path, fd);
-    if (ec) {
+    if (llvm::sys::fs::openFileForWrite(path, fd)) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
+    kj::AutoCloseFd autoCloseFd(fd);
+    kj::FdOutputStream output(std::move(autoCloseFd));
+
     capnp::MallocMessageBuilder message;
     writeMessage(module, message);
-    capnp::writeMessageToFd(fd, message);
-
-    ::close(fd);
+    capnp::writeMessage(output, message);
 }

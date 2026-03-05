@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 #include <jeff.capnp.h>
 #include <kj/array.h>
+#include <kj/io.h>
 #include <kj/string-tree.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Support/ErrorHandling.h>
@@ -20,7 +21,7 @@
 #include <filesystem>
 #include <ostream>
 #include <string>
-#include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -40,14 +41,16 @@ class RoundTripTest : public ::testing::Test,
 
 kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
     int fd = -1;
-    const auto ec = llvm::sys::fs::openFileForRead(path, fd);
-    if (ec) {
+    if (llvm::sys::fs::openFileForRead(path, fd)) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
+
+    kj::AutoCloseFd autoCloseFd(fd);
+    kj::FdInputStream input(std::move(autoCloseFd));
+
     capnp::MallocMessageBuilder message;
-    capnp::readMessageCopyFromFd(fd, message);
-    ::close(fd);
+    capnp::readMessageCopy(input, message);
     return capnp::messageToFlatArray(message);
 }
 
@@ -97,12 +100,9 @@ TEST_P(RoundTripTest, RoundTrip) {
 
     // Create temporary file
     llvm::SmallString<128> tempFilePath;
-    int fd = -1;
-    const auto createEc = llvm::sys::fs::createTemporaryFile("test", "jeff", fd, tempFilePath);
-    if (createEc) {
+    if (llvm::sys::fs::createTemporaryFile("test", "jeff", tempFilePath)) {
         llvm::report_fatal_error("Could not create temporary file");
     }
-    ::close(fd);
 
     // Serialize MLIR module
     serialize(*mlirModule, tempFilePath.str());
@@ -111,8 +111,7 @@ TEST_P(RoundTripTest, RoundTrip) {
     auto serialized = readJeffFile(tempFilePath.str());
 
     // Remove temporary file
-    const auto removeEc = llvm::sys::fs::remove(tempFilePath);
-    if (removeEc) {
+    if (llvm::sys::fs::remove(tempFilePath)) {
         llvm::errs() << "Failed to remove temporary file\n";
     }
 
