@@ -92,10 +92,6 @@ std::vector<ArithRoundTripTestCase> getTestCases() {
         if (filename.rfind("unit_int_", 0) != 0 && filename.rfind("unit_float_", 0) != 0) {
             continue;
         }
-        if (filename.rfind("unit_float_array_", 0) == 0 ||
-            filename.rfind("unit_int_array_", 0) == 0) {
-            continue;
-        }
         cases.push_back({filename});
     }
     std::sort(cases.begin(), cases.end(),
@@ -123,15 +119,23 @@ TEST_P(ArithRoundTripTest, RoundTrip) {
     // Deserialize Jeff module
     auto mlirModule = deserialize(&context, path.string());
 
-    llvm::errs() << "Deserialized MLIR module:\n";
+    llvm::errs() << "Input MLIR module:\n";
     mlirModule->print(llvm::errs());
     llvm::errs() << "\n\n";
 
     EXPECT_TRUE(succeeded(convertJeffToArith(mlirModule.get())));
     EXPECT_TRUE(verify(*mlirModule).succeeded());
 
+    llvm::errs() << "Converted MLIR module:\n";
+    mlirModule->print(llvm::errs());
+    llvm::errs() << "\n\n";
+
     EXPECT_TRUE(succeeded(convertArithToJeff(mlirModule.get())));
     EXPECT_TRUE(verify(*mlirModule).succeeded());
+
+    llvm::errs() << "Output MLIR module:\n";
+    mlirModule->print(llvm::errs());
+    llvm::errs() << "\n\n";
 
     // Create temporary file
     llvm::SmallString<128> tempFilePath;
