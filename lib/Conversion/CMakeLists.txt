@@ -1,0 +1,4 @@
+add_subdirectory(ArithToJeff)
+add_subdirectory(JeffToArith)
+add_subdirectory(JeffToTensor)
+add_subdirectory(TensorToJeff)

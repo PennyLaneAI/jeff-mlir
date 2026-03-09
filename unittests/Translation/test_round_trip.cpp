@@ -85,7 +85,7 @@ TEST_P(RoundTripTest, RoundTrip) {
     const auto& testCase = GetParam();
 
     mlir::DialectRegistry registry;
-    registry.insert<mlir::jeff::JeffDialect, mlir::func::FuncDialect>();
+    registry.insert<mlir::func::FuncDialect, mlir::jeff::JeffDialect>();
 
     mlir::MLIRContext context(registry);
     context.loadAllAvailableDialects();
