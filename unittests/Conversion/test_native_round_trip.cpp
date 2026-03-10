@@ -20,7 +20,6 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
-#include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/Verifier.h>
@@ -38,16 +37,16 @@ namespace fs = std::filesystem;
 
 namespace {
 
-struct ArithRoundTripTestCase {
+struct NativeRoundTripTestCase {
     std::string fileName;
 };
 
-std::ostream& operator<<(std::ostream& os, const ArithRoundTripTestCase& testCase) {
+std::ostream& operator<<(std::ostream& os, const NativeRoundTripTestCase& testCase) {
     return os << testCase.fileName;
 }
 
-class ArithRoundTripTest : public ::testing::Test,
-                           public ::testing::WithParamInterface<ArithRoundTripTestCase> {};
+class NativeRoundTripTest : public ::testing::Test,
+                            public ::testing::WithParamInterface<NativeRoundTripTestCase> {};
 
 kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
     llvm::sys::fs::file_t file = 0;
@@ -111,8 +110,8 @@ mlir::LogicalResult canonicalize(mlir::ModuleOp module) {
     return pm.run(module);
 }
 
-std::vector<ArithRoundTripTestCase> getTestCases() {
-    std::vector<ArithRoundTripTestCase> cases;
+std::vector<NativeRoundTripTestCase> getTestCases() {
+    std::vector<NativeRoundTripTestCase> cases;
     for (const auto& entry : fs::directory_iterator(TEST_INPUTS_DIR)) {
         if (!entry.is_regular_file()) {
             continue;
@@ -136,7 +135,7 @@ std::vector<ArithRoundTripTestCase> getTestCases() {
 
 } // namespace
 
-TEST_P(ArithRoundTripTest, RoundTrip) {
+TEST_P(NativeRoundTripTest, RoundTrip) {
     const auto& testCase = GetParam();
 
     if (testCase.fileName == "unit_int_not.jeff") {
@@ -144,7 +143,7 @@ TEST_P(ArithRoundTripTest, RoundTrip) {
     }
 
     mlir::DialectRegistry registry;
-    registry.insert<mlir::arith::ArithDialect, mlir::func::FuncDialect, mlir::jeff::JeffDialect>();
+    registry.insert<mlir::func::FuncDialect, mlir::jeff::JeffDialect>();
 
     mlir::MLIRContext context(registry);
     context.loadAllAvailableDialects();
@@ -232,4 +231,4 @@ TEST_P(ArithRoundTripTest, RoundTrip) {
     ASSERT_EQ(originalText, serializedText);
 }
 
-INSTANTIATE_TEST_SUITE_P(, ArithRoundTripTest, ::testing::ValuesIn(getTestCases()));
+INSTANTIATE_TEST_SUITE_P(, NativeRoundTripTest, ::testing::ValuesIn(getTestCases()));
