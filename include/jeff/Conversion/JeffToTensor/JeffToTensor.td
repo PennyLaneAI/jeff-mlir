@@ -9,6 +9,6 @@ def JeffToTensor : Pass<"jeff-to-tensor"> {
 
   let dependentDialects = [
     "mlir::jeff::JeffDialect",
-    "mlir::tensor::TensorDialeact",
+    "mlir::tensor::TensorDialect",
   ];
 }

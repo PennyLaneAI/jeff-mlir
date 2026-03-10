@@ -8,10 +8,12 @@ if(NOT TARGET ${test_name})
         PRIVATE GTest::gtest_main
                 ArithToJeff
                 MathToJeff
+                TensorToJeff
                 MLIRJeff
                 MLIRJeffTranslation
                 JeffToArith
                 JeffToMath
+                JeffToTensor
     )
 
     target_include_directories(

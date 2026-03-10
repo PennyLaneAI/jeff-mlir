@@ -6,6 +6,7 @@ add_mlir_conversion_library(
     DEPENDS
     JeffToTensorIncGen
     LINK_LIBS
+    MLIRArithDialect
     MLIRDialect
     MLIRJeff
     MLIRTensorDialect
