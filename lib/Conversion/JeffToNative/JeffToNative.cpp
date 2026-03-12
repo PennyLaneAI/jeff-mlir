@@ -319,7 +319,10 @@ template <typename ConstOp> struct ConvertJeffIntArrayConstOp final : OpConversi
 
     LogicalResult matchAndRewrite(ConstOp op, typename ConstOp::Adaptor /*adaptor*/,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto denseAttr = DenseElementsAttr::get(op.getType(), op.getInArrayAttr().asArrayRef());
+        auto inArrayAttr = op.getInArrayAttr();
+        auto tensorType =
+            mlir::RankedTensorType::get({inArrayAttr.size()}, op.getType().getElementType());
+        auto denseAttr = DenseElementsAttr::get(tensorType, inArrayAttr.asArrayRef());
         rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, denseAttr);
         return success();
     }
@@ -331,7 +334,10 @@ struct ConvertJeffFloatArrayConstOp final : OpConversionPattern<ConstOp> {
 
     LogicalResult matchAndRewrite(ConstOp op, typename ConstOp::Adaptor /*adaptor*/,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto denseAttr = DenseElementsAttr::get(op.getType(), op.getInArrayAttr().asArrayRef());
+        auto inArrayAttr = op.getInArrayAttr();
+        auto tensorType =
+            mlir::RankedTensorType::get({inArrayAttr.size()}, op.getType().getElementType());
+        auto denseAttr = DenseElementsAttr::get(tensorType, inArrayAttr.asArrayRef());
         rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, denseAttr);
         return success();
     }
