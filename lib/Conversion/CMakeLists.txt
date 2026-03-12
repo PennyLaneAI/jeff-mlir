@@ -1,6 +1,2 @@
-add_subdirectory(ArithToJeff)
-add_subdirectory(JeffToArith)
-add_subdirectory(JeffToMath)
-add_subdirectory(JeffToTensor)
-add_subdirectory(MathToJeff)
-add_subdirectory(TensorToJeff)
+add_subdirectory(JeffToNative)
+add_subdirectory(NativeToJeff)

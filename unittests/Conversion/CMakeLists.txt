@@ -4,16 +4,8 @@ if(NOT TARGET ${test_name})
     add_executable(${test_name} test_native_round_trip.cpp)
 
     target_link_libraries(
-        ${test_name}
-        PRIVATE GTest::gtest_main
-                ArithToJeff
-                MathToJeff
-                TensorToJeff
-                MLIRJeff
-                MLIRJeffTranslation
-                JeffToArith
-                JeffToMath
-                JeffToTensor
+        ${test_name} PRIVATE GTest::gtest_main MLIRJeff MLIRJeffToNative MLIRJeffTranslation
+                             MLIRNativeToJeff
     )
 
     target_include_directories(

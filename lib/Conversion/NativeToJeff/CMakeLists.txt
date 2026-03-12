@@ -1,14 +1,16 @@
 file(GLOB CONVERSION_SOURCES *.cpp)
 
 add_mlir_conversion_library(
-    JeffToMath
+    MLIRNativeToJeff
     ${CONVERSION_SOURCES}
     DEPENDS
-    JeffToMathIncGen
+    NativeToJeffIncGen
     LINK_LIBS
+    MLIRArithDialect
     MLIRDialect
     MLIRJeff
     MLIRMathDialect
+    MLIRTensorDialect
     MLIRTransforms
     DISABLE_INSTALL
 )
