@@ -319,11 +319,13 @@ template <typename ConstOp> struct ConvertJeffIntArrayConstOp final : OpConversi
 
     LogicalResult matchAndRewrite(ConstOp op, typename ConstOp::Adaptor /*adaptor*/,
                                   ConversionPatternRewriter& rewriter) const override {
+        auto type = op.getType();
         auto inArrayAttr = op.getInArrayAttr();
-        auto tensorType =
+        auto nativeType =
             mlir::RankedTensorType::get({inArrayAttr.size()}, op.getType().getElementType());
-        auto denseAttr = DenseElementsAttr::get(tensorType, inArrayAttr.asArrayRef());
-        rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, denseAttr);
+        auto denseAttr = DenseElementsAttr::get(nativeType, inArrayAttr.asArrayRef());
+        auto tensor = arith::ConstantOp::create(rewriter, op.getLoc(), denseAttr);
+        rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, tensor.getResult());
         return success();
     }
 };
@@ -334,11 +336,13 @@ struct ConvertJeffFloatArrayConstOp final : OpConversionPattern<ConstOp> {
 
     LogicalResult matchAndRewrite(ConstOp op, typename ConstOp::Adaptor /*adaptor*/,
                                   ConversionPatternRewriter& rewriter) const override {
+        auto type = op.getType();
         auto inArrayAttr = op.getInArrayAttr();
-        auto tensorType =
+        auto nativeType =
             mlir::RankedTensorType::get({inArrayAttr.size()}, op.getType().getElementType());
-        auto denseAttr = DenseElementsAttr::get(tensorType, inArrayAttr.asArrayRef());
-        rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, denseAttr);
+        auto denseAttr = DenseElementsAttr::get(nativeType, inArrayAttr.asArrayRef());
+        auto tensor = arith::ConstantOp::create(rewriter, op.getLoc(), denseAttr);
+        rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, tensor.getResult());
         return success();
     }
 };
@@ -389,8 +393,10 @@ template <typename JeffOp> struct ConvertJeffArrayLengthOp final : OpConversionP
 
     LogicalResult matchAndRewrite(JeffOp op, typename JeffOp::Adaptor adaptor,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto zero = arith::ConstantOp::create(rewriter, op.getLoc(), rewriter.getIndexAttr(0));
-        rewriter.replaceOpWithNewOp<tensor::DimOp>(op, adaptor.getInArray(), zero.getResult());
+        auto loc = op.getLoc();
+        auto zero = arith::ConstantOp::create(rewriter, loc, rewriter.getIndexAttr(0));
+        auto length = tensor::DimOp::create(rewriter, loc, adaptor.getInArray(), zero.getResult());
+        rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, op.getType(), length.getResult());
         return success();
     }
 };
@@ -400,7 +406,8 @@ template <typename JeffOp> struct ConvertJeffArrayCreateOp final : OpConversionP
 
     LogicalResult matchAndRewrite(JeffOp op, typename JeffOp::Adaptor adaptor,
                                   ConversionPatternRewriter& rewriter) const override {
-        rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(op, adaptor.getInArray());
+        auto tensor = tensor::FromElementsOp::create(rewriter, op.getLoc(), adaptor.getInArray());
+        rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(), tensor.getResult());
         return success();
     }
 };

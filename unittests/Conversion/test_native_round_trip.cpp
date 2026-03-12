@@ -110,11 +110,7 @@ std::vector<NativeRoundTripTestCase> getTestCases() {
 TEST_P(NativeRoundTripTest, RoundTrip) {
     const auto& testCase = GetParam();
 
-    if (testCase.fileName == "unit_int_not.jeff" ||
-        testCase.fileName == "unit_int_array_length.jeff" ||
-        testCase.fileName == "unit_int_array_create.jeff" ||
-        testCase.fileName == "unit_float_array_length.jeff" ||
-        testCase.fileName == "unit_float_array_create.jeff") {
+    if (testCase.fileName == "unit_int_not.jeff") {
         GTEST_SKIP();
     }
 
