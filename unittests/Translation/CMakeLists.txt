@@ -10,13 +10,6 @@ if(NOT TARGET ${test_name})
 
     target_link_libraries(${test_name} PRIVATE GTest::gtest_main MLIRJeff MLIRJeffTranslation)
 
-    target_include_directories(
-        ${test_name} PRIVATE ${jeff_SOURCE_DIR}/impl/cpp/src/capnp
-                             ${jeff_BINARY_DIR}/impl/cpp/src/capnp
-    )
-
-    target_sources(${test_name} PRIVATE ${jeff_SOURCE_DIR}/impl/cpp/src/capnp/jeff.capnp.c++)
-
     target_compile_definitions(
         ${test_name} PRIVATE TEST_INPUTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../inputs"
     )
