@@ -65,7 +65,7 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
-                if (b->getUses().empty()) {
+                if (b->use_empty()) {
                     rewriter.eraseOp(b);
                 }
                 return success();
@@ -75,7 +75,7 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
-                if (b->getUses().empty()) {
+                if (b->use_empty()) {
                     rewriter.eraseOp(b);
                 }
                 return success();
@@ -85,7 +85,7 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
-                if (b->getUses().empty()) {
+                if (b->use_empty()) {
                     rewriter.eraseOp(b);
                 }
                 return success();
@@ -95,7 +95,7 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
-                if (b->getUses().empty()) {
+                if (b->use_empty()) {
                     rewriter.eraseOp(b);
                 }
                 return success();
@@ -105,7 +105,7 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
-                if (b->getUses().empty()) {
+                if (b->use_empty()) {
                     rewriter.eraseOp(b);
                 }
                 return success();

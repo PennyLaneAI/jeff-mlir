@@ -418,8 +418,10 @@ struct ConvertTensorDimOp final : OpConversionPattern<tensor::DimOp> {
 
     LogicalResult matchAndRewrite(tensor::DimOp op, OpAdaptor adaptor,
                                   ConversionPatternRewriter& rewriter) const override {
-        // TODO: Add check
-        rewriter.eraseOp(op.getIndex().getDefiningOp());
+        auto* definingOp = op.getIndex().getDefiningOp();
+        if (definingOp->hasOneUse()) {
+            rewriter.eraseOp(definingOp);
+        }
         return llvm::TypeSwitch<Type, LogicalResult>(op.getSource().getType().getElementType())
             .Case<IntegerType>([&](auto) {
                 auto length =
@@ -561,7 +563,8 @@ struct NativeToJeff final : impl::NativeToJeffBase<NativeToJeff> {
             return;
         }
 
-        // Try to remove tensor::CastOp introduced during conversion of tensor::FromElementsOp
+        // Try to remove tensor::CastOp introduced created conversion of arith::ConstantOp and
+        // tensor::FromElementsOp
         target.addIllegalOp<tensor::CastOp>();
         {
             RewritePatternSet patterns(context);
