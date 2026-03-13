@@ -17,6 +17,7 @@
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/TypeSwitch.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <mlir/IR/Block.h>
 #include <mlir/IR/Builders.h>
@@ -41,6 +42,75 @@ using namespace mlir::jeff;
 #include "jeff/IR/JeffOps.cpp.inc"
 
 namespace {
+
+/**
+ * @brief Converts a xor operation to a not operation if possible.
+ */
+struct XorToNot final : OpRewritePattern<IntBinaryOp> {
+    using OpRewritePattern::OpRewritePattern;
+
+    LogicalResult matchAndRewrite(IntBinaryOp op, PatternRewriter& rewriter) const override {
+        if (op.getOp() != IntBinaryOperation::_xor) {
+            return failure();
+        }
+        auto definingOp = op.getB().getDefiningOp();
+        if (!definingOp) {
+            return failure();
+        }
+        return llvm::TypeSwitch<Operation*, LogicalResult>(definingOp)
+            .Case<IntConst1Op>([&](IntConst1Op b) -> LogicalResult {
+                if (b.getVal() != -1) {
+                    return failure();
+                }
+                rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
+                if (b->getUses().empty()) {
+                    rewriter.eraseOp(b);
+                }
+                return success();
+            })
+            .Case<IntConst8Op>([&](IntConst8Op b) -> LogicalResult {
+                if (b.getVal() != -1) {
+                    return failure();
+                }
+                rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
+                if (b->getUses().empty()) {
+                    rewriter.eraseOp(b);
+                }
+                return success();
+            })
+            .Case<IntConst16Op>([&](IntConst16Op b) -> LogicalResult {
+                if (b.getVal() != -1) {
+                    return failure();
+                }
+                rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
+                if (b->getUses().empty()) {
+                    rewriter.eraseOp(b);
+                }
+                return success();
+            })
+            .Case<IntConst32Op>([&](IntConst32Op b) -> LogicalResult {
+                if (b.getVal() != -1) {
+                    return failure();
+                }
+                rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
+                if (b->getUses().empty()) {
+                    rewriter.eraseOp(b);
+                }
+                return success();
+            })
+            .Case<IntConst64Op>([&](IntConst64Op b) -> LogicalResult {
+                if (b.getVal() != -1) {
+                    return failure();
+                }
+                rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
+                if (b->getUses().empty()) {
+                    rewriter.eraseOp(b);
+                }
+                return success();
+            })
+            .Default([&](auto) -> LogicalResult { return failure(); });
+    }
+};
 
 // Adapted from
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L480
@@ -80,6 +150,10 @@ LogicalResult verifyRegionArgs(OpType op, ValueRange inValues, ValueRange outVal
 }
 
 } // namespace
+
+void IntBinaryOp::getCanonicalizationPatterns(RewritePatternSet& results, MLIRContext* context) {
+    results.add<XorToNot>(context);
+}
 
 void SwitchOp::print(OpAsmPrinter& p) {
     auto inValues = getInValues();

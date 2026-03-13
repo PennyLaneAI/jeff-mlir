@@ -42,6 +42,12 @@ struct ConvertJeffIntUnaryOp final : OpConversionPattern<jeff::IntUnaryOp> {
                                   ConversionPatternRewriter& rewriter) const override {
         auto a = adaptor.getA();
         switch (op.getOp()) {
+        case jeff::IntUnaryOperation::_not: {
+            auto one = arith::ConstantOp::create(rewriter, op.getLoc(),
+                                                 mlir::IntegerAttr::get(a.getType(), -1));
+            rewriter.replaceOpWithNewOp<arith::XOrIOp>(op, a, one.getResult());
+            break;
+        }
         case jeff::IntUnaryOperation::_abs:
             rewriter.replaceOpWithNewOp<math::AbsIOp>(op, a);
             break;

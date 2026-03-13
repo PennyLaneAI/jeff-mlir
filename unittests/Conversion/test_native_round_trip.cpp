@@ -110,10 +110,6 @@ std::vector<NativeRoundTripTestCase> getTestCases() {
 TEST_P(NativeRoundTripTest, RoundTrip) {
     const auto& testCase = GetParam();
 
-    if (testCase.fileName == "unit_int_not.jeff") {
-        GTEST_SKIP();
-    }
-
     mlir::DialectRegistry registry;
     registry.insert<mlir::func::FuncDialect, mlir::jeff::JeffDialect>();
 
