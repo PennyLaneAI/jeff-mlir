@@ -4,13 +4,16 @@
 #include "jeff/IR/JeffOps.h"
 
 #include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/TypeSwitch.h>
 #include <llvm/Support/Casting.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/Math/IR/Math.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/IR/Builders.h>
-#include <mlir/IR/BuiltinOps.h>
+#include <mlir/IR/BuiltinAttributes.h>
+#include <mlir/IR/BuiltinTypeInterfaces.h>
+#include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OperationSupport.h>
 #include <mlir/IR/PatternMatch.h>
@@ -18,12 +21,7 @@
 #include <mlir/Support/LogicalResult.h>
 #include <mlir/Transforms/DialectConversion.h>
 
-#include <cassert>
 #include <cstdint>
-#include <iterator>
-#include <limits>
-#include <numbers>
-#include <string>
 #include <utility>
 
 namespace mlir {
@@ -42,7 +40,7 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                                   ConversionPatternRewriter& rewriter) const override {
         auto value = op.getValue();
         return llvm::TypeSwitch<Type, LogicalResult>(op.getType())
-            .Case<IntegerType>([&](auto type) -> LogicalResult {
+            .Case<IntegerType>([&](auto type) {
                 auto intAttr = llvm::dyn_cast<IntegerAttr>(value);
                 if (!intAttr) {
                     return rewriter.notifyMatchFailure(op, "Expected IntegerAttr");
@@ -67,7 +65,7 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                     return rewriter.notifyMatchFailure(op, "Unsupported integer type");
                 }
             })
-            .Case<FloatType>([&](auto type) -> LogicalResult {
+            .Case<FloatType>([&](auto type) {
                 auto floatAttr = llvm::dyn_cast<FloatAttr>(value);
                 if (!floatAttr) {
                     return rewriter.notifyMatchFailure(op, "Expected FloatAttr");
@@ -83,7 +81,7 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                     return rewriter.notifyMatchFailure(op, "Unsupported float type");
                 }
             })
-            .Case<RankedTensorType>([&](auto type) -> LogicalResult {
+            .Case<RankedTensorType>([&](auto type) {
                 if (type.getRank() != 1) {
                     return rewriter.notifyMatchFailure(op, "Only 1D tensors are supported");
                 }
@@ -97,7 +95,7 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                 auto* ctx = op.getContext();
                 auto loc = op.getLoc();
                 return llvm::TypeSwitch<Type, LogicalResult>(elementType)
-                    .template Case<IntegerType>([&](auto intType) -> LogicalResult {
+                    .template Case<IntegerType>([&](auto intType) {
                         switch (intType.getWidth()) {
                         case 1: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<bool>());
@@ -148,7 +146,7 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                             return rewriter.notifyMatchFailure(op, "Unsupported integer type");
                         }
                     })
-                    .template Case<FloatType>([&](auto floatType) -> LogicalResult {
+                    .template Case<FloatType>([&](auto floatType) {
                         switch (floatType.getWidth()) {
                         case 32: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<float>());
@@ -172,11 +170,11 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                             return rewriter.notifyMatchFailure(op, "Unsupported float type");
                         }
                     })
-                    .Default([&](auto) -> LogicalResult {
+                    .Default([&](auto) {
                         return rewriter.notifyMatchFailure(op, "Unsupported element type");
                     });
             })
-            .Default([&](auto) -> LogicalResult { return success(); });
+            .Default([&](auto) { return success(); });
     }
 };
 
@@ -247,7 +245,7 @@ struct ConvertArithCmpIOpToJeff final : OpConversionPattern<arith::CmpIOp> {
                                                                jeff::IntComparisonOperation::_lteU);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown comparison operation");
+            return rewriter.notifyMatchFailure(op, "Unknown comparison operation");
         }
         return success();
     }
@@ -313,7 +311,7 @@ struct ConvertArithCmpFOp final : OpConversionPattern<arith::CmpFOp> {
                 op, a, b, jeff::FloatComparisonOperation::_lte);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown comparison operation");
+            return rewriter.notifyMatchFailure(op, "Unknown comparison operation");
         }
         return success();
     }
@@ -346,19 +344,18 @@ struct ConvertTensorEmptyOp final : OpConversionPattern<tensor::EmptyOp> {
         auto sizeInt =
             arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), sizes[0]);
         return llvm::TypeSwitch<Type, LogicalResult>(op.getType().getElementType())
-            .Case<IntegerType>([&](auto) -> LogicalResult {
+            .Case<IntegerType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::IntArrayZeroOp>(op, op.getType(),
                                                                   sizeInt.getResult());
                 return success();
             })
-            .Case<FloatType>([&](auto) -> LogicalResult {
+            .Case<FloatType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::FloatArrayZeroOp>(op, op.getType(),
                                                                     sizeInt.getResult());
                 return success();
             })
-            .Default([&](auto) -> LogicalResult {
-                return rewriter.notifyMatchFailure(op, "Unsupported element type");
-            });
+            .Default(
+                [&](auto) { return rewriter.notifyMatchFailure(op, "Unsupported element type"); });
     }
 };
 
@@ -374,19 +371,18 @@ struct ConvertTensorExtractOp final : OpConversionPattern<tensor::ExtractOp> {
         auto indexInt =
             arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), indices[0]);
         return llvm::TypeSwitch<Type, LogicalResult>(op.getType())
-            .Case<IntegerType>([&](auto) -> LogicalResult {
+            .Case<IntegerType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::IntArrayGetIndexOp>(
                     op, op.getType(), adaptor.getTensor(), indexInt.getResult());
                 return success();
             })
-            .Case<FloatType>([&](auto) -> LogicalResult {
+            .Case<FloatType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::FloatArrayGetIndexOp>(
                     op, op.getType(), adaptor.getTensor(), indexInt.getResult());
                 return success();
             })
-            .Default([&](auto) -> LogicalResult {
-                return rewriter.notifyMatchFailure(op, "Unsupported element type");
-            });
+            .Default(
+                [&](auto) { return rewriter.notifyMatchFailure(op, "Unsupported element type"); });
     }
 };
 
@@ -402,19 +398,18 @@ struct ConvertTensorInsertOp final : OpConversionPattern<tensor::InsertOp> {
         auto indexInt =
             arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), indices[0]);
         return llvm::TypeSwitch<Type, LogicalResult>(op.getType().getElementType())
-            .Case<IntegerType>([&](auto) -> LogicalResult {
+            .Case<IntegerType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::IntArraySetIndexOp>(
                     op, op.getType(), adaptor.getDest(), indexInt.getResult(), adaptor.getScalar());
                 return success();
             })
-            .Case<FloatType>([&](auto) -> LogicalResult {
+            .Case<FloatType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::FloatArraySetIndexOp>(
                     op, op.getType(), adaptor.getDest(), indexInt.getResult(), adaptor.getScalar());
                 return success();
             })
-            .Default([&](auto) -> LogicalResult {
-                return rewriter.notifyMatchFailure(op, "Unsupported element type");
-            });
+            .Default(
+                [&](auto) { return rewriter.notifyMatchFailure(op, "Unsupported element type"); });
     }
 };
 
@@ -426,23 +421,22 @@ struct ConvertTensorDimOp final : OpConversionPattern<tensor::DimOp> {
         // TODO: Add check
         rewriter.eraseOp(op.getIndex().getDefiningOp());
         return llvm::TypeSwitch<Type, LogicalResult>(op.getSource().getType().getElementType())
-            .Case<IntegerType>([&](auto) -> LogicalResult {
+            .Case<IntegerType>([&](auto) {
                 auto length =
                     jeff::IntArrayLengthOp::create(rewriter, op.getLoc(), adaptor.getSource());
                 rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, op.getType(),
                                                                 length.getResult());
                 return success();
             })
-            .Case<FloatType>([&](auto) -> LogicalResult {
+            .Case<FloatType>([&](auto) {
                 auto length =
                     jeff::FloatArrayLengthOp::create(rewriter, op.getLoc(), adaptor.getSource());
                 rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, op.getType(),
                                                                 length.getResult());
                 return success();
             })
-            .Default([&](auto) -> LogicalResult {
-                return rewriter.notifyMatchFailure(op, "Unsupported element type");
-            });
+            .Default(
+                [&](auto) { return rewriter.notifyMatchFailure(op, "Unsupported element type"); });
     }
 };
 
@@ -455,28 +449,27 @@ struct ConvertTensorFromElementsOp final : OpConversionPattern<tensor::FromEleme
         auto elementType = type.getElementType();
         auto jeffType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, elementType);
         return llvm::TypeSwitch<Type, LogicalResult>(elementType)
-            .Case<IntegerType>([&](auto) -> LogicalResult {
+            .Case<IntegerType>([&](auto) {
                 auto array = jeff::IntArrayCreateOp::create(rewriter, op.getLoc(), jeffType,
                                                             adaptor.getElements());
                 rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, array.getOutArray());
                 return success();
             })
-            .Case<FloatType>([&](auto) -> LogicalResult {
+            .Case<FloatType>([&](auto) {
                 auto array = jeff::FloatArrayCreateOp::create(rewriter, op.getLoc(), jeffType,
                                                               adaptor.getElements());
                 rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, array.getOutArray());
                 return success();
             })
-            .Default([&](auto) -> LogicalResult {
-                return rewriter.notifyMatchFailure(op, "Unsupported element type");
-            });
+            .Default(
+                [&](auto) { return rewriter.notifyMatchFailure(op, "Unsupported element type"); });
     }
 };
 
 struct ConvertTensorCastOp final : OpConversionPattern<tensor::CastOp> {
     using OpConversionPattern::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(tensor::CastOp op, OpAdaptor adaptor,
+    LogicalResult matchAndRewrite(tensor::CastOp op, OpAdaptor /*adaptor*/,
                                   ConversionPatternRewriter& rewriter) const override {
         auto predecessor = op.getSource().getDefiningOp<tensor::CastOp>();
         if (!predecessor) {

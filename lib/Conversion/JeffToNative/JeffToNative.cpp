@@ -7,14 +7,14 @@
 #include <mlir/Dialect/Math/IR/Math.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/IR/Builders.h>
-#include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OperationSupport.h>
 #include <mlir/IR/PatternMatch.h>
-#include <mlir/IR/Types.h>
 #include <mlir/Support/LogicalResult.h>
 #include <mlir/Transforms/DialectConversion.h>
+
+#include <utility>
 
 namespace mlir {
 
@@ -52,7 +52,7 @@ struct ConvertJeffIntUnaryOp final : OpConversionPattern<jeff::IntUnaryOp> {
             rewriter.replaceOpWithNewOp<math::AbsIOp>(op, a);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown unary operation");
+            return rewriter.notifyMatchFailure(op, "Unknown unary operation");
         }
         return success();
     }
@@ -118,7 +118,7 @@ struct ConvertJeffIntBinaryOp final : OpConversionPattern<jeff::IntBinaryOp> {
             rewriter.replaceOpWithNewOp<arith::ShRSIOp>(op, a, b);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown binary operation");
+            return rewriter.notifyMatchFailure(op, "Unknown binary operation");
         }
         return success();
     }
@@ -148,7 +148,7 @@ struct ConvertJeffIntComparisonOp final : OpConversionPattern<jeff::IntCompariso
             rewriter.replaceOpWithNewOp<arith::CmpIOp>(op, arith::CmpIPredicate::ule, a, b);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown comparison operation");
+            return rewriter.notifyMatchFailure(op, "Unknown comparison operation");
         }
         return success();
     }
@@ -230,7 +230,7 @@ struct ConvertJeffFloatUnaryOp final : OpConversionPattern<jeff::FloatUnaryOp> {
             rewriter.replaceOpWithNewOp<math::AtanhOp>(op, a);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown unary operation");
+            return rewriter.notifyMatchFailure(op, "Unknown unary operation");
         }
         return success();
     }
@@ -266,7 +266,7 @@ struct ConvertJeffFloatBinaryOp final : OpConversionPattern<jeff::FloatBinaryOp>
             rewriter.replaceOpWithNewOp<arith::MinNumFOp>(op, a, b);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown binary operation");
+            return rewriter.notifyMatchFailure(op, "Unknown binary operation");
         }
         return success();
     }
@@ -290,7 +290,7 @@ struct ConvertJeffFloatComparisonOp final : OpConversionPattern<jeff::FloatCompa
             rewriter.replaceOpWithNewOp<arith::CmpFOp>(op, arith::CmpFPredicate::OLE, a, b);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown comparison operation");
+            return rewriter.notifyMatchFailure(op, "Unknown comparison operation");
         }
         return success();
     }
@@ -310,7 +310,7 @@ struct ConvertJeffFloatIsOp final : OpConversionPattern<jeff::FloatIsOp> {
             rewriter.replaceOpWithNewOp<math::IsInfOp>(op, a);
             break;
         default:
-            rewriter.notifyMatchFailure(op, "Unknown is operation");
+            return rewriter.notifyMatchFailure(op, "Unknown is operation");
         }
         return success();
     }

@@ -21,9 +21,11 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <mlir/IR/Block.h>
 #include <mlir/IR/Builders.h>
+#include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OpDefinition.h>
 #include <mlir/IR/OpImplementation.h>
 #include <mlir/IR/OperationSupport.h>
+#include <mlir/IR/PatternMatch.h>
 #include <mlir/IR/ValueRange.h>
 #include <mlir/Support/LogicalResult.h>
 
@@ -53,13 +55,13 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
         if (op.getOp() != IntBinaryOperation::_xor) {
             return failure();
         }
-        auto definingOp = op.getB().getDefiningOp();
-        if (!definingOp) {
+        auto* definingOp = op.getB().getDefiningOp();
+        if (definingOp == nullptr) {
             return failure();
         }
         return llvm::TypeSwitch<Operation*, LogicalResult>(definingOp)
-            .Case<IntConst1Op>([&](IntConst1Op b) -> LogicalResult {
-                if (b.getVal() != -1) {
+            .Case<IntConst1Op>([&](IntConst1Op b) {
+                if (!b.getVal()) {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
@@ -68,8 +70,8 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                 }
                 return success();
             })
-            .Case<IntConst8Op>([&](IntConst8Op b) -> LogicalResult {
-                if (b.getVal() != -1) {
+            .Case<IntConst8Op>([&](IntConst8Op b) {
+                if (b.getVal() != 0xFF) {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
@@ -78,8 +80,8 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                 }
                 return success();
             })
-            .Case<IntConst16Op>([&](IntConst16Op b) -> LogicalResult {
-                if (b.getVal() != -1) {
+            .Case<IntConst16Op>([&](IntConst16Op b) {
+                if (b.getVal() != 0xFFFF) {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
@@ -88,8 +90,8 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                 }
                 return success();
             })
-            .Case<IntConst32Op>([&](IntConst32Op b) -> LogicalResult {
-                if (b.getVal() != -1) {
+            .Case<IntConst32Op>([&](IntConst32Op b) {
+                if (b.getVal() != 0xFFFFFFFF) {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
@@ -98,8 +100,8 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                 }
                 return success();
             })
-            .Case<IntConst64Op>([&](IntConst64Op b) -> LogicalResult {
-                if (b.getVal() != -1) {
+            .Case<IntConst64Op>([&](IntConst64Op b) {
+                if (b.getVal() != 0xFFFFFFFFFFFFFFFF) {
                     return failure();
                 }
                 rewriter.replaceOpWithNewOp<IntUnaryOp>(op, op.getA(), IntUnaryOperation::_not);
@@ -108,7 +110,7 @@ struct XorToNot final : OpRewritePattern<IntBinaryOp> {
                 }
                 return success();
             })
-            .Default([&](auto) -> LogicalResult { return failure(); });
+            .Default([&](auto) { return failure(); });
     }
 };
 
