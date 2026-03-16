@@ -431,7 +431,22 @@ struct JeffToNative final : impl::JeffToNativeBase<JeffToNative> {
 
         ConversionTarget target(*context);
         target.addLegalDialect<arith::ArithDialect, math::MathDialect, tensor::TensorDialect>();
-        target.addIllegalDialect<jeff::JeffDialect>();
+        target.addIllegalOp<
+            // Int operations
+            jeff::IntConst1Op, jeff::IntConst8Op, jeff::IntConst16Op, jeff::IntConst32Op,
+            jeff::IntConst64Op, jeff::IntUnaryOp, jeff::IntBinaryOp, jeff::IntComparisonOp,
+            // Float operations
+            jeff::FloatConst32Op, jeff::FloatConst64Op, jeff::FloatUnaryOp, jeff::FloatBinaryOp,
+            jeff::FloatComparisonOp, jeff::FloatIsOp,
+            // IntArray operations
+            jeff::IntArrayConst1Op, jeff::IntArrayConst8Op, jeff::IntArrayConst16Op,
+            jeff::IntArrayConst32Op, jeff::IntArrayConst64Op, jeff::IntArrayZeroOp,
+            jeff::IntArrayGetIndexOp, jeff::IntArraySetIndexOp, jeff::IntArrayLengthOp,
+            jeff::IntArrayCreateOp,
+            // FloatArray operations
+            jeff::FloatArrayConst32Op, jeff::FloatArrayConst64Op, jeff::FloatArrayZeroOp,
+            jeff::FloatArrayGetIndexOp, jeff::FloatArraySetIndexOp, jeff::FloatArrayLengthOp,
+            jeff::FloatArrayCreateOp>();
 
         RewritePatternSet patterns(context);
         patterns.add<
@@ -441,9 +456,9 @@ struct JeffToNative final : impl::JeffToNativeBase<JeffToNative> {
             ConvertJeffIntConstOp<jeff::IntConst64Op>, ConvertJeffIntUnaryOp,
             ConvertJeffIntBinaryOp, ConvertJeffIntComparisonOp,
             // Float operations
-            ConvertJeffFloatUnaryOp, ConvertJeffFloatBinaryOp, ConvertJeffFloatComparisonOp,
-            ConvertJeffFloatIsOp, ConvertJeffFloatConstOp<jeff::FloatConst32Op>,
-            ConvertJeffFloatConstOp<jeff::FloatConst64Op>,
+            ConvertJeffFloatConstOp<jeff::FloatConst32Op>,
+            ConvertJeffFloatConstOp<jeff::FloatConst64Op>, ConvertJeffFloatUnaryOp,
+            ConvertJeffFloatBinaryOp, ConvertJeffFloatComparisonOp, ConvertJeffFloatIsOp,
             // IntArray operations
             ConvertJeffIntArrayConstOp<jeff::IntArrayConst1Op>,
             ConvertJeffIntArrayConstOp<jeff::IntArrayConst8Op>,
