@@ -1408,6 +1408,8 @@ def IntBinaryOp : Int_Op<"int_binary_op", [SameOperandsAndResultType]> {
     let assemblyFormat = [{
         `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) `,` type($b) `->` type($c)
     }];
+
+    let hasCanonicalizer = 1;
 }
 
 def IntComparisonOp : Int_Op<"int_comp_op", []> {

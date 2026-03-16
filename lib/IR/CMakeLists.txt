@@ -1,4 +1,4 @@
-add_mlir_library(
+add_mlir_dialect_library(
     MLIRJeff
     JeffDialect.cpp
     JeffInterfaces.cpp
