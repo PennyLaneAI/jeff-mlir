@@ -29,6 +29,8 @@ namespace mlir {
 #define GEN_PASS_DEF_NATIVETOJEFF
 #include "jeff/Conversion/NativeToJeff/NativeToJeff.h.inc"
 
+namespace {
+
 //===----------------------------------------------------------------------===//
 // Constants
 //===----------------------------------------------------------------------===//
@@ -83,7 +85,8 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
             })
             .Case<RankedTensorType>([&](auto type) {
                 if (type.getRank() != 1) {
-                    return rewriter.notifyMatchFailure(op, "Only 1D tensors are supported");
+                    return rewriter.notifyMatchFailure(
+                        op, "Only one-dimensional tensors are supported");
                 }
                 auto denseAttr = llvm::dyn_cast<DenseElementsAttr>(value);
                 if (!denseAttr) {
@@ -339,7 +342,7 @@ struct ConvertTensorEmptyOp final : OpConversionPattern<tensor::EmptyOp> {
                                   ConversionPatternRewriter& rewriter) const override {
         auto sizes = adaptor.getDynamicSizes();
         if (sizes.size() != 1) {
-            return rewriter.notifyMatchFailure(op, "Only 1D tensors are supported");
+            return rewriter.notifyMatchFailure(op, "Only one-dimensional tensors are supported");
         }
         auto sizeInt =
             arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), sizes[0]);
@@ -366,7 +369,7 @@ struct ConvertTensorExtractOp final : OpConversionPattern<tensor::ExtractOp> {
                                   ConversionPatternRewriter& rewriter) const override {
         auto indices = adaptor.getIndices();
         if (indices.size() != 1) {
-            return rewriter.notifyMatchFailure(op, "Only 1D tensors are supported");
+            return rewriter.notifyMatchFailure(op, "Only one-dimensional tensors are supported");
         }
         auto indexInt =
             arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), indices[0]);
@@ -393,7 +396,7 @@ struct ConvertTensorInsertOp final : OpConversionPattern<tensor::InsertOp> {
                                   ConversionPatternRewriter& rewriter) const override {
         auto indices = adaptor.getIndices();
         if (indices.size() != 1) {
-            return rewriter.notifyMatchFailure(op, "Only 1D tensors are supported");
+            return rewriter.notifyMatchFailure(op, "Only one-dimensional tensors are supported");
         }
         auto indexInt =
             arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), indices[0]);
@@ -468,6 +471,25 @@ struct ConvertTensorFromElementsOp final : OpConversionPattern<tensor::FromEleme
     }
 };
 
+/**
+ * @brief Remove consecutive `tensor.cast` operations that cancel each other out
+ *
+ * @details
+ * This pattern is necessary because the conversion from `arith.constant` and `tensor.from_elements`
+ * operations to their Jeff counterparts introduces `tensor.cast` operations. The pattern is not
+ * covered by any built-in patterns.
+ *
+ * @par Example:
+ * ```mlir
+ * %array = jeff.int_array_create %0, %1, %2 : i32, i32, i32 -> tensor<?xi32>
+ * %array_0 = tensor.cast %array : tensor<?xi32> to tensor<3xi32>
+ * %array_1 = tensor.cast %array_0 : tensor<3xi32> to tensor<?xi32>
+ * ```
+ * is converted to
+ * ```mlir
+ * %array = jeff.int_array_create %0, %1, %2 : i32, i32, i32 -> tensor<?xi32>
+ * ```
+ */
 struct ConvertTensorCastOp final : OpConversionPattern<tensor::CastOp> {
     using OpConversionPattern::OpConversionPattern;
 
@@ -485,6 +507,8 @@ struct ConvertTensorCastOp final : OpConversionPattern<tensor::CastOp> {
         return success();
     }
 };
+
+} // namespace
 
 /**
  * @brief Pass for converting built-in MLIR operations to Jeff operations
@@ -563,7 +587,7 @@ struct NativeToJeff final : impl::NativeToJeffBase<NativeToJeff> {
             return;
         }
 
-        // Try to remove tensor::CastOp introduced created conversion of arith::ConstantOp and
+        // Try to remove tensor::CastOp introduced during conversion of arith::ConstantOp and
         // tensor::FromElementsOp
         target.addIllegalOp<tensor::CastOp>();
         {

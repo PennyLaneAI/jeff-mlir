@@ -5,6 +5,11 @@ def JeffToNative : Pass<"jeff-to-native"> {
 
   let description = [{
     This pass converts all operations from the Jeff dialect to their equivalent operations in built-in MLIR dialects.
+
+    Known limitations:
+
+    - Only one-dimensional tensors are supported.
+    - `tensor.cast` operations may be introduced during conversion to ensure a valid IR.
   }];
 
   let dependentDialects = [

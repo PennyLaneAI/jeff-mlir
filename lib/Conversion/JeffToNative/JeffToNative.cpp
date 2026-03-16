@@ -1,6 +1,5 @@
 #include "jeff/Conversion/JeffToNative/JeffToNative.h"
 
-#include "jeff/IR/JeffDialect.h"
 #include "jeff/IR/JeffOps.h"
 
 #include <mlir/Dialect/Arith/IR/Arith.h>
@@ -20,6 +19,8 @@ namespace mlir {
 
 #define GEN_PASS_DEF_JEFFTONATIVE
 #include "jeff/Conversion/JeffToNative/JeffToNative.h.inc"
+
+namespace {
 
 //===----------------------------------------------------------------------===//
 // Int operations
@@ -417,6 +418,8 @@ template <typename JeffOp> struct ConvertJeffArrayCreateOp final : OpConversionP
         return success();
     }
 };
+
+} // namespace
 
 /**
  * @brief Pass for converting Jeff operations to built-in MLIR operations
