@@ -46,7 +46,7 @@ using namespace mlir::jeff;
 namespace {
 
 /**
- * @brief Converts a xor operation to a not operation if possible.
+ * @brief Converts an xor operation to a not operation if possible.
  */
 struct XorToNot final : OpRewritePattern<IntBinaryOp> {
     using OpRewritePattern::OpRewritePattern;
