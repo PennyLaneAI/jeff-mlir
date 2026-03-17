@@ -19,6 +19,7 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
@@ -1587,6 +1588,7 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
             [&](auto op) { serializeFloatArray(builder, op, ctx); })
         .Case<mlir::jeff::SCFOperation>([&](auto op) { serializeSCF(builder, op, ctx); })
         .Case<mlir::func::CallOp>([&](auto op) { serializeCall(builder, op, ctx); })
+        .Case<mlir::tensor::CastOp>([&](auto) { return; })
         .Default([&](auto) {
             llvm::errs() << "Cannot serialize operation " << operation->getName() << "\n";
             llvm::report_fatal_error("Unknown operation");
