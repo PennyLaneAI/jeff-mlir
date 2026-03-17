@@ -29,11 +29,11 @@ namespace fs = std::filesystem;
 namespace {
 
 struct RoundTripTestCase {
-    std::string fileName;
+    std::string filename;
 };
 
 std::ostream& operator<<(std::ostream& os, const RoundTripTestCase& testCase) {
-    return os << testCase.fileName;
+    return os << testCase.filename;
 }
 
 class RoundTripTest : public ::testing::Test,
@@ -68,14 +68,10 @@ std::vector<RoundTripTestCase> getTestCases() {
         if (entry.path().extension() != ".jeff") {
             continue;
         }
-        const auto filename = entry.path().filename().string();
-        if (filename.rfind("skip_", 0) == 0) {
-            continue;
-        }
-        cases.push_back({filename});
+        cases.push_back({entry.path().filename().string()});
     }
     std::sort(cases.begin(), cases.end(),
-              [](const auto& a, const auto& b) { return a.fileName < b.fileName; });
+              [](const auto& a, const auto& b) { return a.filename < b.filename; });
     return cases;
 }
 
@@ -84,6 +80,10 @@ std::vector<RoundTripTestCase> getTestCases() {
 TEST_P(RoundTripTest, RoundTrip) {
     const auto& testCase = GetParam();
 
+    if (testCase.filename.rfind("skip_", 0) == 0) {
+        GTEST_SKIP();
+    }
+
     mlir::DialectRegistry registry;
     registry.insert<mlir::func::FuncDialect, mlir::jeff::JeffDialect>();
 
@@ -91,7 +91,7 @@ TEST_P(RoundTripTest, RoundTrip) {
     context.loadAllAvailableDialects();
 
     const fs::path inputsDir = TEST_INPUTS_DIR;
-    const auto& path = inputsDir / testCase.fileName;
+    const auto& path = inputsDir / testCase.filename;
 
     // Load original Jeff module
     auto original = readJeffFile(path.string());

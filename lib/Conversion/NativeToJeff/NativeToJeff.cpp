@@ -177,7 +177,16 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                         return rewriter.notifyMatchFailure(op, "Unsupported element type");
                     });
             })
-            .Default([&](auto) { return success(); });
+            .Case<IndexType>([&](auto type) {
+                auto intAttr = llvm::dyn_cast<IntegerAttr>(value);
+                if (!intAttr) {
+                    return rewriter.notifyMatchFailure(op, "Expected IntegerAttr");
+                }
+                rewriter.replaceOpWithNewOp<jeff::IntConst32Op>(
+                    op, rewriter.getI32IntegerAttr(intAttr.getInt()));
+                return success();
+            })
+            .Default([&](auto) { return rewriter.notifyMatchFailure(op, "Unsupported type"); });
     }
 };
 
@@ -344,17 +353,13 @@ struct ConvertTensorEmptyOp final : OpConversionPattern<tensor::EmptyOp> {
         if (sizes.size() != 1) {
             return rewriter.notifyMatchFailure(op, "Only one-dimensional tensors are supported");
         }
-        auto sizeInt =
-            arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), sizes[0]);
         return llvm::TypeSwitch<Type, LogicalResult>(op.getType().getElementType())
             .Case<IntegerType>([&](auto) {
-                rewriter.replaceOpWithNewOp<jeff::IntArrayZeroOp>(op, op.getType(),
-                                                                  sizeInt.getResult());
+                rewriter.replaceOpWithNewOp<jeff::IntArrayZeroOp>(op, op.getType(), sizes[0]);
                 return success();
             })
             .Case<FloatType>([&](auto) {
-                rewriter.replaceOpWithNewOp<jeff::FloatArrayZeroOp>(op, op.getType(),
-                                                                    sizeInt.getResult());
+                rewriter.replaceOpWithNewOp<jeff::FloatArrayZeroOp>(op, op.getType(), sizes[0]);
                 return success();
             })
             .Default(
@@ -371,17 +376,15 @@ struct ConvertTensorExtractOp final : OpConversionPattern<tensor::ExtractOp> {
         if (indices.size() != 1) {
             return rewriter.notifyMatchFailure(op, "Only one-dimensional tensors are supported");
         }
-        auto indexInt =
-            arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), indices[0]);
         return llvm::TypeSwitch<Type, LogicalResult>(op.getType())
             .Case<IntegerType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::IntArrayGetIndexOp>(
-                    op, op.getType(), adaptor.getTensor(), indexInt.getResult());
+                    op, op.getType(), adaptor.getTensor(), indices[0]);
                 return success();
             })
             .Case<FloatType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::FloatArrayGetIndexOp>(
-                    op, op.getType(), adaptor.getTensor(), indexInt.getResult());
+                    op, op.getType(), adaptor.getTensor(), indices[0]);
                 return success();
             })
             .Default(
@@ -398,17 +401,15 @@ struct ConvertTensorInsertOp final : OpConversionPattern<tensor::InsertOp> {
         if (indices.size() != 1) {
             return rewriter.notifyMatchFailure(op, "Only one-dimensional tensors are supported");
         }
-        auto indexInt =
-            arith::IndexCastOp::create(rewriter, op.getLoc(), rewriter.getI32Type(), indices[0]);
         return llvm::TypeSwitch<Type, LogicalResult>(op.getType().getElementType())
             .Case<IntegerType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::IntArraySetIndexOp>(
-                    op, op.getType(), adaptor.getDest(), indexInt.getResult(), adaptor.getScalar());
+                    op, op.getType(), adaptor.getDest(), indices[0], adaptor.getScalar());
                 return success();
             })
             .Case<FloatType>([&](auto) {
                 rewriter.replaceOpWithNewOp<jeff::FloatArraySetIndexOp>(
-                    op, op.getType(), adaptor.getDest(), indexInt.getResult(), adaptor.getScalar());
+                    op, op.getType(), adaptor.getDest(), indices[0], adaptor.getScalar());
                 return success();
             })
             .Default(
@@ -421,23 +422,13 @@ struct ConvertTensorDimOp final : OpConversionPattern<tensor::DimOp> {
 
     LogicalResult matchAndRewrite(tensor::DimOp op, OpAdaptor adaptor,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto* definingOp = op.getIndex().getDefiningOp();
-        if (definingOp->hasOneUse()) {
-            rewriter.eraseOp(definingOp);
-        }
         return llvm::TypeSwitch<Type, LogicalResult>(op.getSource().getType().getElementType())
             .Case<IntegerType>([&](auto) {
-                auto length =
-                    jeff::IntArrayLengthOp::create(rewriter, op.getLoc(), adaptor.getSource());
-                rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, op.getType(),
-                                                                length.getResult());
+                rewriter.replaceOpWithNewOp<jeff::IntArrayLengthOp>(op, adaptor.getSource());
                 return success();
             })
             .Case<FloatType>([&](auto) {
-                auto length =
-                    jeff::FloatArrayLengthOp::create(rewriter, op.getLoc(), adaptor.getSource());
-                rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, op.getType(),
-                                                                length.getResult());
+                rewriter.replaceOpWithNewOp<jeff::FloatArrayLengthOp>(op, adaptor.getSource());
                 return success();
             })
             .Default(
@@ -471,39 +462,22 @@ struct ConvertTensorFromElementsOp final : OpConversionPattern<tensor::FromEleme
     }
 };
 
-/**
- * @brief Remove consecutive `tensor.cast` operations that cancel each other out
- *
- * @details
- * This pattern is necessary because the conversion from `arith.constant` and `tensor.from_elements`
- * operations to their Jeff counterparts introduces `tensor.cast` operations. The pattern is not
- * covered by any built-in patterns.
- *
- * @par Example:
- * ```mlir
- * %array = jeff.int_array_create %0, %1, %2 : i32, i32, i32 -> tensor<?xi32>
- * %array_0 = tensor.cast %array : tensor<?xi32> to tensor<3xi32>
- * %array_1 = tensor.cast %array_0 : tensor<3xi32> to tensor<?xi32>
- * ```
- * is converted to
- * ```mlir
- * %array = jeff.int_array_create %0, %1, %2 : i32, i32, i32 -> tensor<?xi32>
- * ```
- */
+struct ConvertArithIndexCastOp final : OpConversionPattern<arith::IndexCastOp> {
+    using OpConversionPattern::OpConversionPattern;
+
+    LogicalResult matchAndRewrite(arith::IndexCastOp op, OpAdaptor adaptor,
+                                  ConversionPatternRewriter& rewriter) const override {
+        rewriter.replaceOp(op, adaptor.getIn());
+        return success();
+    }
+};
+
 struct ConvertTensorCastOp final : OpConversionPattern<tensor::CastOp> {
     using OpConversionPattern::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(tensor::CastOp op, OpAdaptor /*adaptor*/,
+    LogicalResult matchAndRewrite(tensor::CastOp op, OpAdaptor adaptor,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto predecessor = op.getSource().getDefiningOp<tensor::CastOp>();
-        if (!predecessor) {
-            return success();
-        }
-        if (predecessor.getSource().getType() != op.getType()) {
-            return success();
-        }
-        rewriter.replaceOp(op, predecessor.getSource());
-        rewriter.eraseOp(predecessor);
+        rewriter.replaceOp(op, adaptor.getSource());
         return success();
     }
 };
@@ -523,7 +497,6 @@ struct NativeToJeff final : impl::NativeToJeffBase<NativeToJeff> {
 
         ConversionTarget target(*context);
         target.addIllegalDialect<arith::ArithDialect, math::MathDialect, tensor::TensorDialect>();
-        target.addLegalOp<arith::IndexCastOp, tensor::CastOp>();
         target.addLegalDialect<jeff::JeffDialect>();
 
         RewritePatternSet patterns(context);
@@ -580,22 +553,12 @@ struct NativeToJeff final : impl::NativeToJeffBase<NativeToJeff> {
             ConvertMathFloatIsOp<math::IsInfOp, jeff::FloatIsOperation::_isInf>,
             // IntArray/FloatArray operations
             ConvertTensorEmptyOp, ConvertTensorExtractOp, ConvertTensorInsertOp, ConvertTensorDimOp,
-            ConvertTensorFromElementsOp>(context);
+            ConvertTensorFromElementsOp,
+            // Cast operations
+            ConvertArithIndexCastOp, ConvertTensorCastOp>(context);
 
         if (applyPartialConversion(module, target, std::move(patterns)).failed()) {
             signalPassFailure();
-            return;
-        }
-
-        // Try to remove tensor::CastOp introduced during conversion of arith::ConstantOp and
-        // tensor::FromElementsOp
-        target.addIllegalOp<tensor::CastOp>();
-        {
-            RewritePatternSet patterns(context);
-            patterns.add<ConvertTensorCastOp>(context);
-            if (applyPartialConversion(module, target, std::move(patterns)).failed()) {
-                signalPassFailure();
-            }
         }
     }
 };
