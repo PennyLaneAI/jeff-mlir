@@ -4,7 +4,70 @@ def NativeToJeff : Pass<"native-to-jeff"> {
   let summary = "Convert built-in MLIR operations to Jeff operations";
 
   let description = [{
-    This pass converts all operations from built-in MLIR dialects to their equivalent operations in the Jeff dialect.
+    This pass converts operations from built-in MLIR dialects to their equivalent operations in the Jeff dialect.
+
+    Supported `arith` operations:
+
+    - `addf`
+    - `addi`
+    - `cmpf`
+    - `cmpi`
+    - `constant`
+    - `divsi`
+    - `divui`
+    - `index_cast`
+    - `maxnumf`
+    - `maxsi`
+    - `maxui`
+    - `minnumf`
+    - `minsi`
+    - `minui`
+    - `mulf`
+    - `muli`
+    - `ori`
+    - `remsi`
+    - `remui`
+    - `shli`
+    - `shrsi`
+    - `subf`
+    - `subi`
+    - `xori`
+
+    Supported `math` operations:
+
+    - `absf`
+    - `absi`
+    - `acos`
+    - `acosh`
+    - `asin`
+    - `asinh`
+    - `atan`
+    - `atan2`
+    - `atanh`
+    - `ceil`
+    - `cos`
+    - `cosh`
+    - `exp`
+    - `floor`
+    - `ipowi`
+    - `isinf`
+    - `isnan`
+    - `log`
+    - `powf`
+    - `sin`
+    - `sinh`
+    - `sqrt`
+    - `tan`
+    - `tanh`
+
+    Supported `tensor` operations:
+
+    - `cast`
+    - `dim`
+    - `empty`
+    - `extract`
+    - `from_elements`
+    - `insert`
 
     Known limitations:
 
