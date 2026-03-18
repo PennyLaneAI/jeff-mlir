@@ -1281,7 +1281,7 @@ def FloatIsOperationAttr : EnumAttr<JeffDialect, FloatIsOperation, "float_is_ope
 
 class Int_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [IntOperation]>;
 
-def IntConst1Op : Int_Op<"int_const1", []> {
+def IntConst1Op : Int_Op<"int_const1", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1299,7 +1299,7 @@ def IntConst1Op : Int_Op<"int_const1", []> {
     }];
 }
 
-def IntConst8Op : Int_Op<"int_const8", []> {
+def IntConst8Op : Int_Op<"int_const8", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1317,7 +1317,7 @@ def IntConst8Op : Int_Op<"int_const8", []> {
     }];
 }
 
-def IntConst16Op : Int_Op<"int_const16", []> {
+def IntConst16Op : Int_Op<"int_const16", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1335,7 +1335,7 @@ def IntConst16Op : Int_Op<"int_const16", []> {
     }];
 }
 
-def IntConst32Op : Int_Op<"int_const32", []> {
+def IntConst32Op : Int_Op<"int_const32", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1353,7 +1353,7 @@ def IntConst32Op : Int_Op<"int_const32", []> {
     }];
 }
 
-def IntConst64Op : Int_Op<"int_const64", []> {
+def IntConst64Op : Int_Op<"int_const64", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1408,6 +1408,8 @@ def IntBinaryOp : Int_Op<"int_binary_op", [SameOperandsAndResultType]> {
     let assemblyFormat = [{
         `[` $op `]` `(` $a `,` $b `)` attr-dict `:` type($a) `,` type($b) `->` type($c)
     }];
+
+    let hasCanonicalizer = 1;
 }
 
 def IntComparisonOp : Int_Op<"int_comp_op", []> {
@@ -1436,7 +1438,7 @@ def IntComparisonOp : Int_Op<"int_comp_op", []> {
 
 class IntArray_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [IntArrayOperation]>;
 
-def IntArrayConst1Op : IntArray_Op<"int_array_const1", []> {
+def IntArrayConst1Op : IntArray_Op<"int_array_const1", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1454,7 +1456,7 @@ def IntArrayConst1Op : IntArray_Op<"int_array_const1", []> {
     }];
 }
 
-def IntArrayConst8Op : IntArray_Op<"int_array_const8", []> {
+def IntArrayConst8Op : IntArray_Op<"int_array_const8", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1472,7 +1474,7 @@ def IntArrayConst8Op : IntArray_Op<"int_array_const8", []> {
     }];
 }
 
-def IntArrayConst16Op : IntArray_Op<"int_array_const16", []> {
+def IntArrayConst16Op : IntArray_Op<"int_array_const16", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1490,7 +1492,7 @@ def IntArrayConst16Op : IntArray_Op<"int_array_const16", []> {
     }];
 }
 
-def IntArrayConst32Op : IntArray_Op<"int_array_const32", []> {
+def IntArrayConst32Op : IntArray_Op<"int_array_const32", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1508,7 +1510,7 @@ def IntArrayConst32Op : IntArray_Op<"int_array_const32", []> {
     }];
 }
 
-def IntArrayConst64Op : IntArray_Op<"int_array_const64", []> {
+def IntArrayConst64Op : IntArray_Op<"int_array_const64", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1625,7 +1627,7 @@ def IntArrayCreateOp : IntArray_Op<"int_array_create", []> {
 
 class Float_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [FloatOperation]>;
 
-def FloatConst32Op : Float_Op<"float_const32", []> {
+def FloatConst32Op : Float_Op<"float_const32", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1643,7 +1645,7 @@ def FloatConst32Op : Float_Op<"float_const32", []> {
     }];
 }
 
-def FloatConst64Op : Float_Op<"float_const64", []> {
+def FloatConst64Op : Float_Op<"float_const64", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1745,7 +1747,7 @@ def FloatIsOp : Float_Op<"float_is_op", []> {
 
 class FloatArray_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [FloatArrayOperation]>;
 
-def FloatArrayConst32Op : FloatArray_Op<"float_array_const32", []> {
+def FloatArrayConst32Op : FloatArray_Op<"float_array_const32", [Pure]> {
     let summary = "";
     let description = [{}];
 
@@ -1763,7 +1765,7 @@ def FloatArrayConst32Op : FloatArray_Op<"float_array_const32", []> {
     }];
 }
 
-def FloatArrayConst64Op : FloatArray_Op<"float_array_const64", []> {
+def FloatArrayConst64Op : FloatArray_Op<"float_array_const64", [Pure]> {
     let summary = "";
     let description = [{}];
 

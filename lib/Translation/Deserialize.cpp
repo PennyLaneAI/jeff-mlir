@@ -671,7 +671,7 @@ void deserializeIntArrayConst1(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Re
     }
     auto inArrayAttr = mlir::DenseBoolArrayAttr::get(builder.getContext(), inArray);
     auto tensorType =
-        mlir::RankedTensorType::get({static_cast<int64_t>(inArray.size())}, builder.getI1Type());
+        mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getI1Type());
     auto op = mlir::jeff::IntArrayConst1Op::create(builder, tensorType, inArrayAttr);
     ctx.setValue(operation.getOutputs()[0], op.getOutArray());
 }
@@ -687,7 +687,7 @@ void deserializeIntArrayConst1(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Re
             inArray.push_back(static_cast<int##BIT_WIDTH##_t>(value));                             \
         }                                                                                          \
         auto inArrayAttr = mlir::DenseI##BIT_WIDTH##ArrayAttr::get(builder.getContext(), inArray); \
-        auto tensorType = mlir::RankedTensorType::get({static_cast<int64_t>(inArray.size())},      \
+        auto tensorType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},                \
                                                       builder.getI##BIT_WIDTH##Type());            \
         auto op =                                                                                  \
             mlir::jeff::IntArrayConst##BIT_WIDTH##Op::create(builder, tensorType, inArrayAttr);    \
@@ -751,7 +751,7 @@ void deserializeIntArrayCreate(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Re
     for (auto input : inputs) {
         inArray.push_back(ctx.getValue(input));
     }
-    auto tensorType = mlir::RankedTensorType::get({static_cast<int64_t>(inputs.size())},
+    auto tensorType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
                                                   ctx.getValue(inputs[0]).getType());
     auto op = mlir::jeff::IntArrayCreateOp::create(builder, tensorType, inArray);
     ctx.setValue(outputs[0], op.getOutArray());
@@ -947,7 +947,7 @@ void deserializeFloatArrayConst32(mlir::ImplicitLocOpBuilder& builder, jeff::Op:
     }
     auto inArrayAttr = mlir::DenseF32ArrayAttr::get(builder.getContext(), inArray);
     auto tensorType =
-        mlir::RankedTensorType::get({static_cast<int64_t>(inArray.size())}, builder.getF32Type());
+        mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getF32Type());
     auto op = mlir::jeff::FloatArrayConst32Op::create(builder, tensorType, inArrayAttr);
     ctx.setValue(operation.getOutputs()[0], op.getOutArray());
 }
@@ -962,7 +962,7 @@ void deserializeFloatArrayConst64(mlir::ImplicitLocOpBuilder& builder, jeff::Op:
     }
     auto inArrayAttr = mlir::DenseF64ArrayAttr::get(builder.getContext(), inArray);
     auto tensorType =
-        mlir::RankedTensorType::get({static_cast<int64_t>(inArray.size())}, builder.getF64Type());
+        mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getF64Type());
     auto op = mlir::jeff::FloatArrayConst64Op::create(builder, tensorType, inArrayAttr);
     ctx.setValue(operation.getOutputs()[0], op.getOutArray());
 }
@@ -1027,7 +1027,7 @@ void deserializeFloatArrayCreate(mlir::ImplicitLocOpBuilder& builder, jeff::Op::
     for (auto input : inputs) {
         inArray.push_back(ctx.getValue(input));
     }
-    auto tensorType = mlir::RankedTensorType::get({static_cast<int64_t>(inputs.size())},
+    auto tensorType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic},
                                                   ctx.getValue(inputs[0]).getType());
     auto op = mlir::jeff::FloatArrayCreateOp::create(builder, tensorType, inArray);
     ctx.setValue(outputs[0], op.getOutArray());

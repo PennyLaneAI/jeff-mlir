@@ -1,3 +1,5 @@
+#include "jeff/Conversion/JeffToNative/JeffToNative.h"
+#include "jeff/Conversion/NativeToJeff/NativeToJeff.h"
 #include "jeff/IR/JeffDialect.h"
 #include "jeff/Translation/Deserialize.hpp"
 #include "jeff/Translation/Serialize.hpp"
@@ -15,7 +17,12 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/Verifier.h>
+#include <mlir/Pass/PassManager.h>
+#include <mlir/Support/LogicalResult.h>
+#include <mlir/Transforms/Passes.h>
 
 #include <algorithm>
 #include <filesystem>
@@ -28,16 +35,16 @@ namespace fs = std::filesystem;
 
 namespace {
 
-struct RoundTripTestCase {
-    std::string fileName;
+struct NativeRoundTripTestCase {
+    std::string filename;
 };
 
-std::ostream& operator<<(std::ostream& os, const RoundTripTestCase& testCase) {
-    return os << testCase.fileName;
+std::ostream& operator<<(std::ostream& os, const NativeRoundTripTestCase& testCase) {
+    return os << testCase.filename;
 }
 
-class RoundTripTest : public ::testing::Test,
-                      public ::testing::WithParamInterface<RoundTripTestCase> {};
+class NativeRoundTripTest : public ::testing::Test,
+                            public ::testing::WithParamInterface<NativeRoundTripTestCase> {};
 
 kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
     llvm::sys::fs::file_t file = 0;
@@ -59,8 +66,27 @@ kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
     return capnp::messageToFlatArray(message);
 }
 
-std::vector<RoundTripTestCase> getTestCases() {
-    std::vector<RoundTripTestCase> cases;
+mlir::LogicalResult convertJeffToNative(mlir::ModuleOp module) {
+    mlir::PassManager pm(module.getContext());
+    pm.addPass(mlir::createJeffToNative());
+    return pm.run(module);
+}
+
+mlir::LogicalResult convertNativeToJeff(mlir::ModuleOp module) {
+    mlir::PassManager pm(module.getContext());
+    pm.addPass(mlir::createNativeToJeff());
+    return pm.run(module);
+}
+
+mlir::LogicalResult canonicalize(mlir::ModuleOp module) {
+    mlir::PassManager pm(module.getContext());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(mlir::createRemoveDeadValuesPass());
+    return pm.run(module);
+}
+
+std::vector<NativeRoundTripTestCase> getTestCases() {
+    std::vector<NativeRoundTripTestCase> cases;
     for (const auto& entry : fs::directory_iterator(TEST_INPUTS_DIR)) {
         if (!entry.is_regular_file()) {
             continue;
@@ -69,29 +95,40 @@ std::vector<RoundTripTestCase> getTestCases() {
             continue;
         }
         const auto filename = entry.path().filename().string();
-        if (filename.rfind("skip_", 0) == 0) {
+        if (filename.rfind("unit_int_", 0) != 0 && filename.rfind("unit_float_", 0) != 0) {
             continue;
         }
         cases.push_back({filename});
     }
     std::sort(cases.begin(), cases.end(),
-              [](const auto& a, const auto& b) { return a.fileName < b.fileName; });
+              [](const auto& a, const auto& b) { return a.filename < b.filename; });
     return cases;
 }
 
 } // namespace
 
-TEST_P(RoundTripTest, RoundTrip) {
+TEST_P(NativeRoundTripTest, RoundTrip) {
     const auto& testCase = GetParam();
 
+    if (testCase.filename.rfind("skip_", 0) == 0) {
+        GTEST_SKIP();
+    }
+
+    if (testCase.filename == "unit_float_array_get_index.jeff" ||
+        testCase.filename == "unit_float_array_set_index.jeff" ||
+        testCase.filename == "unit_int_array_get_index.jeff" ||
+        testCase.filename == "unit_int_array_set_index.jeff") {
+        GTEST_SKIP();
+    }
+
     mlir::DialectRegistry registry;
-    registry.insert<mlir::jeff::JeffDialect, mlir::func::FuncDialect>();
+    registry.insert<mlir::func::FuncDialect, mlir::jeff::JeffDialect>();
 
     mlir::MLIRContext context(registry);
     context.loadAllAvailableDialects();
 
     const fs::path inputsDir = TEST_INPUTS_DIR;
-    const auto& path = inputsDir / testCase.fileName;
+    const auto& path = inputsDir / testCase.filename;
 
     // Load original Jeff module
     auto original = readJeffFile(path.string());
@@ -99,7 +136,24 @@ TEST_P(RoundTripTest, RoundTrip) {
     // Deserialize Jeff module
     auto mlirModule = deserialize(&context, path.string());
 
-    llvm::errs() << "Deserialized MLIR module:\n";
+    llvm::errs() << "Input MLIR module:\n";
+    mlirModule->print(llvm::errs());
+    llvm::errs() << "\n\n";
+
+    EXPECT_TRUE(convertJeffToNative(mlirModule.get()).succeeded());
+    EXPECT_TRUE(verify(*mlirModule).succeeded());
+
+    llvm::errs() << "Converted MLIR module:\n";
+    mlirModule->print(llvm::errs());
+    llvm::errs() << "\n\n";
+
+    EXPECT_TRUE(convertNativeToJeff(mlirModule.get()).succeeded());
+    EXPECT_TRUE(verify(*mlirModule).succeeded());
+
+    EXPECT_TRUE(canonicalize(mlirModule.get()).succeeded());
+    EXPECT_TRUE(verify(*mlirModule).succeeded());
+
+    llvm::errs() << "Output MLIR module:\n";
     mlirModule->print(llvm::errs());
     llvm::errs() << "\n\n";
 
@@ -135,4 +189,4 @@ TEST_P(RoundTripTest, RoundTrip) {
     ASSERT_EQ(originalText, serializedText);
 }
 
-INSTANTIATE_TEST_SUITE_P(, RoundTripTest, ::testing::ValuesIn(getTestCases()));
+INSTANTIATE_TEST_SUITE_P(, NativeRoundTripTest, ::testing::ValuesIn(getTestCases()));

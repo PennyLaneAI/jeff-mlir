@@ -9,9 +9,12 @@ add_mlir_library(
     DISABLE_INSTALL
 )
 
+target_compile_definitions(MLIRJeffTranslation PRIVATE ${CAPNP_DEFINITIONS})
+
 target_include_directories(
-    MLIRJeffTranslation PRIVATE ${jeff_SOURCE_DIR}/impl/cpp/src/capnp
-                                ${jeff_BINARY_DIR}/impl/cpp/src/capnp ${CAPNP_INCLUDE_DIRS}
+    MLIRJeffTranslation
+    PRIVATE ${CAPNP_INCLUDE_DIRS}
+    PUBLIC ${jeff_SOURCE_DIR}/impl/cpp/src/capnp ${jeff_BINARY_DIR}/impl/cpp/src/capnp
 )
 
-target_compile_definitions(MLIRJeffTranslation PRIVATE ${CAPNP_DEFINITIONS})
+target_sources(MLIRJeffTranslation PUBLIC ${jeff_SOURCE_DIR}/impl/cpp/src/capnp/jeff.capnp.c++)

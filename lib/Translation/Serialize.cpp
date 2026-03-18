@@ -30,6 +30,15 @@
 #include <cstdint>
 #include <utility>
 
+static void checkShape(mlir::RankedTensorType tensorType) {
+    if (tensorType.getRank() != 1) {
+        llvm::report_fatal_error("Only one-dimensional tensors are supported");
+    }
+    if (tensorType.getShape()[0] != mlir::ShapedType::kDynamic) {
+        llvm::report_fatal_error("Only tensors with dynamic size are supported");
+    }
+}
+
 namespace {
 
 struct SerializationContext {
@@ -773,9 +782,11 @@ SERIALIZE_INT_ARRAY_CONST(64)
 
 void serializeIntArrayZero(jeff::Op::Builder builder, mlir::jeff::IntArrayZeroOp op,
                            SerializationContext& ctx) {
-    auto intArrayBuilder = builder.initInstruction().initIntArray();
     auto tensorType = llvm::cast<mlir::RankedTensorType>(op.getOutArray().getType());
+    checkShape(tensorType);
     auto elementType = llvm::cast<mlir::IntegerType>(tensorType.getElementType());
+
+    auto intArrayBuilder = builder.initInstruction().initIntArray();
     intArrayBuilder.setZero(elementType.getWidth());
 
     auto inputs = builder.initInputs(1);
@@ -1098,9 +1109,11 @@ void serializeFloatArrayConst64(jeff::Op::Builder builder, mlir::jeff::FloatArra
 
 void serializeFloatArrayZero(jeff::Op::Builder builder, mlir::jeff::FloatArrayZeroOp op,
                              SerializationContext& ctx) {
-    auto floatArrayBuilder = builder.initInstruction().initFloatArray();
     auto tensorType = llvm::cast<mlir::RankedTensorType>(op.getOutArray().getType());
+    checkShape(tensorType);
     auto elementType = llvm::cast<mlir::FloatType>(tensorType.getElementType());
+
+    auto floatArrayBuilder = builder.initInstruction().initFloatArray();
     if (elementType.getWidth() == 32) {
         floatArrayBuilder.setZero(jeff::FloatPrecision::FLOAT32);
     } else if (elementType.getWidth() == 64) {
@@ -1538,6 +1551,7 @@ void serializeFloatArrayType(jeff::Type::Builder builder, mlir::FloatType elemen
 }
 
 void serializeRankedTensorType(jeff::Type::Builder builder, mlir::RankedTensorType tensorType) {
+    checkShape(tensorType);
     llvm::TypeSwitch<mlir::Type, void>(tensorType.getElementType())
         .Case<mlir::IntegerType>(
             [&](auto elementType) { serializeIntArrayType(builder, elementType); })

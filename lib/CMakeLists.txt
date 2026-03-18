@@ -1,3 +1,4 @@
+add_subdirectory(Conversion)
 add_subdirectory(IR)
 
 if(BUILD_JEFF_OPT)

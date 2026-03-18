@@ -8,7 +8,7 @@ project(
 
 option(BUILD_JEFF_MLIR_DOCS "Build docs for the Jeff MLIR project" ${PROJECT_IS_TOP_LEVEL})
 option(BUILD_JEFF_MLIR_TESTS "Build tests for the Jeff MLIR project" ${PROJECT_IS_TOP_LEVEL})
-option(BUILD_JEFF_MLIR_TRANSLATION "Build the translation submodule of the Jeff MLIR project" ON)
+option(BUILD_JEFF_MLIR_TRANSLATION "Build the translation module of the Jeff MLIR project" ON)
 option(BUILD_JEFF_OPT "Build the jeff-opt executable" ${PROJECT_IS_TOP_LEVEL})
 
 if(NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD LESS 17)
