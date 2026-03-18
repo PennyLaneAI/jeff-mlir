@@ -15,9 +15,6 @@ def NativeToJeff : Pass<"native-to-jeff"> {
   }];
 
   let dependentDialects = [
-    "mlir::arith::ArithDialect",
     "mlir::jeff::JeffDialect",
-    "mlir::math::MathDialect",
-    "mlir::tensor::TensorDialect",
   ];
 }
