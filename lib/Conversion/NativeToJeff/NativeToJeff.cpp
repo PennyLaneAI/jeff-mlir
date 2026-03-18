@@ -482,8 +482,6 @@ struct ConvertTensorCastOp final : OpConversionPattern<tensor::CastOp> {
     }
 };
 
-} // namespace
-
 /**
  * @brief Pass for converting built-in MLIR operations to Jeff operations
  */
@@ -500,67 +498,74 @@ struct NativeToJeff final : impl::NativeToJeffBase<NativeToJeff> {
         target.addLegalDialect<jeff::JeffDialect>();
 
         RewritePatternSet patterns(context);
-        patterns.add<
-            // Constants
-            ConvertArithConstOp,
-            // Int operations
-            ConvertMathAbsIOp,
-            ConvertArithIntBinaryOp<arith::AddIOp, jeff::IntBinaryOperation::_add>,
-            ConvertArithIntBinaryOp<arith::SubIOp, jeff::IntBinaryOperation::_sub>,
-            ConvertArithIntBinaryOp<arith::MulIOp, jeff::IntBinaryOperation::_mul>,
-            ConvertArithIntBinaryOp<arith::DivSIOp, jeff::IntBinaryOperation::_divS>,
-            ConvertArithIntBinaryOp<arith::DivUIOp, jeff::IntBinaryOperation::_divU>,
-            ConvertMathIPowIOp,
-            ConvertArithIntBinaryOp<arith::AndIOp, jeff::IntBinaryOperation::_and>,
-            ConvertArithIntBinaryOp<arith::OrIOp, jeff::IntBinaryOperation::_or>,
-            ConvertArithIntBinaryOp<arith::XOrIOp, jeff::IntBinaryOperation::_xor>,
-            ConvertArithIntBinaryOp<arith::MinSIOp, jeff::IntBinaryOperation::_minS>,
-            ConvertArithIntBinaryOp<arith::MinUIOp, jeff::IntBinaryOperation::_minU>,
-            ConvertArithIntBinaryOp<arith::MaxSIOp, jeff::IntBinaryOperation::_maxS>,
-            ConvertArithIntBinaryOp<arith::MaxUIOp, jeff::IntBinaryOperation::_maxU>,
-            ConvertArithIntBinaryOp<arith::RemSIOp, jeff::IntBinaryOperation::_remS>,
-            ConvertArithIntBinaryOp<arith::RemUIOp, jeff::IntBinaryOperation::_remU>,
-            ConvertArithIntBinaryOp<arith::ShLIOp, jeff::IntBinaryOperation::_shl>,
-            ConvertArithIntBinaryOp<arith::ShRSIOp, jeff::IntBinaryOperation::_shr>,
-            ConvertArithCmpIOpToJeff,
-            // Float operations
-            ConvertMathFloatUnaryOp<math::SqrtOp, jeff::FloatUnaryOperation::_sqrt>,
-            ConvertMathFloatUnaryOp<math::AbsFOp, jeff::FloatUnaryOperation::_abs>,
-            ConvertMathFloatUnaryOp<math::CeilOp, jeff::FloatUnaryOperation::_ceil>,
-            ConvertMathFloatUnaryOp<math::FloorOp, jeff::FloatUnaryOperation::_floor>,
-            ConvertMathFloatUnaryOp<math::ExpOp, jeff::FloatUnaryOperation::_exp>,
-            ConvertMathFloatUnaryOp<math::LogOp, jeff::FloatUnaryOperation::_log>,
-            ConvertMathFloatUnaryOp<math::SinOp, jeff::FloatUnaryOperation::_sin>,
-            ConvertMathFloatUnaryOp<math::CosOp, jeff::FloatUnaryOperation::_cos>,
-            ConvertMathFloatUnaryOp<math::TanOp, jeff::FloatUnaryOperation::_tan>,
-            ConvertMathFloatUnaryOp<math::AsinOp, jeff::FloatUnaryOperation::_asin>,
-            ConvertMathFloatUnaryOp<math::AcosOp, jeff::FloatUnaryOperation::_acos>,
-            ConvertMathFloatUnaryOp<math::AtanOp, jeff::FloatUnaryOperation::_atan>,
-            ConvertMathFloatUnaryOp<math::SinhOp, jeff::FloatUnaryOperation::_sinh>,
-            ConvertMathFloatUnaryOp<math::CoshOp, jeff::FloatUnaryOperation::_cosh>,
-            ConvertMathFloatUnaryOp<math::TanhOp, jeff::FloatUnaryOperation::_tanh>,
-            ConvertMathFloatUnaryOp<math::AsinhOp, jeff::FloatUnaryOperation::_asinh>,
-            ConvertMathFloatUnaryOp<math::AcoshOp, jeff::FloatUnaryOperation::_acosh>,
-            ConvertMathFloatUnaryOp<math::AtanhOp, jeff::FloatUnaryOperation::_atanh>,
-            ConvertArithFloatBinaryOp<arith::AddFOp, jeff::FloatBinaryOperation::_add>,
-            ConvertArithFloatBinaryOp<arith::SubFOp, jeff::FloatBinaryOperation::_sub>,
-            ConvertArithFloatBinaryOp<arith::MulFOp, jeff::FloatBinaryOperation::_mul>,
-            ConvertMathFloatBinaryOp<math::Atan2Op, jeff::FloatBinaryOperation::_atan2>,
-            ConvertMathFloatBinaryOp<math::PowFOp, jeff::FloatBinaryOperation::_pow>,
-            ConvertArithFloatBinaryOp<arith::MaxNumFOp, jeff::FloatBinaryOperation::_max>,
-            ConvertArithFloatBinaryOp<arith::MinNumFOp, jeff::FloatBinaryOperation::_min>,
-            ConvertArithCmpFOp, ConvertMathFloatIsOp<math::IsNaNOp, jeff::FloatIsOperation::_isNan>,
-            ConvertMathFloatIsOp<math::IsInfOp, jeff::FloatIsOperation::_isInf>,
-            // IntArray/FloatArray operations
-            ConvertTensorEmptyOp, ConvertTensorExtractOp, ConvertTensorInsertOp, ConvertTensorDimOp,
-            ConvertTensorFromElementsOp,
-            // Cast operations
-            ConvertArithIndexCastOp, ConvertTensorCastOp>(context);
-
+        jeff::populateNativeToJeffConversionPatterns(patterns);
         if (applyPartialConversion(module, target, std::move(patterns)).failed()) {
             signalPassFailure();
         }
     }
 };
+
+} // namespace
+
+namespace jeff {
+
+void populateNativeToJeffConversionPatterns(RewritePatternSet& patterns) {
+    patterns.add<
+        // Constants
+        ConvertArithConstOp,
+        // Int operations
+        ConvertMathAbsIOp, ConvertArithIntBinaryOp<arith::AddIOp, jeff::IntBinaryOperation::_add>,
+        ConvertArithIntBinaryOp<arith::SubIOp, jeff::IntBinaryOperation::_sub>,
+        ConvertArithIntBinaryOp<arith::MulIOp, jeff::IntBinaryOperation::_mul>,
+        ConvertArithIntBinaryOp<arith::DivSIOp, jeff::IntBinaryOperation::_divS>,
+        ConvertArithIntBinaryOp<arith::DivUIOp, jeff::IntBinaryOperation::_divU>,
+        ConvertMathIPowIOp, ConvertArithIntBinaryOp<arith::AndIOp, jeff::IntBinaryOperation::_and>,
+        ConvertArithIntBinaryOp<arith::OrIOp, jeff::IntBinaryOperation::_or>,
+        ConvertArithIntBinaryOp<arith::XOrIOp, jeff::IntBinaryOperation::_xor>,
+        ConvertArithIntBinaryOp<arith::MinSIOp, jeff::IntBinaryOperation::_minS>,
+        ConvertArithIntBinaryOp<arith::MinUIOp, jeff::IntBinaryOperation::_minU>,
+        ConvertArithIntBinaryOp<arith::MaxSIOp, jeff::IntBinaryOperation::_maxS>,
+        ConvertArithIntBinaryOp<arith::MaxUIOp, jeff::IntBinaryOperation::_maxU>,
+        ConvertArithIntBinaryOp<arith::RemSIOp, jeff::IntBinaryOperation::_remS>,
+        ConvertArithIntBinaryOp<arith::RemUIOp, jeff::IntBinaryOperation::_remU>,
+        ConvertArithIntBinaryOp<arith::ShLIOp, jeff::IntBinaryOperation::_shl>,
+        ConvertArithIntBinaryOp<arith::ShRSIOp, jeff::IntBinaryOperation::_shr>,
+        ConvertArithCmpIOpToJeff,
+        // Float operations
+        ConvertMathFloatUnaryOp<math::SqrtOp, jeff::FloatUnaryOperation::_sqrt>,
+        ConvertMathFloatUnaryOp<math::AbsFOp, jeff::FloatUnaryOperation::_abs>,
+        ConvertMathFloatUnaryOp<math::CeilOp, jeff::FloatUnaryOperation::_ceil>,
+        ConvertMathFloatUnaryOp<math::FloorOp, jeff::FloatUnaryOperation::_floor>,
+        ConvertMathFloatUnaryOp<math::ExpOp, jeff::FloatUnaryOperation::_exp>,
+        ConvertMathFloatUnaryOp<math::LogOp, jeff::FloatUnaryOperation::_log>,
+        ConvertMathFloatUnaryOp<math::SinOp, jeff::FloatUnaryOperation::_sin>,
+        ConvertMathFloatUnaryOp<math::CosOp, jeff::FloatUnaryOperation::_cos>,
+        ConvertMathFloatUnaryOp<math::TanOp, jeff::FloatUnaryOperation::_tan>,
+        ConvertMathFloatUnaryOp<math::AsinOp, jeff::FloatUnaryOperation::_asin>,
+        ConvertMathFloatUnaryOp<math::AcosOp, jeff::FloatUnaryOperation::_acos>,
+        ConvertMathFloatUnaryOp<math::AtanOp, jeff::FloatUnaryOperation::_atan>,
+        ConvertMathFloatUnaryOp<math::SinhOp, jeff::FloatUnaryOperation::_sinh>,
+        ConvertMathFloatUnaryOp<math::CoshOp, jeff::FloatUnaryOperation::_cosh>,
+        ConvertMathFloatUnaryOp<math::TanhOp, jeff::FloatUnaryOperation::_tanh>,
+        ConvertMathFloatUnaryOp<math::AsinhOp, jeff::FloatUnaryOperation::_asinh>,
+        ConvertMathFloatUnaryOp<math::AcoshOp, jeff::FloatUnaryOperation::_acosh>,
+        ConvertMathFloatUnaryOp<math::AtanhOp, jeff::FloatUnaryOperation::_atanh>,
+        ConvertArithFloatBinaryOp<arith::AddFOp, jeff::FloatBinaryOperation::_add>,
+        ConvertArithFloatBinaryOp<arith::SubFOp, jeff::FloatBinaryOperation::_sub>,
+        ConvertArithFloatBinaryOp<arith::MulFOp, jeff::FloatBinaryOperation::_mul>,
+        ConvertMathFloatBinaryOp<math::Atan2Op, jeff::FloatBinaryOperation::_atan2>,
+        ConvertMathFloatBinaryOp<math::PowFOp, jeff::FloatBinaryOperation::_pow>,
+        ConvertArithFloatBinaryOp<arith::MaxNumFOp, jeff::FloatBinaryOperation::_max>,
+        ConvertArithFloatBinaryOp<arith::MinNumFOp, jeff::FloatBinaryOperation::_min>,
+        ConvertArithCmpFOp, ConvertMathFloatIsOp<math::IsNaNOp, jeff::FloatIsOperation::_isNan>,
+        ConvertMathFloatIsOp<math::IsInfOp, jeff::FloatIsOperation::_isInf>,
+        // IntArray/FloatArray operations
+        ConvertTensorEmptyOp, ConvertTensorExtractOp, ConvertTensorInsertOp, ConvertTensorDimOp,
+        ConvertTensorFromElementsOp,
+        // Cast operations
+        ConvertArithIndexCastOp, ConvertTensorCastOp>(patterns.getContext());
+}
+
+} // namespace jeff
 
 } // namespace mlir

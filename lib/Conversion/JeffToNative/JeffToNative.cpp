@@ -419,8 +419,6 @@ template <typename JeffOp> struct ConvertJeffArrayCreateOp final : OpConversionP
     }
 };
 
-} // namespace
-
 /**
  * @brief Pass for converting Jeff operations to built-in MLIR operations
  */
@@ -452,40 +450,49 @@ struct JeffToNative final : impl::JeffToNativeBase<JeffToNative> {
             jeff::FloatArrayCreateOp>();
 
         RewritePatternSet patterns(context);
-        patterns.add<
-            // Int operations
-            ConvertJeffIntConstOp<jeff::IntConst1Op>, ConvertJeffIntConstOp<jeff::IntConst8Op>,
-            ConvertJeffIntConstOp<jeff::IntConst16Op>, ConvertJeffIntConstOp<jeff::IntConst32Op>,
-            ConvertJeffIntConstOp<jeff::IntConst64Op>, ConvertJeffIntUnaryOp,
-            ConvertJeffIntBinaryOp, ConvertJeffIntComparisonOp,
-            // Float operations
-            ConvertJeffFloatConstOp<jeff::FloatConst32Op>,
-            ConvertJeffFloatConstOp<jeff::FloatConst64Op>, ConvertJeffFloatUnaryOp,
-            ConvertJeffFloatBinaryOp, ConvertJeffFloatComparisonOp, ConvertJeffFloatIsOp,
-            // IntArray operations
-            ConvertJeffIntArrayConstOp<jeff::IntArrayConst1Op>,
-            ConvertJeffIntArrayConstOp<jeff::IntArrayConst8Op>,
-            ConvertJeffIntArrayConstOp<jeff::IntArrayConst16Op>,
-            ConvertJeffIntArrayConstOp<jeff::IntArrayConst32Op>,
-            ConvertJeffIntArrayConstOp<jeff::IntArrayConst64Op>,
-            ConvertJeffArrayZeroOp<jeff::IntArrayZeroOp>,
-            ConvertJeffArrayGetIndexOp<jeff::IntArrayGetIndexOp>,
-            ConvertJeffArraySetIndexOp<jeff::IntArraySetIndexOp>,
-            ConvertJeffArrayLengthOp<jeff::IntArrayLengthOp>,
-            ConvertJeffArrayCreateOp<jeff::IntArrayCreateOp>,
-            // FloatArray operations
-            ConvertJeffFloatArrayConstOp<jeff::FloatArrayConst32Op>,
-            ConvertJeffFloatArrayConstOp<jeff::FloatArrayConst64Op>,
-            ConvertJeffArrayZeroOp<jeff::FloatArrayZeroOp>,
-            ConvertJeffArrayGetIndexOp<jeff::FloatArrayGetIndexOp>,
-            ConvertJeffArraySetIndexOp<jeff::FloatArraySetIndexOp>,
-            ConvertJeffArrayLengthOp<jeff::FloatArrayLengthOp>,
-            ConvertJeffArrayCreateOp<jeff::FloatArrayCreateOp>>(context);
-
+        jeff::populateJeffToNativeConversionPatterns(patterns);
         if (applyPartialConversion(module, target, std::move(patterns)).failed()) {
             signalPassFailure();
         }
     }
 };
+
+} // namespace
+
+namespace jeff {
+
+void populateJeffToNativeConversionPatterns(RewritePatternSet& patterns) {
+    patterns.add<
+        // Int operations
+        ConvertJeffIntConstOp<jeff::IntConst1Op>, ConvertJeffIntConstOp<jeff::IntConst8Op>,
+        ConvertJeffIntConstOp<jeff::IntConst16Op>, ConvertJeffIntConstOp<jeff::IntConst32Op>,
+        ConvertJeffIntConstOp<jeff::IntConst64Op>, ConvertJeffIntUnaryOp, ConvertJeffIntBinaryOp,
+        ConvertJeffIntComparisonOp,
+        // Float operations
+        ConvertJeffFloatConstOp<jeff::FloatConst32Op>,
+        ConvertJeffFloatConstOp<jeff::FloatConst64Op>, ConvertJeffFloatUnaryOp,
+        ConvertJeffFloatBinaryOp, ConvertJeffFloatComparisonOp, ConvertJeffFloatIsOp,
+        // IntArray operations
+        ConvertJeffIntArrayConstOp<jeff::IntArrayConst1Op>,
+        ConvertJeffIntArrayConstOp<jeff::IntArrayConst8Op>,
+        ConvertJeffIntArrayConstOp<jeff::IntArrayConst16Op>,
+        ConvertJeffIntArrayConstOp<jeff::IntArrayConst32Op>,
+        ConvertJeffIntArrayConstOp<jeff::IntArrayConst64Op>,
+        ConvertJeffArrayZeroOp<jeff::IntArrayZeroOp>,
+        ConvertJeffArrayGetIndexOp<jeff::IntArrayGetIndexOp>,
+        ConvertJeffArraySetIndexOp<jeff::IntArraySetIndexOp>,
+        ConvertJeffArrayLengthOp<jeff::IntArrayLengthOp>,
+        ConvertJeffArrayCreateOp<jeff::IntArrayCreateOp>,
+        // FloatArray operations
+        ConvertJeffFloatArrayConstOp<jeff::FloatArrayConst32Op>,
+        ConvertJeffFloatArrayConstOp<jeff::FloatArrayConst64Op>,
+        ConvertJeffArrayZeroOp<jeff::FloatArrayZeroOp>,
+        ConvertJeffArrayGetIndexOp<jeff::FloatArrayGetIndexOp>,
+        ConvertJeffArraySetIndexOp<jeff::FloatArraySetIndexOp>,
+        ConvertJeffArrayLengthOp<jeff::FloatArrayLengthOp>,
+        ConvertJeffArrayCreateOp<jeff::FloatArrayCreateOp>>(patterns.getContext());
+}
+
+} // namespace jeff
 
 } // namespace mlir
