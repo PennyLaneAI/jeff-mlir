@@ -22,6 +22,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 
 #include <cstdint>
+#include <limits>
 #include <utility>
 
 namespace mlir {
@@ -177,13 +178,17 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                         return rewriter.notifyMatchFailure(op, "Unsupported element type");
                     });
             })
-            .Case<IndexType>([&](auto type) {
+            .Case<IndexType>([&](auto) {
                 auto intAttr = llvm::dyn_cast<IntegerAttr>(value);
                 if (!intAttr) {
                     return rewriter.notifyMatchFailure(op, "Expected IntegerAttr");
                 }
+                const auto value = intAttr.getInt();
+                if (value > std::numeric_limits<int32_t>::max()) {
+                    return rewriter.notifyMatchFailure(op, "Index value out of range");
+                }
                 rewriter.replaceOpWithNewOp<jeff::IntConst32Op>(
-                    op, rewriter.getI32IntegerAttr(intAttr.getInt()));
+                    op, rewriter.getI32IntegerAttr(static_cast<int32_t>(value)));
                 return success();
             })
             .Default([&](auto) { return rewriter.notifyMatchFailure(op, "Unsupported type"); });
