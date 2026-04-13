@@ -1000,9 +1000,25 @@ def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
         QubitType:$out_qubit
     );
 
+    let builders = [
+        OpBuilder<
+        (ins
+            "mlir::Type":$out_qreg_type,
+            "mlir::Value":$in_qreg,
+            "mlir::Value":$index
+        ), [{
+            QuregExtractIndexOp::build($_builder, $_state,
+            out_qreg_type,
+            mlir::jeff::QubitType::get($_builder.getContext()),
+            in_qreg,
+            index
+            );
+        }]>,
+    ];
+
     // %qreg_in, %q = jeff.qureg_extract_index(%index) %qreg_in : !jeff.qureg, !jeff.qubit
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg attr-dict `:` type(results)
+        `(` $index `)` $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
@@ -1022,7 +1038,7 @@ def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
 
     // %qreg_out = jeff.qureg_insert_index(%index) %qreg_in %q : !jeff.qureg
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg $in_qubit attr-dict `:` type(results)
+        `(` $index `)` $in_qreg $in_qubit attr-dict `:` functional-type(operands, results)
     }];
 }
 
@@ -1043,7 +1059,7 @@ def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", []> {
 
     // %qreg_out, %qreg = jeff.qureg_extract_slice(%start, %length) %qreg_in : !jeff.qureg, !jeff.qureg
     let assemblyFormat = [{
-        `(` $start `,` $length `)` $in_qreg attr-dict `:` type(results)
+        `(` $start `,` $length `)` $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
@@ -1063,7 +1079,7 @@ def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", []> {
 
     // %qreg_out = jeff.qureg_insert_slice(%start) %qreg_in %qreg : !jeff.qureg
     let assemblyFormat = [{
-        `(` $start `)` $in_qreg $new_qreg attr-dict `:` type(results)
+        `(` $start `)` $in_qreg $new_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
@@ -1080,9 +1096,23 @@ def QuregLengthOp : Qureg_Op<"qureg_length", []> {
         I32:$length
     );
 
+    let builders = [
+        OpBuilder<
+        (ins
+            "mlir::Type":$out_qreg_type,
+            "mlir::Value":$in_qreg
+        ), [{
+            QuregLengthOp::build($_builder, $_state,
+            out_qreg_type,
+            $_builder.getI32Type(),
+            in_qreg
+            );
+        }]>,
+    ];
+
     // %qreg_out, %length = jeff.qureg_length %qreg_in : !jeff.qureg, i32
     let assemblyFormat = [{
-        $in_qreg attr-dict `:` type(results)
+        $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
@@ -1102,7 +1132,7 @@ def QuregSplitOp : Qureg_Op<"qureg_split", []> {
 
     // %qreg1, %qreg2 = jeff.qureg_split(%index) %qreg0 : !jeff.qureg, !jeff.qureg
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg attr-dict `:` type(results)
+        `(` $index `)` $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
@@ -1121,7 +1151,7 @@ def QuregJoinOp : Qureg_Op<"qureg_join", [SameOperandsAndResultType]> {
 
     // %qreg2 = jeff.qureg_join %qreg0 %qreg1 : !jeff.qureg
     let assemblyFormat = [{
-        $in_qreg_one $in_qreg_two attr-dict `:` type(results)
+        $in_qreg_one $in_qreg_two attr-dict `:` functional-type(operands, results)
     }];
 }
 

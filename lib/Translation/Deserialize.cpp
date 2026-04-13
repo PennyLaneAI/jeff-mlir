@@ -17,6 +17,7 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/Dialect/Utils/StaticValueUtils.h>
 #include <mlir/IR/Attributes.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinAttributes.h>
@@ -81,6 +82,12 @@ struct DeserializationContext {
     int64_t getLength(uint32_t id) {
         auto type = getJeffType(id);
         switch (type.which()) {
+        case jeff::Type::QUREG:
+            if (type.getQureg().isStatic()) {
+                return type.getQureg().getStatic();
+            } else {
+                return mlir::ShapedType::kDynamic;
+            }
         case jeff::Type::INT_ARRAY:
             if (type.getIntArray().getLength().isStatic()) {
                 return type.getIntArray().getLength().getStatic();
@@ -424,9 +431,11 @@ void deserializeQubit(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader oper
 
 void deserializeQuregAlloc(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader operation,
                            DeserializationContext& ctx) {
-    auto allocOp =
-        mlir::jeff::QuregAllocOp::create(builder, ctx.getValue(operation.getInputs()[0]));
-    ctx.setValue(operation.getOutputs()[0], allocOp.getResult());
+    const auto inputs = operation.getInputs();
+    const auto outputs = operation.getOutputs();
+    auto qregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto allocOp = mlir::jeff::QuregAllocOp::create(builder, qregType, ctx.getValue(inputs[0]));
+    ctx.setValue(outputs[0], allocOp.getResult());
 }
 
 void deserializeQuregFreeZero(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader operation,
@@ -438,7 +447,8 @@ void deserializeQuregExtractIndex(mlir::ImplicitLocOpBuilder& builder, jeff::Op:
                                   DeserializationContext& ctx) {
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
-    auto op = mlir::jeff::QuregExtractIndexOp::create(builder, ctx.getValue(inputs[0]),
+    auto qregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto op = mlir::jeff::QuregExtractIndexOp::create(builder, qregType, ctx.getValue(inputs[0]),
                                                       ctx.getValue(inputs[1]));
     ctx.setValue(outputs[0], op.getOutQreg());
     ctx.setValue(outputs[1], op.getOutQubit());
@@ -448,8 +458,10 @@ void deserializeQuregInsertIndex(mlir::ImplicitLocOpBuilder& builder, jeff::Op::
                                  DeserializationContext& ctx) {
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
-    auto op = mlir::jeff::QuregInsertIndexOp::create(
-        builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
+    auto qregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto op =
+        mlir::jeff::QuregInsertIndexOp::create(builder, qregType, ctx.getValue(inputs[0]),
+                                               ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
     ctx.setValue(outputs[0], op.getOutQreg());
 }
 
@@ -457,8 +469,11 @@ void deserializeQuregExtractSlice(mlir::ImplicitLocOpBuilder& builder, jeff::Op:
                                   DeserializationContext& ctx) {
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
+    auto outQregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto newQregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[1]));
     auto op = mlir::jeff::QuregExtractSliceOp::create(
-        builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
+        builder, outQregType, newQregType, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]),
+        ctx.getValue(inputs[2]));
     ctx.setValue(outputs[0], op.getOutQreg());
     ctx.setValue(outputs[1], op.getNewQreg());
 }
@@ -467,8 +482,10 @@ void deserializeQuregInsertSlice(mlir::ImplicitLocOpBuilder& builder, jeff::Op::
                                  DeserializationContext& ctx) {
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
-    auto op = mlir::jeff::QuregInsertSliceOp::create(
-        builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
+    auto qregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto op =
+        mlir::jeff::QuregInsertSliceOp::create(builder, qregType, ctx.getValue(inputs[0]),
+                                               ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
     ctx.setValue(outputs[0], op.getOutQreg());
 }
 
@@ -476,7 +493,8 @@ void deserializeQuregLength(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reade
                             DeserializationContext& ctx) {
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
-    auto op = mlir::jeff::QuregLengthOp::create(builder, ctx.getValue(inputs[0]));
+    auto qregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto op = mlir::jeff::QuregLengthOp::create(builder, qregType, ctx.getValue(inputs[0]));
     ctx.setValue(outputs[0], op.getOutQreg());
     ctx.setValue(outputs[1], op.getLength());
 }
@@ -485,8 +503,10 @@ void deserializeQuregSplit(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader
                            DeserializationContext& ctx) {
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
-    auto op =
-        mlir::jeff::QuregSplitOp::create(builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]));
+    auto qregOneType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto qregTwoType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[1]));
+    auto op = mlir::jeff::QuregSplitOp::create(builder, qregOneType, qregTwoType,
+                                               ctx.getValue(inputs[0]), ctx.getValue(inputs[1]));
     ctx.setValue(outputs[0], op.getOutQregOne());
     ctx.setValue(outputs[1], op.getOutQregTwo());
 }
@@ -495,8 +515,9 @@ void deserializeQuregJoin(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader 
                           DeserializationContext& ctx) {
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
-    auto op =
-        mlir::jeff::QuregJoinOp::create(builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]));
+    auto qregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto op = mlir::jeff::QuregJoinOp::create(builder, qregType, ctx.getValue(inputs[0]),
+                                              ctx.getValue(inputs[1]));
     ctx.setValue(outputs[0], op.getOutQreg());
 }
 
@@ -509,7 +530,8 @@ void deserializeQuregCreate(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reade
     for (auto input : inputs) {
         inQreg.push_back(ctx.getValue(input));
     }
-    auto op = mlir::jeff::QuregCreateOp::create(builder, inQreg);
+    auto qregType = mlir::jeff::QuregType::get(builder.getContext(), ctx.getLength(outputs[0]));
+    auto op = mlir::jeff::QuregCreateOp::create(builder, qregType, inQreg);
     ctx.setValue(outputs[0], op.getOutQreg());
 }
 
@@ -1348,6 +1370,15 @@ void deserializeFunc(mlir::ImplicitLocOpBuilder& builder, jeff::Op::Reader opera
 // Types
 //===----------------------------------------------------------------------===//
 
+mlir::Type deserializeQuregType(mlir::ImplicitLocOpBuilder& builder, jeff::Type::Reader type) {
+    const auto quregType = type.getQureg();
+    auto length = mlir::ShapedType::kDynamic;
+    if (quregType.isStatic()) {
+        length = quregType.getStatic();
+    }
+    return mlir::jeff::QuregType::get(builder.getContext(), length);
+}
+
 mlir::Type deserializeIntType(mlir::ImplicitLocOpBuilder& builder, jeff::Type::Reader type) {
     switch (type.getInt()) {
     case 1:
@@ -1426,7 +1457,7 @@ mlir::Type deserializeType(mlir::ImplicitLocOpBuilder& builder, jeff::Type::Read
     case jeff::Type::QUBIT:
         return mlir::jeff::QubitType::get(builder.getContext());
     case jeff::Type::QUREG:
-        return mlir::jeff::QuregType::get(builder.getContext());
+        return deserializeQuregType(builder, type);
     case jeff::Type::INT:
         return deserializeIntType(builder, type);
     case jeff::Type::INT_ARRAY:

@@ -1514,8 +1514,14 @@ void serializeCall(jeff::Op::Builder builder, mlir::func::CallOp op, Serializati
 
 void serializeQubitType(jeff::Type::Builder builder) { builder.setQubit(); }
 
-void serializeQuregType(jeff::Type::Builder builder, mlir::jeff::QuregType /*quregType*/) {
-    builder.initQureg().setDynamic();
+void serializeQuregType(jeff::Type::Builder builder, mlir::jeff::QuregType quregType) {
+    auto quregBuilder = builder.initQureg();
+    auto length = quregType.getLength();
+    if (length == mlir::ShapedType::kDynamic) {
+        quregBuilder.setDynamic();
+    } else {
+        quregBuilder.setStatic(length);
+    }
 }
 
 void serializeIntType(jeff::Type::Builder builder, mlir::IntegerType intType) {
