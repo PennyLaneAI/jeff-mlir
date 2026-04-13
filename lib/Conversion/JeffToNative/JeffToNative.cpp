@@ -326,13 +326,12 @@ template <typename ConstOp> struct ConvertJeffIntArrayConstOp final : OpConversi
 
     LogicalResult matchAndRewrite(ConstOp op, typename ConstOp::Adaptor /*adaptor*/,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto type = op.getType();
-        auto inArrayAttr = op.getInArrayAttr();
-        auto nativeType =
-            mlir::RankedTensorType::get({inArrayAttr.size()}, op.getType().getElementType());
-        auto denseAttr = DenseElementsAttr::get(nativeType, inArrayAttr.asArrayRef());
-        auto tensor = arith::ConstantOp::create(rewriter, op.getLoc(), denseAttr);
-        rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, tensor.getResult());
+        if (op.getType().getShape()[0] == mlir::ShapedType::kDynamic) {
+            return rewriter.notifyMatchFailure(
+                op, "IntArray*ConstOps with dynamic length are not supported");
+        }
+        auto denseAttr = DenseElementsAttr::get(op.getType(), op.getInArrayAttr().asArrayRef());
+        rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, denseAttr);
         return success();
     }
 };
@@ -343,13 +342,12 @@ struct ConvertJeffFloatArrayConstOp final : OpConversionPattern<ConstOp> {
 
     LogicalResult matchAndRewrite(ConstOp op, typename ConstOp::Adaptor /*adaptor*/,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto type = op.getType();
-        auto inArrayAttr = op.getInArrayAttr();
-        auto nativeType =
-            mlir::RankedTensorType::get({inArrayAttr.size()}, op.getType().getElementType());
-        auto denseAttr = DenseElementsAttr::get(nativeType, inArrayAttr.asArrayRef());
-        auto tensor = arith::ConstantOp::create(rewriter, op.getLoc(), denseAttr);
-        rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, tensor.getResult());
+        if (op.getType().getShape()[0] == mlir::ShapedType::kDynamic) {
+            return rewriter.notifyMatchFailure(
+                op, "IntArray*ConstOps with dynamic length are not supported");
+        }
+        auto denseAttr = DenseElementsAttr::get(op.getType(), op.getInArrayAttr().asArrayRef());
+        rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, denseAttr);
         return success();
     }
 };
@@ -413,8 +411,11 @@ template <typename JeffOp> struct ConvertJeffArrayCreateOp final : OpConversionP
 
     LogicalResult matchAndRewrite(JeffOp op, typename JeffOp::Adaptor adaptor,
                                   ConversionPatternRewriter& rewriter) const override {
-        auto tensor = tensor::FromElementsOp::create(rewriter, op.getLoc(), adaptor.getInArray());
-        rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(), tensor.getResult());
+        if (op.getType().getShape()[0] == mlir::ShapedType::kDynamic) {
+            return rewriter.notifyMatchFailure(
+                op, "*ArrayCreateOps with dynamic length are not supported");
+        }
+        rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(op, adaptor.getInArray());
         return success();
     }
 };

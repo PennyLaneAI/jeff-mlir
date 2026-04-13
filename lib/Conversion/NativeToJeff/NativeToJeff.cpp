@@ -94,8 +94,6 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                     return rewriter.notifyMatchFailure(op, "Expected DenseElementsAttr");
                 }
                 auto elementType = type.getElementType();
-                auto jeffType =
-                    mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, elementType);
                 auto* ctx = op.getContext();
                 auto loc = op.getLoc();
                 return llvm::TypeSwitch<Type, LogicalResult>(elementType)
@@ -104,46 +102,36 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                         case 1: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<bool>());
                             auto inArrayAttr = mlir::DenseBoolArrayAttr::get(ctx, inArray);
-                            auto array = jeff::IntArrayConst1Op::create(rewriter, loc, jeffType,
-                                                                        inArrayAttr);
-                            rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type,
-                                                                        array.getOutArray());
+                            rewriter.replaceOpWithNewOp<jeff::IntArrayConst1Op>(op, type,
+                                                                                inArrayAttr);
                             return success();
                         }
                         case 8: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<int8_t>());
                             auto inArrayAttr = mlir::DenseI8ArrayAttr::get(ctx, inArray);
-                            auto array = jeff::IntArrayConst8Op::create(rewriter, loc, jeffType,
-                                                                        inArrayAttr);
-                            rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type,
-                                                                        array.getOutArray());
+                            rewriter.replaceOpWithNewOp<jeff::IntArrayConst8Op>(op, type,
+                                                                                inArrayAttr);
                             return success();
                         }
                         case 16: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<int16_t>());
                             auto inArrayAttr = mlir::DenseI16ArrayAttr::get(ctx, inArray);
-                            auto array = jeff::IntArrayConst16Op::create(rewriter, loc, jeffType,
-                                                                         inArrayAttr);
-                            rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type,
-                                                                        array.getOutArray());
+                            rewriter.replaceOpWithNewOp<jeff::IntArrayConst16Op>(op, type,
+                                                                                 inArrayAttr);
                             return success();
                         }
                         case 32: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<int32_t>());
                             auto inArrayAttr = mlir::DenseI32ArrayAttr::get(ctx, inArray);
-                            auto array = jeff::IntArrayConst32Op::create(rewriter, loc, jeffType,
-                                                                         inArrayAttr);
-                            rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type,
-                                                                        array.getOutArray());
+                            rewriter.replaceOpWithNewOp<jeff::IntArrayConst32Op>(op, type,
+                                                                                 inArrayAttr);
                             return success();
                         }
                         case 64: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<int64_t>());
                             auto inArrayAttr = mlir::DenseI64ArrayAttr::get(ctx, inArray);
-                            auto array = jeff::IntArrayConst64Op::create(rewriter, loc, jeffType,
-                                                                         inArrayAttr);
-                            rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type,
-                                                                        array.getOutArray());
+                            rewriter.replaceOpWithNewOp<jeff::IntArrayConst64Op>(op, type,
+                                                                                 inArrayAttr);
                             return success();
                         }
                         default:
@@ -155,19 +143,15 @@ struct ConvertArithConstOp final : OpConversionPattern<arith::ConstantOp> {
                         case 32: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<float>());
                             auto inArrayAttr = mlir::DenseF32ArrayAttr::get(ctx, inArray);
-                            auto array = jeff::FloatArrayConst32Op::create(rewriter, loc, jeffType,
-                                                                           inArrayAttr);
-                            rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type,
-                                                                        array.getOutArray());
+                            rewriter.replaceOpWithNewOp<jeff::FloatArrayConst32Op>(op, type,
+                                                                                   inArrayAttr);
                             return success();
                         }
                         case 64: {
                             auto inArray = llvm::to_vector(denseAttr.getValues<double>());
                             auto inArrayAttr = mlir::DenseF64ArrayAttr::get(ctx, inArray);
-                            auto array = jeff::FloatArrayConst64Op::create(rewriter, loc, jeffType,
-                                                                           inArrayAttr);
-                            rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type,
-                                                                        array.getOutArray());
+                            rewriter.replaceOpWithNewOp<jeff::FloatArrayConst64Op>(op, type,
+                                                                                   inArrayAttr);
                             return success();
                         }
                         default:
@@ -448,18 +432,15 @@ struct ConvertTensorFromElementsOp final : OpConversionPattern<tensor::FromEleme
                                   ConversionPatternRewriter& rewriter) const override {
         auto type = op.getType();
         auto elementType = type.getElementType();
-        auto jeffType = mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, elementType);
         return llvm::TypeSwitch<Type, LogicalResult>(elementType)
             .Case<IntegerType>([&](auto) {
-                auto array = jeff::IntArrayCreateOp::create(rewriter, op.getLoc(), jeffType,
-                                                            adaptor.getElements());
-                rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, array.getOutArray());
+                rewriter.replaceOpWithNewOp<jeff::IntArrayCreateOp>(op, type,
+                                                                    adaptor.getElements());
                 return success();
             })
             .Case<FloatType>([&](auto) {
-                auto array = jeff::FloatArrayCreateOp::create(rewriter, op.getLoc(), jeffType,
-                                                              adaptor.getElements());
-                rewriter.replaceOpWithNewOp<tensor::CastOp>(op, type, array.getOutArray());
+                rewriter.replaceOpWithNewOp<jeff::FloatArrayCreateOp>(op, type,
+                                                                      adaptor.getElements());
                 return success();
             })
             .Default(
@@ -473,16 +454,6 @@ struct ConvertArithIndexCastOp final : OpConversionPattern<arith::IndexCastOp> {
     LogicalResult matchAndRewrite(arith::IndexCastOp op, OpAdaptor adaptor,
                                   ConversionPatternRewriter& rewriter) const override {
         rewriter.replaceOp(op, adaptor.getIn());
-        return success();
-    }
-};
-
-struct ConvertTensorCastOp final : OpConversionPattern<tensor::CastOp> {
-    using OpConversionPattern::OpConversionPattern;
-
-    LogicalResult matchAndRewrite(tensor::CastOp op, OpAdaptor adaptor,
-                                  ConversionPatternRewriter& rewriter) const override {
-        rewriter.replaceOp(op, adaptor.getSource());
         return success();
     }
 };
@@ -568,7 +539,7 @@ void populateNativeToJeffConversionPatterns(RewritePatternSet& patterns) {
         ConvertTensorEmptyOp, ConvertTensorExtractOp, ConvertTensorInsertOp, ConvertTensorDimOp,
         ConvertTensorFromElementsOp,
         // Cast operations
-        ConvertArithIndexCastOp, ConvertTensorCastOp>(patterns.getContext());
+        ConvertArithIndexCastOp>(patterns.getContext());
 }
 
 } // namespace jeff

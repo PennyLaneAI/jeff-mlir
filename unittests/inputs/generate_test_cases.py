@@ -786,7 +786,7 @@ def generate_int_comparison() -> None:
 @register_generator
 def generate_int_array_const1() -> None:
     const = JeffOp(
-        "intArray", "const1", [], [JeffValue(IntArrayType(1))], [True, False, True]
+        "intArray", "const1", [], [JeffValue(IntArrayType(1, 3))], [True, False, True]
     )
 
     body = JeffRegion(
@@ -809,7 +809,7 @@ def generate_int_array_const() -> None:
             "intArray",
             f"const{bit_width}",
             [],
-            [JeffValue(IntArrayType(bit_width))],
+            [JeffValue(IntArrayType(bit_width, 3))],
             [1, 2, 3],
         )
 
@@ -846,7 +846,7 @@ def generate_int_array_get_index() -> None:
         "intArray",
         "const32",
         [],
-        [JeffValue(IntArrayType(32))],
+        [JeffValue(IntArrayType(32, 3))],
         [1, 2, 3],
     )
     get_index = JeffOp(
@@ -869,14 +869,14 @@ def generate_int_array_set_index() -> None:
         "intArray",
         "const32",
         [],
-        [JeffValue(IntArrayType(32))],
+        [JeffValue(IntArrayType(32, 3))],
         [1, 2, 3],
     )
     set_index = JeffOp(
         "intArray",
         "setIndex",
         [array.outputs[0], index.outputs[0], value.outputs[0]],
-        [JeffValue(IntArrayType(32))],
+        [JeffValue(IntArrayType(32, 3))],
     )
     _create_and_write_module(
         [index, value, array, set_index],
@@ -886,7 +886,7 @@ def generate_int_array_set_index() -> None:
 
 @register_generator
 def generate_int_array_length() -> None:
-    value = JeffValue(IntArrayType(32))
+    value = JeffValue(IntArrayType(32, 3))
     length = JeffOp(
         "intArray",
         "length",
@@ -904,7 +904,7 @@ def generate_int_array_length() -> None:
         "intArray",
         "const32",
         [],
-        [JeffValue(IntArrayType(32))],
+        [JeffValue(IntArrayType(32, 3))],
         [1, 2, 3],
     )
     call = JeffOp(
@@ -937,7 +937,7 @@ def generate_int_array_create() -> None:
         "intArray",
         "create",
         [value1, value2, value3],
-        [JeffValue(IntArrayType(32))],
+        [JeffValue(IntArrayType(32, 3))],
     )
     create_body = JeffRegion(
         sources=[value1, value2, value3],
@@ -953,7 +953,7 @@ def generate_int_array_create() -> None:
         "func",
         "funcCall",
         [const1.outputs[0], const2.outputs[0], const3.outputs[0]],
-        [JeffValue(IntArrayType(32))],
+        [JeffValue(IntArrayType(32, 3))],
         0,
     )
     main_body = JeffRegion(
@@ -1190,7 +1190,7 @@ def generate_float_array_const() -> None:
             "floatArray",
             f"const{bit_width}",
             [],
-            [JeffValue(FloatArrayType(bit_width))],
+            [JeffValue(FloatArrayType(bit_width, 3))],
             [0.1, 0.2, 0.3],
         )
 
@@ -1227,7 +1227,7 @@ def generate_float_array_get_index() -> None:
         "floatArray",
         "const32",
         [],
-        [JeffValue(FloatArrayType(32))],
+        [JeffValue(FloatArrayType(32, 3))],
         [0.1, 0.2, 0.3],
     )
     get_index = JeffOp(
@@ -1250,14 +1250,14 @@ def generate_float_array_set_index() -> None:
         "floatArray",
         "const32",
         [],
-        [JeffValue(FloatArrayType(32))],
+        [JeffValue(FloatArrayType(32, 3))],
         [0.1, 0.2, 0.3],
     )
     set_index = JeffOp(
         "floatArray",
         "setIndex",
         [array.outputs[0], index.outputs[0], value.outputs[0]],
-        [JeffValue(FloatArrayType(32))],
+        [JeffValue(FloatArrayType(32, 3))],
     )
     _create_and_write_module(
         [index, value, array, set_index],
@@ -1267,7 +1267,7 @@ def generate_float_array_set_index() -> None:
 
 @register_generator
 def generate_float_array_length() -> None:
-    value = JeffValue(FloatArrayType(32))
+    value = JeffValue(FloatArrayType(32, 3))
     length = JeffOp(
         "floatArray",
         "length",
@@ -1285,7 +1285,7 @@ def generate_float_array_length() -> None:
         "floatArray",
         "const32",
         [],
-        [JeffValue(FloatArrayType(32))],
+        [JeffValue(FloatArrayType(32, 3))],
         [0.1, 0.2, 0.3],
     )
     call = JeffOp(
@@ -1318,7 +1318,7 @@ def generate_float_array_create() -> None:
         "floatArray",
         "create",
         [value1, value2, value3],
-        [JeffValue(FloatArrayType(32))],
+        [JeffValue(FloatArrayType(32, 3))],
     )
     create_body = JeffRegion(
         sources=[value1, value2, value3],
@@ -1334,7 +1334,7 @@ def generate_float_array_create() -> None:
         "func",
         "funcCall",
         [const1.outputs[0], const2.outputs[0], const3.outputs[0]],
-        [JeffValue(FloatArrayType(32))],
+        [JeffValue(FloatArrayType(32, 3))],
         0,
     )
     main_body = JeffRegion(

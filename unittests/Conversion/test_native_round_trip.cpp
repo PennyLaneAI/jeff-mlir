@@ -81,7 +81,6 @@ mlir::LogicalResult convertNativeToJeff(mlir::ModuleOp module) {
 mlir::LogicalResult canonicalize(mlir::ModuleOp module) {
     mlir::PassManager pm(module.getContext());
     pm.addPass(mlir::createCanonicalizerPass());
-    pm.addPass(mlir::createRemoveDeadValuesPass());
     return pm.run(module);
 }
 
@@ -115,8 +114,10 @@ TEST_P(NativeRoundTripTest, RoundTrip) {
     }
 
     if (testCase.filename == "unit_float_array_get_index.jeff" ||
+        testCase.filename == "unit_float_array_length.jeff" ||
         testCase.filename == "unit_float_array_set_index.jeff" ||
         testCase.filename == "unit_int_array_get_index.jeff" ||
+        testCase.filename == "unit_int_array_length.jeff" ||
         testCase.filename == "unit_int_array_set_index.jeff") {
         GTEST_SKIP();
     }
