@@ -423,7 +423,7 @@ def generate_qureg_insert_index() -> None:
     insert_index = JeffOp(
         "qureg",
         "insertIndex",
-        [alloc2.outputs[0], alloc1.outputs[0], index.outputs[0]],
+        [alloc2.outputs[0], index.outputs[0], alloc1.outputs[0]],
         [JeffValue(QuregType())],
     )
     free = JeffOp("qureg", "free", [insert_index.outputs[0]], [])
@@ -478,7 +478,7 @@ def generate_qureg_insert_slice() -> None:
     insert_slice = JeffOp(
         "qureg",
         "insertSlice",
-        [alloc1.outputs[0], alloc2.outputs[0], index.outputs[0]],
+        [alloc1.outputs[0], index.outputs[0], alloc2.outputs[0]],
         [JeffValue(QuregType())],
     )
     free = JeffOp("qureg", "free", [insert_slice.outputs[0]], [])

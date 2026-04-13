@@ -449,8 +449,8 @@ void serializeQuregInsertIndex(jeff::Op::Builder builder, mlir::jeff::QuregInser
 
     auto inputs = builder.initInputs(3);
     inputs.set(0, ctx.getValueId(op.getInQreg()));
-    inputs.set(1, ctx.getValueId(op.getInQubit()));
-    inputs.set(2, ctx.getValueId(op.getIndex()));
+    inputs.set(1, ctx.getValueId(op.getIndex()));
+    inputs.set(2, ctx.getValueId(op.getInQubit()));
 
     auto outputs = builder.initOutputs(1);
     outputs.set(0, ctx.getValueId(op.getOutQreg()));
@@ -478,8 +478,8 @@ void serializeQuregInsertSlice(jeff::Op::Builder builder, mlir::jeff::QuregInser
 
     auto inputs = builder.initInputs(3);
     inputs.set(0, ctx.getValueId(op.getInQreg()));
-    inputs.set(1, ctx.getValueId(op.getNewQreg()));
-    inputs.set(2, ctx.getValueId(op.getStart()));
+    inputs.set(1, ctx.getValueId(op.getStart()));
+    inputs.set(2, ctx.getValueId(op.getNewQreg()));
 
     auto outputs = builder.initOutputs(1);
     outputs.set(0, ctx.getValueId(op.getOutQreg()));
@@ -1517,14 +1517,16 @@ void serializeCall(jeff::Op::Builder builder, mlir::func::CallOp op, Serializati
 
 void serializeQubitType(jeff::Type::Builder builder) { builder.setQubit(); }
 
-void serializeQuregType(jeff::Type::Builder builder) { builder.setQureg(); }
+void serializeQuregType(jeff::Type::Builder builder) { builder.initQureg().setDynamic(); }
 
 void serializeIntType(jeff::Type::Builder builder, mlir::IntegerType intType) {
     builder.setInt(intType.getWidth());
 }
 
 void serializeIntArrayType(jeff::Type::Builder builder, mlir::IntegerType elementType) {
-    builder.setIntArray(elementType.getWidth());
+    auto intArrayBuilder = builder.initIntArray();
+    intArrayBuilder.setBitwidth(elementType.getWidth());
+    intArrayBuilder.initLength().setDynamic();
 }
 
 void serializeFloatType(jeff::Type::Builder builder, mlir::FloatType floatType) {
@@ -1539,15 +1541,17 @@ void serializeFloatType(jeff::Type::Builder builder, mlir::FloatType floatType) 
 }
 
 void serializeFloatArrayType(jeff::Type::Builder builder, mlir::FloatType elementType) {
+    auto floatArrayBuilder = builder.initFloatArray();
     if (elementType.getWidth() == 32) {
-        builder.setFloatArray(jeff::FloatPrecision::FLOAT32);
+        floatArrayBuilder.setPrecision(jeff::FloatPrecision::FLOAT32);
     } else if (elementType.getWidth() == 64) {
-        builder.setFloatArray(jeff::FloatPrecision::FLOAT64);
+        floatArrayBuilder.setPrecision(jeff::FloatPrecision::FLOAT64);
     } else {
         llvm::errs() << "Cannot serialize float arrays with bit width " << elementType.getWidth()
                      << "\n";
         llvm::report_fatal_error("Unknown float array type");
     }
+    floatArrayBuilder.initLength().setDynamic();
 }
 
 void serializeRankedTensorType(jeff::Type::Builder builder, mlir::RankedTensorType tensorType) {

@@ -425,7 +425,7 @@ void deserializeQuregInsertIndex(mlir::ImplicitLocOpBuilder& builder, jeff::Op::
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
     auto op = mlir::jeff::QuregInsertIndexOp::create(
-        builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[2]), ctx.getValue(inputs[1]));
+        builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
     ctx.setValue(outputs[0], op.getOutQreg());
 }
 
@@ -444,7 +444,7 @@ void deserializeQuregInsertSlice(mlir::ImplicitLocOpBuilder& builder, jeff::Op::
     const auto inputs = operation.getInputs();
     const auto outputs = operation.getOutputs();
     auto op = mlir::jeff::QuregInsertSliceOp::create(
-        builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[2]), ctx.getValue(inputs[1]));
+        builder, ctx.getValue(inputs[0]), ctx.getValue(inputs[1]), ctx.getValue(inputs[2]));
     ctx.setValue(outputs[0], op.getOutQreg());
 }
 
@@ -1340,20 +1340,25 @@ mlir::Type deserializeIntType(mlir::ImplicitLocOpBuilder& builder, jeff::Type::R
 }
 
 mlir::Type deserializeIntArrayType(mlir::ImplicitLocOpBuilder& builder, jeff::Type::Reader type) {
-    switch (type.getIntArray()) {
+    const auto intArrayType = type.getIntArray();
+    int64_t size = mlir::ShapedType::kDynamic;
+    if (intArrayType.getLength().isStatic()) {
+        size = intArrayType.getLength().getStatic();
+    }
+    switch (intArrayType.getBitwidth()) {
     case 1:
-        return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getI1Type());
+        return mlir::RankedTensorType::get({size}, builder.getI1Type());
     case 8:
-        return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getI8Type());
+        return mlir::RankedTensorType::get({size}, builder.getI8Type());
     case 16:
-        return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getI16Type());
+        return mlir::RankedTensorType::get({size}, builder.getI16Type());
     case 32:
-        return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getI32Type());
+        return mlir::RankedTensorType::get({size}, builder.getI32Type());
     case 64:
-        return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getI64Type());
+        return mlir::RankedTensorType::get({size}, builder.getI64Type());
     default:
-        llvm::errs() << "Cannot deserialize int array type " << static_cast<int>(type.getIntArray())
-                     << "\n";
+        llvm::errs() << "Cannot deserialize int array type with bit width "
+                     << static_cast<int>(intArrayType.getBitwidth()) << "\n";
         llvm::report_fatal_error("Unknown int array type");
     }
 }
@@ -1372,14 +1377,19 @@ mlir::FloatType deserializeFloatType(mlir::ImplicitLocOpBuilder& builder, jeff::
 }
 
 mlir::Type deserializeFloatArrayType(mlir::ImplicitLocOpBuilder& builder, jeff::Type::Reader type) {
-    switch (type.getFloatArray()) {
+    const auto floatArrayType = type.getFloatArray();
+    int64_t size = mlir::ShapedType::kDynamic;
+    if (floatArrayType.getLength().isStatic()) {
+        size = floatArrayType.getLength().getStatic();
+    }
+    switch (floatArrayType.getPrecision()) {
     case jeff::FloatPrecision::FLOAT32:
-        return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getF32Type());
+        return mlir::RankedTensorType::get({size}, builder.getF32Type());
     case jeff::FloatPrecision::FLOAT64:
-        return mlir::RankedTensorType::get({mlir::ShapedType::kDynamic}, builder.getF64Type());
+        return mlir::RankedTensorType::get({size}, builder.getF64Type());
     default:
-        llvm::errs() << "Cannot deserialize float array type "
-                     << static_cast<int>(type.getFloatArray()) << "\n";
+        llvm::errs() << "Cannot deserialize float array type with precision "
+                     << static_cast<int>(floatArrayType.getPrecision()) << "\n";
         llvm::report_fatal_error("Unknown float array type");
     }
 }
