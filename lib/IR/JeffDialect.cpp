@@ -14,13 +14,13 @@
 
 #include "jeff/IR/JeffDialect.h"
 
-// IWYU pragma: begin_keep
 #include "jeff/IR/JeffOps.h"
 
 #include <llvm/ADT/TypeSwitch.h>
+#include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/DialectImplementation.h>
-// IWYU pragma: end_keep
+#include <mlir/IR/Types.h>
 
 using namespace mlir;
 using namespace mlir::jeff;

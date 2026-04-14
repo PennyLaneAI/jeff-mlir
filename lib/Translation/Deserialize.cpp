@@ -17,7 +17,6 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
-#include <mlir/Dialect/Utils/StaticValueUtils.h>
 #include <mlir/IR/Attributes.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinAttributes.h>
@@ -77,7 +76,7 @@ struct DeserializationContext {
         funcs[id] = func;
     }
 
-    jeff::Type::Reader getJeffType(uint32_t id) { return jeffValues[id].getType(); }
+    jeff::Type::Reader getJeffType(uint32_t id) const { return jeffValues[id].getType(); }
 
     int64_t getLength(uint32_t id) {
         auto type = getJeffType(id);

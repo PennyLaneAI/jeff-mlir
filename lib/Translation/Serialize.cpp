@@ -1574,10 +1574,8 @@ void serializeFloatArrayType(jeff::Type::Builder builder, mlir::RankedTensorType
 void serializeRankedTensorType(jeff::Type::Builder builder, mlir::RankedTensorType tensorType) {
     checkRank(tensorType);
     llvm::TypeSwitch<mlir::Type, void>(tensorType.getElementType())
-        .Case<mlir::IntegerType>(
-            [&](auto elementType) { serializeIntArrayType(builder, tensorType); })
-        .Case<mlir::FloatType>(
-            [&](auto elementType) { serializeFloatArrayType(builder, tensorType); })
+        .Case<mlir::IntegerType>([&](auto) { serializeIntArrayType(builder, tensorType); })
+        .Case<mlir::FloatType>([&](auto) { serializeFloatArrayType(builder, tensorType); })
         .Default([&](auto elementType) {
             llvm::errs() << "Cannot serialize ranked tensor with element type " << elementType
                          << "\n";
