@@ -54,7 +54,7 @@ def QubitType : Jeff_Type<"Qubit", "qubit"> {
 }
 def QuregType : Jeff_Type<"Qureg", "qureg"> {
     let summary = "An array of value-semantic qubits (i.e. quantum register).";
-    let parameters = (ins "int64_t":$length);
+    let parameters = (ins DefaultValuedParameter<"int64_t", "::mlir::ShapedType::kDynamic">:$length);
     let hasCustomAssemblyFormat = 1;
 }
 
