@@ -7,6 +7,7 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 ## [0.1.0] - 2026-04-14
 
 Initial release.
+Compatible with `jeff-v0.2.0`.
 
 <!-- Version links -->
 
