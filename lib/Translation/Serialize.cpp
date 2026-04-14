@@ -30,12 +30,9 @@
 #include <cstdint>
 #include <utility>
 
-static void checkShape(mlir::RankedTensorType tensorType) {
+static void checkRank(mlir::RankedTensorType tensorType) {
     if (tensorType.getRank() != 1) {
         llvm::report_fatal_error("Only one-dimensional tensors are supported");
-    }
-    if (tensorType.getShape()[0] != mlir::ShapedType::kDynamic) {
-        llvm::report_fatal_error("Only tensors with dynamic size are supported");
     }
 }
 
@@ -449,8 +446,8 @@ void serializeQuregInsertIndex(jeff::Op::Builder builder, mlir::jeff::QuregInser
 
     auto inputs = builder.initInputs(3);
     inputs.set(0, ctx.getValueId(op.getInQreg()));
-    inputs.set(1, ctx.getValueId(op.getInQubit()));
-    inputs.set(2, ctx.getValueId(op.getIndex()));
+    inputs.set(1, ctx.getValueId(op.getIndex()));
+    inputs.set(2, ctx.getValueId(op.getInQubit()));
 
     auto outputs = builder.initOutputs(1);
     outputs.set(0, ctx.getValueId(op.getOutQreg()));
@@ -478,8 +475,8 @@ void serializeQuregInsertSlice(jeff::Op::Builder builder, mlir::jeff::QuregInser
 
     auto inputs = builder.initInputs(3);
     inputs.set(0, ctx.getValueId(op.getInQreg()));
-    inputs.set(1, ctx.getValueId(op.getNewQreg()));
-    inputs.set(2, ctx.getValueId(op.getStart()));
+    inputs.set(1, ctx.getValueId(op.getStart()));
+    inputs.set(2, ctx.getValueId(op.getNewQreg()));
 
     auto outputs = builder.initOutputs(1);
     outputs.set(0, ctx.getValueId(op.getOutQreg()));
@@ -783,7 +780,7 @@ SERIALIZE_INT_ARRAY_CONST(64)
 void serializeIntArrayZero(jeff::Op::Builder builder, mlir::jeff::IntArrayZeroOp op,
                            SerializationContext& ctx) {
     auto tensorType = llvm::cast<mlir::RankedTensorType>(op.getOutArray().getType());
-    checkShape(tensorType);
+    checkRank(tensorType);
     auto elementType = llvm::cast<mlir::IntegerType>(tensorType.getElementType());
 
     auto intArrayBuilder = builder.initInstruction().initIntArray();
@@ -1110,7 +1107,7 @@ void serializeFloatArrayConst64(jeff::Op::Builder builder, mlir::jeff::FloatArra
 void serializeFloatArrayZero(jeff::Op::Builder builder, mlir::jeff::FloatArrayZeroOp op,
                              SerializationContext& ctx) {
     auto tensorType = llvm::cast<mlir::RankedTensorType>(op.getOutArray().getType());
-    checkShape(tensorType);
+    checkRank(tensorType);
     auto elementType = llvm::cast<mlir::FloatType>(tensorType.getElementType());
 
     auto floatArrayBuilder = builder.initInstruction().initFloatArray();
@@ -1517,14 +1514,30 @@ void serializeCall(jeff::Op::Builder builder, mlir::func::CallOp op, Serializati
 
 void serializeQubitType(jeff::Type::Builder builder) { builder.setQubit(); }
 
-void serializeQuregType(jeff::Type::Builder builder) { builder.setQureg(); }
+void serializeQuregType(jeff::Type::Builder builder, mlir::jeff::QuregType quregType) {
+    auto quregBuilder = builder.initQureg();
+    auto length = quregType.getLength();
+    if (length == mlir::ShapedType::kDynamic) {
+        quregBuilder.setDynamic();
+    } else {
+        quregBuilder.setStatic(length);
+    }
+}
 
 void serializeIntType(jeff::Type::Builder builder, mlir::IntegerType intType) {
     builder.setInt(intType.getWidth());
 }
 
-void serializeIntArrayType(jeff::Type::Builder builder, mlir::IntegerType elementType) {
-    builder.setIntArray(elementType.getWidth());
+void serializeIntArrayType(jeff::Type::Builder builder, mlir::RankedTensorType tensorType) {
+    auto intArrayBuilder = builder.initIntArray();
+    auto elementType = llvm::cast<mlir::IntegerType>(tensorType.getElementType());
+    intArrayBuilder.setBitwidth(elementType.getWidth());
+    auto length = tensorType.getShape()[0];
+    if (length == mlir::ShapedType::kDynamic) {
+        intArrayBuilder.initLength().setDynamic();
+    } else {
+        intArrayBuilder.initLength().setStatic(length);
+    }
 }
 
 void serializeFloatType(jeff::Type::Builder builder, mlir::FloatType floatType) {
@@ -1538,25 +1551,31 @@ void serializeFloatType(jeff::Type::Builder builder, mlir::FloatType floatType) 
     }
 }
 
-void serializeFloatArrayType(jeff::Type::Builder builder, mlir::FloatType elementType) {
+void serializeFloatArrayType(jeff::Type::Builder builder, mlir::RankedTensorType tensorType) {
+    auto floatArrayBuilder = builder.initFloatArray();
+    auto elementType = llvm::cast<mlir::FloatType>(tensorType.getElementType());
     if (elementType.getWidth() == 32) {
-        builder.setFloatArray(jeff::FloatPrecision::FLOAT32);
+        floatArrayBuilder.setPrecision(jeff::FloatPrecision::FLOAT32);
     } else if (elementType.getWidth() == 64) {
-        builder.setFloatArray(jeff::FloatPrecision::FLOAT64);
+        floatArrayBuilder.setPrecision(jeff::FloatPrecision::FLOAT64);
     } else {
         llvm::errs() << "Cannot serialize float arrays with bit width " << elementType.getWidth()
                      << "\n";
         llvm::report_fatal_error("Unknown float array type");
     }
+    auto length = tensorType.getShape()[0];
+    if (length == mlir::ShapedType::kDynamic) {
+        floatArrayBuilder.initLength().setDynamic();
+    } else {
+        floatArrayBuilder.initLength().setStatic(length);
+    }
 }
 
 void serializeRankedTensorType(jeff::Type::Builder builder, mlir::RankedTensorType tensorType) {
-    checkShape(tensorType);
+    checkRank(tensorType);
     llvm::TypeSwitch<mlir::Type, void>(tensorType.getElementType())
-        .Case<mlir::IntegerType>(
-            [&](auto elementType) { serializeIntArrayType(builder, elementType); })
-        .Case<mlir::FloatType>(
-            [&](auto elementType) { serializeFloatArrayType(builder, elementType); })
+        .Case<mlir::IntegerType>([&](auto) { serializeIntArrayType(builder, tensorType); })
+        .Case<mlir::FloatType>([&](auto) { serializeFloatArrayType(builder, tensorType); })
         .Default([&](auto elementType) {
             llvm::errs() << "Cannot serialize ranked tensor with element type " << elementType
                          << "\n";
@@ -1567,7 +1586,8 @@ void serializeRankedTensorType(jeff::Type::Builder builder, mlir::RankedTensorTy
 void serializeType(jeff::Type::Builder builder, mlir::Type type) {
     llvm::TypeSwitch<mlir::Type, void>(type)
         .Case<mlir::jeff::QubitType>([&](auto) { serializeQubitType(builder); })
-        .Case<mlir::jeff::QuregType>([&](auto) { serializeQuregType(builder); })
+        .Case<mlir::jeff::QuregType>(
+            [&](auto quregType) { serializeQuregType(builder, quregType); })
         .Case<mlir::IntegerType>([&](auto intType) { serializeIntType(builder, intType); })
         .Case<mlir::RankedTensorType>(
             [&](auto tensorType) { serializeRankedTensorType(builder, tensorType); })

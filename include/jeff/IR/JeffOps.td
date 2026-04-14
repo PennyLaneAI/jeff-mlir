@@ -986,7 +986,7 @@ def QuregFreeZeroOp : Qureg_Op<"qureg_free_zero", []> {
     }];
 }
 
-def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
+def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Extracts a single qubit from a qubit register.";
     let description = [{}];
 
@@ -1002,11 +1002,11 @@ def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
 
     // %qreg_in, %q = jeff.qureg_extract_index(%index) %qreg_in : !jeff.qureg, !jeff.qubit
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg attr-dict `:` type(results)
+        `(` $index `)` $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
-def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
+def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Insert a single qubit into a qubit register.";
     let description = [{}];
 
@@ -1022,11 +1022,11 @@ def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
 
     // %qreg_out = jeff.qureg_insert_index(%index) %qreg_in %q : !jeff.qureg
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg $in_qubit attr-dict `:` type(results)
+        `(` $index `)` $in_qreg $in_qubit attr-dict `:` functional-type(operands, results)
     }];
 }
 
-def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", []> {
+def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Extract a slice of qubits from a qubit register given a range of indices.";
     let description = [{}];
 
@@ -1043,11 +1043,11 @@ def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", []> {
 
     // %qreg_out, %qreg = jeff.qureg_extract_slice(%start, %length) %qreg_in : !jeff.qureg, !jeff.qureg
     let assemblyFormat = [{
-        `(` $start `,` $length `)` $in_qreg attr-dict `:` type(results)
+        `(` $start `,` $length `)` $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
-def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", []> {
+def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Insert a slice of qubits into a qubit register.";
     let description = [{}];
 
@@ -1063,11 +1063,11 @@ def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", []> {
 
     // %qreg_out = jeff.qureg_insert_slice(%start) %qreg_in %qreg : !jeff.qureg
     let assemblyFormat = [{
-        `(` $start `)` $in_qreg $new_qreg attr-dict `:` type(results)
+        `(` $start `)` $in_qreg $new_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
-def QuregLengthOp : Qureg_Op<"qureg_length", []> {
+def QuregLengthOp : Qureg_Op<"qureg_length", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Returns the length of the qubit register.";
     let description = [{}];
 
@@ -1082,7 +1082,7 @@ def QuregLengthOp : Qureg_Op<"qureg_length", []> {
 
     // %qreg_out, %length = jeff.qureg_length %qreg_in : !jeff.qureg, i32
     let assemblyFormat = [{
-        $in_qreg attr-dict `:` type(results)
+        $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
@@ -1102,11 +1102,11 @@ def QuregSplitOp : Qureg_Op<"qureg_split", []> {
 
     // %qreg1, %qreg2 = jeff.qureg_split(%index) %qreg0 : !jeff.qureg, !jeff.qureg
     let assemblyFormat = [{
-        `(` $index `)` $in_qreg attr-dict `:` type(results)
+        `(` $index `)` $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
-def QuregJoinOp : Qureg_Op<"qureg_join", [SameOperandsAndResultType]> {
+def QuregJoinOp : Qureg_Op<"qureg_join", []> {
     let summary = "Joins together two qubit registers into a single qubit register.";
     let description = [{}];
 
@@ -1121,7 +1121,7 @@ def QuregJoinOp : Qureg_Op<"qureg_join", [SameOperandsAndResultType]> {
 
     // %qreg2 = jeff.qureg_join %qreg0 %qreg1 : !jeff.qureg
     let assemblyFormat = [{
-        $in_qreg_one $in_qreg_two attr-dict `:` type(results)
+        $in_qreg_one $in_qreg_two attr-dict `:` functional-type(operands, results)
     }];
 }
 

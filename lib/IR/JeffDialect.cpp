@@ -14,12 +14,16 @@
 
 #include "jeff/IR/JeffDialect.h"
 
-// IWYU pragma: begin_keep
-#include "jeff/IR/JeffOps.h"
+#include "jeff/IR/JeffOps.h" // IWYU pragma: associated
 
-#include <llvm/ADT/TypeSwitch.h>           // needed for generated type parser
-#include <mlir/IR/DialectImplementation.h> // needed for generated type parser
+// IWYU pragma: begin_keep
+#include <llvm/ADT/TypeSwitch.h>
+#include <mlir/IR/DialectImplementation.h>
 // IWYU pragma: end_keep
+
+#include <mlir/IR/BuiltinTypeInterfaces.h>
+#include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/Types.h>
 
 using namespace mlir;
 using namespace mlir::jeff;
@@ -53,6 +57,35 @@ void JeffDialect::initialize() {
 
 #define GET_TYPEDEF_CLASSES
 #include "jeff/IR/JeffOpsTypes.cpp.inc"
+
+void QuregType::print(AsmPrinter& printer) const {
+    printer << "<";
+    if (getLength() == ShapedType::kDynamic) {
+        printer << "?";
+    } else {
+        printer << getLength();
+    }
+    printer << ">";
+}
+
+Type QuregType::parse(AsmParser& parser) {
+    if (parser.parseLess().failed()) {
+        return {};
+    }
+
+    auto length = ShapedType::kDynamic;
+    if (parser.parseOptionalQuestion().failed()) {
+        if (parser.parseInteger(length).failed()) {
+            return {};
+        }
+    }
+
+    if (parser.parseGreater().failed()) {
+        return {};
+    }
+
+    return get(parser.getContext(), length);
+}
 
 #define GET_ATTRDEF_CLASSES
 #include "jeff/IR/JeffAttributes.cpp.inc"

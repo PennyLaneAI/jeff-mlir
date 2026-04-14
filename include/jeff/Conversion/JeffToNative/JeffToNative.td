@@ -8,8 +8,9 @@ def JeffToNative : Pass<"jeff-to-native"> {
 
     Known limitations:
 
+    - `IntArrayConst*Op`s and `FloatArrayConst*Op`s with dynamic size are not supported.
+    - `IntArrayCreateOp`s and `FloatArrayCreateOp`s with dynamic size are not supported.
     - Only one-dimensional tensors are supported.
-    - `tensor.cast` operations may be introduced during conversion to ensure a valid IR.
   }];
 
   let dependentDialects = [
