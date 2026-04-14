@@ -393,13 +393,13 @@ def generate_qureg_extract_index() -> None:
         "qureg",
         "alloc",
         [num_qubits.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(5))],
     )
     extract_index = JeffOp(
         "qureg",
         "extractIndex",
         [alloc.outputs[0], index.outputs[0]],
-        [JeffValue(QuregType()), JeffValue(QubitType())],
+        [JeffValue(QuregType(4)), JeffValue(QubitType())],
     )
     free1 = JeffOp("qureg", "free", [extract_index.outputs[0]], [])
     free2 = qubit_free(extract_index.outputs[1])
@@ -413,22 +413,27 @@ def generate_qureg_extract_index() -> None:
 def generate_qureg_insert_index() -> None:
     num_qubits = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
     index = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
-    alloc1 = qubit_alloc()
-    alloc2 = JeffOp(
+    alloc = JeffOp(
         "qureg",
         "alloc",
         [num_qubits.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(5))],
+    )
+    extract_index = JeffOp(
+        "qureg",
+        "extractIndex",
+        [alloc.outputs[0], index.outputs[0]],
+        [JeffValue(QuregType(4)), JeffValue(QubitType())],
     )
     insert_index = JeffOp(
         "qureg",
         "insertIndex",
-        [alloc2.outputs[0], index.outputs[0], alloc1.outputs[0]],
-        [JeffValue(QuregType())],
+        [extract_index.outputs[0], index.outputs[0], extract_index.outputs[1]],
+        [JeffValue(QuregType(5))],
     )
     free = JeffOp("qureg", "free", [insert_index.outputs[0]], [])
     _create_and_write_module(
-        [num_qubits, index, alloc1, alloc2, insert_index, free],
+        [num_qubits, index, alloc, extract_index, insert_index, free],
         "unit_qureg_insert_index.jeff",
     )
 
@@ -442,13 +447,13 @@ def generate_qureg_extract_slice() -> None:
         "qureg",
         "alloc",
         [num_qubits.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(5))],
     )
     extract_slice = JeffOp(
         "qureg",
         "extractSlice",
         [alloc.outputs[0], start.outputs[0], length.outputs[0]],
-        [JeffValue(QuregType()), JeffValue(QuregType())],
+        [JeffValue(QuregType(5)), JeffValue(QuregType(2))],
     )
     free1 = JeffOp("qureg", "free", [extract_slice.outputs[0]], [])
     free2 = JeffOp("qureg", "free", [extract_slice.outputs[1]], [])
@@ -460,30 +465,30 @@ def generate_qureg_extract_slice() -> None:
 
 @register_generator
 def generate_qureg_insert_slice() -> None:
-    num_qubits1 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
-    num_qubits2 = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 2)
-    index = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
-    alloc1 = JeffOp(
+    num_qubits = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 5)
+    index = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 1)
+    length = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 2)
+    alloc = JeffOp(
         "qureg",
         "alloc",
-        [num_qubits1.outputs[0]],
-        [JeffValue(QuregType())],
+        [num_qubits.outputs[0]],
+        [JeffValue(QuregType(5))],
     )
-    alloc2 = JeffOp(
+    extract_slice = JeffOp(
         "qureg",
-        "alloc",
-        [num_qubits2.outputs[0]],
-        [JeffValue(QuregType())],
+        "extractSlice",
+        [alloc.outputs[0], index.outputs[0], length.outputs[0]],
+        [JeffValue(QuregType(5)), JeffValue(QuregType(2))],
     )
     insert_slice = JeffOp(
         "qureg",
         "insertSlice",
-        [alloc1.outputs[0], index.outputs[0], alloc2.outputs[0]],
-        [JeffValue(QuregType())],
+        [extract_slice.outputs[0], index.outputs[0], extract_slice.outputs[1]],
+        [JeffValue(QuregType(5))],
     )
     free = JeffOp("qureg", "free", [insert_slice.outputs[0]], [])
     _create_and_write_module(
-        [num_qubits1, num_qubits2, index, alloc1, alloc2, insert_slice, free],
+        [num_qubits, index, length, alloc, extract_slice, insert_slice, free],
         "unit_qureg_insert_slice.jeff",
     )
 
@@ -518,13 +523,13 @@ def generate_qureg_split() -> None:
         "qureg",
         "alloc",
         [num_qubits.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(5))],
     )
     split = JeffOp(
         "qureg",
         "split",
         [alloc.outputs[0], index.outputs[0]],
-        [JeffValue(QuregType()), JeffValue(QuregType())],
+        [JeffValue(QuregType(3)), JeffValue(QuregType(2))],
     )
     free1 = JeffOp("qureg", "free", [split.outputs[0]], [])
     free2 = JeffOp("qureg", "free", [split.outputs[1]], [])
@@ -542,19 +547,19 @@ def generate_qureg_join() -> None:
         "qureg",
         "alloc",
         [num_qubits1.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(3))],
     )
     alloc2 = JeffOp(
         "qureg",
         "alloc",
         [num_qubits2.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(2))],
     )
     join = JeffOp(
         "qureg",
         "join",
         [alloc1.outputs[0], alloc2.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(5))],
     )
     free = JeffOp("qureg", "free", [join.outputs[0]], [])
     _create_and_write_module(
@@ -572,7 +577,7 @@ def generate_qureg_create() -> None:
         "qureg",
         "create",
         [alloc1.outputs[0], alloc2.outputs[0], alloc3.outputs[0]],
-        [JeffValue(QuregType())],
+        [JeffValue(QuregType(3))],
     )
     free = JeffOp("qureg", "free", [qureg_create.outputs[0]], [])
     _create_and_write_module(

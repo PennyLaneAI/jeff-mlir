@@ -1136,7 +1136,7 @@ def QuregSplitOp : Qureg_Op<"qureg_split", []> {
     }];
 }
 
-def QuregJoinOp : Qureg_Op<"qureg_join", [SameOperandsAndResultType]> {
+def QuregJoinOp : Qureg_Op<"qureg_join", []> {
     let summary = "Joins together two qubit registers into a single qubit register.";
     let description = [{}];
 
