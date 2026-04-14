@@ -113,6 +113,10 @@ TEST_P(NativeRoundTripTest, RoundTrip) {
         GTEST_SKIP();
     }
 
+    // The following programs are correctly round-tripped, but the tests fail due to the simple
+    // equivalence checking. The *_get_index and *_set_index tests fail because of the operation
+    // order not being preserved. The *_length tests fail because the program is simplified by a
+    // built-in canonicalization.
     if (testCase.filename == "unit_float_array_get_index.jeff" ||
         testCase.filename == "unit_float_array_length.jeff" ||
         testCase.filename == "unit_float_array_set_index.jeff" ||
