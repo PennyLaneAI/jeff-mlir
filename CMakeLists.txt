@@ -2,13 +2,14 @@ cmake_minimum_required(VERSION 3.20...4.2)
 
 project(
     jeff-mlir
+    VERSION 0.1.0
     DESCRIPTION "A jeff dialect in MLIR"
     LANGUAGES CXX C
 )
 
-option(BUILD_JEFF_MLIR_DOCS "Build docs for the Jeff MLIR project" ${PROJECT_IS_TOP_LEVEL})
-option(BUILD_JEFF_MLIR_TESTS "Build tests for the Jeff MLIR project" ${PROJECT_IS_TOP_LEVEL})
-option(BUILD_JEFF_MLIR_TRANSLATION "Build the translation module of the Jeff MLIR project" ON)
+option(BUILD_JEFF_MLIR_DOCS "Build docs for the jeff-mlir project" ${PROJECT_IS_TOP_LEVEL})
+option(BUILD_JEFF_MLIR_TESTS "Build tests for the jeff-mlir project" ${PROJECT_IS_TOP_LEVEL})
+option(BUILD_JEFF_MLIR_TRANSLATION "Build the translation module of the jeff-mlir project" ON)
 option(BUILD_JEFF_OPT "Build the jeff-opt executable" ${PROJECT_IS_TOP_LEVEL})
 
 if(NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD LESS 17)
