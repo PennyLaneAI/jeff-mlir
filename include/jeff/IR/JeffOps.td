@@ -986,7 +986,7 @@ def QuregFreeZeroOp : Qureg_Op<"qureg_free_zero", []> {
     }];
 }
 
-def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
+def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Extracts a single qubit from a qubit register.";
     let description = [{}];
 
@@ -1000,29 +1000,13 @@ def QuregExtractIndexOp : Qureg_Op<"qureg_extract_index", []> {
         QubitType:$out_qubit
     );
 
-    let builders = [
-        OpBuilder<
-        (ins
-            "mlir::Type":$out_qreg_type,
-            "mlir::Value":$in_qreg,
-            "mlir::Value":$index
-        ), [{
-            QuregExtractIndexOp::build($_builder, $_state,
-            out_qreg_type,
-            mlir::jeff::QubitType::get($_builder.getContext()),
-            in_qreg,
-            index
-            );
-        }]>,
-    ];
-
     // %qreg_in, %q = jeff.qureg_extract_index(%index) %qreg_in : !jeff.qureg, !jeff.qubit
     let assemblyFormat = [{
         `(` $index `)` $in_qreg attr-dict `:` functional-type(operands, results)
     }];
 }
 
-def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
+def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Insert a single qubit into a qubit register.";
     let description = [{}];
 
@@ -1042,7 +1026,7 @@ def QuregInsertIndexOp : Qureg_Op<"qureg_insert_index", []> {
     }];
 }
 
-def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", []> {
+def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Extract a slice of qubits from a qubit register given a range of indices.";
     let description = [{}];
 
@@ -1063,7 +1047,7 @@ def QuregExtractSliceOp : Qureg_Op<"qureg_extract_slice", []> {
     }];
 }
 
-def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", []> {
+def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Insert a slice of qubits into a qubit register.";
     let description = [{}];
 
@@ -1083,7 +1067,7 @@ def QuregInsertSliceOp : Qureg_Op<"qureg_insert_slice", []> {
     }];
 }
 
-def QuregLengthOp : Qureg_Op<"qureg_length", []> {
+def QuregLengthOp : Qureg_Op<"qureg_length", [TypesMatchWith<"in_qreg type matches out_qreg type", "in_qreg", "out_qreg", "$_self">]> {
     let summary = "Returns the length of the qubit register.";
     let description = [{}];
 
@@ -1095,20 +1079,6 @@ def QuregLengthOp : Qureg_Op<"qureg_length", []> {
         QuregType:$out_qreg,
         I32:$length
     );
-
-    let builders = [
-        OpBuilder<
-        (ins
-            "mlir::Type":$out_qreg_type,
-            "mlir::Value":$in_qreg
-        ), [{
-            QuregLengthOp::build($_builder, $_state,
-            out_qreg_type,
-            $_builder.getI32Type(),
-            in_qreg
-            );
-        }]>,
-    ];
 
     // %qreg_out, %length = jeff.qureg_length %qreg_in : !jeff.qureg, i32
     let assemblyFormat = [{

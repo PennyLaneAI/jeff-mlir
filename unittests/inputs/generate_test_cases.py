@@ -399,7 +399,7 @@ def generate_qureg_extract_index() -> None:
         "qureg",
         "extractIndex",
         [alloc.outputs[0], index.outputs[0]],
-        [JeffValue(QuregType(4)), JeffValue(QubitType())],
+        [JeffValue(QuregType(5)), JeffValue(QubitType())],
     )
     free1 = JeffOp("qureg", "free", [extract_index.outputs[0]], [])
     free2 = qubit_free(extract_index.outputs[1])
@@ -423,7 +423,7 @@ def generate_qureg_insert_index() -> None:
         "qureg",
         "extractIndex",
         [alloc.outputs[0], index.outputs[0]],
-        [JeffValue(QuregType(4)), JeffValue(QubitType())],
+        [JeffValue(QuregType(5)), JeffValue(QubitType())],
     )
     insert_index = JeffOp(
         "qureg",
