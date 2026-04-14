@@ -76,9 +76,11 @@ struct DeserializationContext {
         funcs[id] = func;
     }
 
-    jeff::Type::Reader getJeffType(uint32_t id) const { return jeffValues[id].getType(); }
+    [[nodiscard]] jeff::Type::Reader getJeffType(uint32_t id) const {
+        return jeffValues[id].getType();
+    }
 
-    int64_t getLength(uint32_t id) {
+    [[nodiscard]] int64_t getLength(uint32_t id) const {
         auto type = getJeffType(id);
         switch (type.which()) {
         case jeff::Type::QUREG:
