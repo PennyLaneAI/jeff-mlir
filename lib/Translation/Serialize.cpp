@@ -40,8 +40,8 @@ namespace {
 
 struct SerializationContext {
     llvm::DenseMap<mlir::Value, uint32_t> values;
-    llvm::StringMap<uint32_t> funcs;
-    llvm::StringMap<uint32_t> strings;
+    llvm::StringMap<uint16_t> funcs;
+    llvm::StringMap<uint16_t> strings;
 
     uint32_t getValueId(mlir::Value value) {
         auto it = values.find(value);
@@ -53,7 +53,7 @@ struct SerializationContext {
         return id;
     }
 
-    uint32_t getFuncId(llvm::StringRef funcName) {
+    uint16_t getFuncId(llvm::StringRef funcName) {
         auto it = funcs.find(funcName);
         if (it == funcs.end()) {
             llvm::errs() << "Function " << funcName << " not found\n";
@@ -62,7 +62,7 @@ struct SerializationContext {
         return it->second;
     }
 
-    uint32_t getStringId(llvm::StringRef str) {
+    uint16_t getStringId(llvm::StringRef str) {
         auto it = strings.find(str);
         if (it == strings.end()) {
             llvm::errs() << "String " << str << " not found\n";
@@ -1613,11 +1613,11 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
         });
 }
 
-void serializeFunction(jeff::Function::Builder funcBuilder, mlir::func::FuncOp func,
+void serializeFunction(jeff::Function::Builder functionBuilder, mlir::func::FuncOp func,
                        SerializationContext& ctx) {
     ctx.values.clear();
 
-    auto defBuilder = funcBuilder.initDefinition();
+    auto defBuilder = functionBuilder.initDefinition();
     auto& entryBlock = func.getRegion().front();
 
     // Build body
@@ -1673,14 +1673,14 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
     auto stringsAttr = llvm::cast<mlir::ArrayAttr>(module->getAttr("jeff.strings"));
     const auto numStrings = stringsAttr.size();
     auto stringsBuilder = moduleBuilder.initStrings(numStrings);
-    for (auto i = 0; i < numStrings; ++i) {
+    for (int32_t i = 0; i < numStrings; ++i) {
         const auto str = llvm::cast<mlir::StringAttr>(stringsAttr[i]).getValue().str();
         ctx.strings[str] = i;
         stringsBuilder.set(i, str);
     }
 
     // Build functions
-    uint32_t id = 0;
+    uint16_t id = 0;
     llvm::SmallVector<mlir::func::FuncOp> functions;
     for (auto func : module.getOps<mlir::func::FuncOp>()) {
         ctx.funcs[func.getSymName()] = id++;
