@@ -459,7 +459,7 @@ struct ConvertArithIndexCastOp final : OpConversionPattern<arith::IndexCastOp> {
 };
 
 /**
- * @brief Pass for converting built-in MLIR operations to Jeff operations
+ * @brief Pass for converting built-in MLIR operations to jeff operations
  */
 struct NativeToJeff final : impl::NativeToJeffBase<NativeToJeff> {
     using NativeToJeffBase::NativeToJeffBase;

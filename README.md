@@ -1,7 +1,7 @@
-## An MLIR dialect for the _jeff_ exchange format
+## An MLIR dialect for the `jeff` exchange format
 
-This repository is contains an MLIR dialect for the [_jeff_ exchange format](https://github.com/unitaryfoundation/jeff).
-The purpose is to facilitate conversion to and from _jeff_ for MLIR-based quantum compilers, and
+This repository is contains an MLIR dialect for the [`jeff` exchange format](https://github.com/unitaryfoundation/jeff).
+The purpose is to facilitate conversion to and from `jeff` for MLIR-based quantum compilers, and
 reuse certain components like the jeff serialization & deserialization.
 
 Right now, the project only contains the dialect definitions, (de)serialization is missing.
@@ -62,7 +62,7 @@ Finally, you can point the `MLIR_DIR` variable to `external/llvm-project/build/l
 </details>
 <br>
 
-From here, we can build the _jeff_ dialect simply via:
+From here, we can build the `jeff` dialect simply via:
 
 ```sh
 cmake -Bbuild -S. -GNinja && cmake --build build
@@ -78,4 +78,4 @@ TODO: Add instructions for setting up the dialect as an MLIR plugin.
 
 ## License
 
-This _jeff_ dialect is **free** and **open source**, released under the Apache License, Version 2.0.
+This `jeff` dialect is **free** and **open source**, released under the Apache License, Version 2.0.
