@@ -39,7 +39,7 @@ namespace {
 struct DeserializationContext {
     llvm::DenseMap<uint32_t, mlir::Value> values;
     capnp::List<jeff::Value>::Reader jeffValues;
-    llvm::DenseMap<uint32_t, mlir::func::FuncOp> funcs;
+    llvm::DenseMap<uint16_t, mlir::func::FuncOp> funcs;
     llvm::SmallVector<std::string> strings;
 
     mlir::Value getValue(uint32_t id) {
@@ -59,7 +59,7 @@ struct DeserializationContext {
         values[id] = value;
     }
 
-    mlir::func::FuncOp getFunc(uint32_t id) {
+    mlir::func::FuncOp getFunc(uint16_t id) {
         auto it = funcs.find(id);
         if (it == funcs.end()) {
             llvm::errs() << "Function " << id << " not found\n";
@@ -68,7 +68,7 @@ struct DeserializationContext {
         return it->second;
     }
 
-    void setFunc(uint32_t id, mlir::func::FuncOp func) {
+    void setFunc(uint16_t id, mlir::func::FuncOp func) {
         if (funcs.contains(id)) {
             llvm::errs() << "Function " << id << " already exists\n";
             llvm::report_fatal_error("Function already exists");
@@ -1506,7 +1506,7 @@ void deserializeOperations(mlir::ImplicitLocOpBuilder& builder,
 }
 
 void deserializeFunction(mlir::ImplicitLocOpBuilder& builder, jeff::Function::Reader function,
-                         DeserializationContext& ctx) {
+                         uint16_t functionId, DeserializationContext& ctx) {
     ctx.values.clear();
 
     // Get function definition
@@ -1555,7 +1555,7 @@ void deserializeFunction(mlir::ImplicitLocOpBuilder& builder, jeff::Function::Re
     const auto funcName = ctx.strings[function.getName()];
     auto funcType = builder.getFunctionType(sourceTypes, targetTypes);
     auto func = mlir::func::FuncOp::create(builder, funcName, funcType);
-    ctx.setFunc(function.getName(), func);
+    ctx.setFunc(functionId, func);
 
     mlir::OpBuilder::InsertionGuard guard(builder);
     auto& entryBlock = *func.addEntryBlock();
@@ -1622,8 +1622,9 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::
     const auto functions = jeffModule.getFunctions();
     ctx.funcs.reserve(functions.size());
 
+    uint16_t functionId = 0;
     for (const auto function : functions) {
-        deserializeFunction(builder, function, ctx);
+        deserializeFunction(builder, function, functionId++, ctx);
     }
 
     // Set metadata

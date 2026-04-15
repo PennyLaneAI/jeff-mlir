@@ -40,7 +40,7 @@ namespace {
 
 struct SerializationContext {
     llvm::DenseMap<mlir::Value, uint32_t> values;
-    llvm::StringMap<uint32_t> funcs;
+    llvm::StringMap<uint16_t> funcs;
     llvm::StringMap<uint32_t> strings;
 
     uint32_t getValueId(mlir::Value value) {
@@ -53,7 +53,7 @@ struct SerializationContext {
         return id;
     }
 
-    uint32_t getFuncId(llvm::StringRef funcName) {
+    uint16_t getFuncId(llvm::StringRef funcName) {
         auto it = funcs.find(funcName);
         if (it == funcs.end()) {
             llvm::errs() << "Function " << funcName << " not found\n";
@@ -1613,11 +1613,11 @@ void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
         });
 }
 
-void serializeFunction(jeff::Function::Builder funcBuilder, mlir::func::FuncOp func,
+void serializeFunction(jeff::Function::Builder functionBuilder, mlir::func::FuncOp func,
                        SerializationContext& ctx) {
     ctx.values.clear();
 
-    auto defBuilder = funcBuilder.initDefinition();
+    auto defBuilder = functionBuilder.initDefinition();
     auto& entryBlock = func.getRegion().front();
 
     // Build body
@@ -1680,7 +1680,7 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
     }
 
     // Build functions
-    uint32_t id = 0;
+    uint16_t id = 0;
     llvm::SmallVector<mlir::func::FuncOp> functions;
     for (auto func : module.getOps<mlir::func::FuncOp>()) {
         ctx.funcs[func.getSymName()] = id++;
