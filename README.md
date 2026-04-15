@@ -4,9 +4,6 @@ This repository is contains an MLIR dialect for the [`jeff` exchange format](htt
 The purpose is to facilitate conversion to and from `jeff` for MLIR-based quantum compilers, and
 reuse certain components like the jeff serialization & deserialization.
 
-Right now, the project only contains the dialect definitions, (de)serialization is missing.
-Conversion rules to and from standard MLIR dialects could also be added.
-
 ## Build instructions
 
 The dialect sources can be incorporated directly into an existing project (in-tree), or built
