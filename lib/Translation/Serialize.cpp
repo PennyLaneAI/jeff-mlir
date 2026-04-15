@@ -41,7 +41,7 @@ namespace {
 struct SerializationContext {
     llvm::DenseMap<mlir::Value, uint32_t> values;
     llvm::StringMap<uint16_t> funcs;
-    llvm::StringMap<uint32_t> strings;
+    llvm::StringMap<uint16_t> strings;
 
     uint32_t getValueId(mlir::Value value) {
         auto it = values.find(value);
@@ -62,7 +62,7 @@ struct SerializationContext {
         return it->second;
     }
 
-    uint32_t getStringId(llvm::StringRef str) {
+    uint16_t getStringId(llvm::StringRef str) {
         auto it = strings.find(str);
         if (it == strings.end()) {
             llvm::errs() << "String " << str << " not found\n";
@@ -1673,7 +1673,7 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
     auto stringsAttr = llvm::cast<mlir::ArrayAttr>(module->getAttr("jeff.strings"));
     const auto numStrings = stringsAttr.size();
     auto stringsBuilder = moduleBuilder.initStrings(numStrings);
-    for (auto i = 0; i < numStrings; ++i) {
+    for (int32_t i = 0; i < numStrings; ++i) {
         const auto str = llvm::cast<mlir::StringAttr>(stringsAttr[i]).getValue().str();
         ctx.strings[str] = i;
         stringsBuilder.set(i, str);
