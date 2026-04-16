@@ -421,7 +421,7 @@ template <typename JeffOp> struct ConvertJeffArrayCreateOp final : OpConversionP
 };
 
 /**
- * @brief Pass for converting Jeff operations to built-in MLIR operations
+ * @brief Pass for converting jeff operations to built-in MLIR operations
  */
 struct JeffToNative final : impl::JeffToNativeBase<JeffToNative> {
     using JeffToNativeBase::JeffToNativeBase;

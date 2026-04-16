@@ -1582,7 +1582,7 @@ void deserializeFunction(mlir::ImplicitLocOpBuilder& builder, jeff::Function::Re
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::StringRef path) {
     DeserializationContext ctx;
 
-    // Get Jeff module from file
+    // Get jeff module from file
     llvm::sys::fs::file_t file = 0;
     if (llvm::sys::fs::openFileForRead(path, file)) {
         llvm::report_fatal_error("Could not open file");

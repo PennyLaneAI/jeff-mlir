@@ -93,10 +93,10 @@ TEST_P(RoundTripTest, RoundTrip) {
     const fs::path inputsDir = TEST_INPUTS_DIR;
     const auto& path = inputsDir / testCase.filename;
 
-    // Load original Jeff module
+    // Load original jeff module
     auto original = readJeffFile(path.string());
 
-    // Deserialize Jeff module
+    // Deserialize jeff module
     auto mlirModule = deserialize(&context, path.string());
 
     llvm::errs() << "Deserialized MLIR module:\n";
@@ -112,7 +112,7 @@ TEST_P(RoundTripTest, RoundTrip) {
     // Serialize MLIR module
     serialize(*mlirModule, tempFilePath.str());
 
-    // Load serialized Jeff module
+    // Load serialized jeff module
     auto serialized = readJeffFile(tempFilePath.str());
 
     // Remove temporary file

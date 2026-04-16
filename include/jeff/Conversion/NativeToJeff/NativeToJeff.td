@@ -1,10 +1,10 @@
 include "mlir/Pass/PassBase.td"
 
 def NativeToJeff : Pass<"native-to-jeff"> {
-  let summary = "Convert built-in MLIR operations to Jeff operations";
+  let summary = "Convert built-in MLIR operations to `jeff` operations";
 
   let description = [{
-    This pass converts operations from built-in MLIR dialects to their equivalent operations in the Jeff dialect.
+    This pass converts operations from built-in MLIR dialects to their equivalent operations in the `jeff` dialect.
 
     Supported `arith` operations:
 
@@ -73,7 +73,7 @@ def NativeToJeff : Pass<"native-to-jeff"> {
 
     - `arith.constant` operations of type `index` are converted to `jeff.int_const_32` operations.
     - `arith.index_cast` operations are removed during conversion.
-      This assumes that functions have a Jeff-compatible signature (e.g., a function must not return an `index`).
+      This assumes that functions have a `jeff`-compatible signature (e.g., a function must not return an `index`).
       The conversion ensures that the created operations are compatible with each other.
   }];
 
