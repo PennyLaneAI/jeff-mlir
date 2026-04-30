@@ -8,7 +8,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
-#include <kj/array.h>
+#include <kj/common.h>
 #include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>

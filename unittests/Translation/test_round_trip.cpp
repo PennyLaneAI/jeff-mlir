@@ -10,7 +10,6 @@
 #include <kj/array.h>
 #include <kj/io.h>
 #include <kj/string-tree.h>
-#include <llvm/ADT/SmallString.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>

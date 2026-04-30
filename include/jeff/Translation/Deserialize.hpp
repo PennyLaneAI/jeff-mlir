@@ -1,7 +1,7 @@
 #pragma once
 
 #include <capnp/common.h>
-#include <kj/array.h>
+#include <kj/common.h>
 #include <llvm/ADT/StringRef.h>
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/MLIRContext.h>
