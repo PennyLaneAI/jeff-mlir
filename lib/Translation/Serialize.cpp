@@ -29,6 +29,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <system_error>
 #include <utility>
 
 static void checkRank(mlir::RankedTensorType tensorType) {
@@ -1731,21 +1732,13 @@ llvm::SmallVector<uint8_t> serialize(mlir::ModuleOp module) {
 }
 
 void serializeToFile(mlir::ModuleOp module, llvm::StringRef path) {
-    llvm::sys::fs::file_t file = 0;
-    if (llvm::sys::fs::openFileForWrite(path, file)) {
+    std::error_code ec;
+    llvm::raw_fd_ostream output(path, ec);
+    if (ec) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
-#ifdef _WIN32
-    kj::AutoCloseHandle autoCloseHandle(file);
-    kj::HandleOutputStream output(std::move(autoCloseHandle));
-#else
-    kj::AutoCloseFd autoCloseFd(file);
-    kj::FdOutputStream output(std::move(autoCloseFd));
-#endif
-
-    capnp::MallocMessageBuilder message;
-    writeMessage(module, message);
-    capnp::writeMessage(output, message);
+    auto bytes = serialize(module);
+    output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
 }

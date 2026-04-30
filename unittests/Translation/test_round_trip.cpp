@@ -13,6 +13,7 @@
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
+#include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/IR/MLIRContext.h>
@@ -41,22 +42,13 @@ class RoundTripTest : public ::testing::Test,
                       public ::testing::WithParamInterface<RoundTripTestCase> {};
 
 llvm::SmallVector<uint8_t> readJeffFile(llvm::StringRef path) {
-    llvm::sys::fs::file_t file = 0;
-    if (llvm::sys::fs::openFileForRead(path, file)) {
+    auto file = llvm::MemoryBuffer::getFile(path);
+    if (!file) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
-#ifdef _WIN32
-    kj::AutoCloseHandle autoCloseHandle(file);
-    kj::HandleInputStream input(std::move(autoCloseHandle));
-#else
-    kj::AutoCloseFd autoCloseFd(file);
-    kj::FdInputStream input(std::move(autoCloseFd));
-#endif
-
-    auto words = input.readAllBytes();
-    auto bytes = words.asBytes();
+    auto bytes = file.get()->getBuffer();
     return {reinterpret_cast<const uint8_t*>(bytes.begin()),
             reinterpret_cast<const uint8_t*>(bytes.end())};
 }

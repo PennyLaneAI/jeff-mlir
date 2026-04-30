@@ -16,6 +16,7 @@
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
+#include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/IR/Attributes.h>
@@ -1658,21 +1659,13 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
 
 mlir::OwningOpRef<mlir::ModuleOp> deserializeFromFile(mlir::MLIRContext* context,
                                                       llvm::StringRef path) {
-    // Get jeff module from file
-    llvm::sys::fs::file_t file = 0;
-    if (llvm::sys::fs::openFileForRead(path, file)) {
+    auto file = llvm::MemoryBuffer::getFile(path);
+    if (!file) {
+        llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
-#ifdef _WIN32
-    kj::AutoCloseHandle autoCloseHandle(file);
-    kj::HandleInputStream input(std::move(autoCloseHandle));
-#else
-    kj::AutoCloseFd autoCloseFd(file);
-    kj::FdInputStream input(std::move(autoCloseFd));
-#endif
-
-    auto bytes = input.readAllBytes();
-    llvm::ArrayRef<uint8_t> data(reinterpret_cast<const uint8_t*>(bytes.begin()), bytes.size());
+    auto bytes = file.get()->getBuffer();
+    llvm::ArrayRef<uint8_t> data(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
     return deserialize(context, data);
 }
