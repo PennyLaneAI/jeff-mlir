@@ -48,10 +48,8 @@ if(BUILD_JEFF_MLIR_TRANSLATION)
     add_dependencies(kj_external_lib capnproto_external)
 
     add_library(CapnProto::capnp INTERFACE IMPORTED)
-    set_target_properties(
-        CapnProto::capnp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CAPNPROTO_PREFIX}/include"
-                                    INTERFACE_LINK_LIBRARIES "capnp_external_lib;kj_external_lib"
-    )
+    target_include_directories(CapnProto::capnp INTERFACE ${CAPNPROTO_PREFIX}/include)
+    target_link_libraries(CapnProto::capnp INTERFACE capnp_external_lib kj_external_lib)
 endif()
 
 if(BUILD_JEFF_MLIR_TESTS)
