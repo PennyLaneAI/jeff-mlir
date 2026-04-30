@@ -9,7 +9,6 @@
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
 #include <kj/array.h>
-#include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringMap.h>
@@ -17,7 +16,6 @@
 #include <llvm/ADT/TypeSwitch.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
-#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/IR/BuiltinAttributes.h>
@@ -30,7 +28,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <system_error>
-#include <utility>
 
 static void checkRank(mlir::RankedTensorType tensorType) {
     if (tensorType.getRank() != 1) {

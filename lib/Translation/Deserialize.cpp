@@ -8,14 +8,11 @@
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
 #include <kj/array.h>
-#include <kj/common.h>
-#include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/ErrorHandling.h>
-#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
@@ -35,7 +32,6 @@
 #include <cstring>
 #include <string>
 #include <string_view>
-#include <utility>
 
 namespace {
 
