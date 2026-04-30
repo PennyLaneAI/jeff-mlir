@@ -1,20 +1,20 @@
 #pragma once
 
-#include <capnp/common.h>
-#include <kj/common.h>
-#include <llvm/ADT/StringRef.h>
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OwningOpRef.h>
+#include <mlir/Support/LLVM.h>
+
+#include <cstdint>
 
 /**
- * @brief Deserialize a flat word array into an MLIR module.
+ * @brief Deserialize a byte buffer into an MLIR module.
  * @param context The MLIR context to use for the deserialization.
- * @param data A flat word array containing the serialized module.
+ * @param data A byte buffer containing the serialized module.
  * @return An owning reference to the deserialized MLIR module.
  */
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              kj::ArrayPtr<capnp::word> data);
+                                              llvm::ArrayRef<uint8_t> data);
 
 /**
  * @brief Deserialize a .jeff file into an MLIR module.

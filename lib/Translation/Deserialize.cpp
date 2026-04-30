@@ -1581,11 +1581,14 @@ void deserializeFunction(mlir::ImplicitLocOpBuilder& builder, jeff::Function::Re
 } // namespace
 
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              kj::ArrayPtr<capnp::word> data) {
+                                              llvm::ArrayRef<uint8_t> data) {
     DeserializationContext ctx;
 
+    auto words = kj::heapArray<capnp::word>(data.size() / sizeof(capnp::word));
+    std::memcpy(words.begin(), data.data(), data.size());
+
     // Get jeff module from data
-    capnp::FlatArrayMessageReader message(data);
+    capnp::FlatArrayMessageReader message(words);
     jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
     // Create MLIR builder
@@ -1668,7 +1671,8 @@ mlir::OwningOpRef<mlir::ModuleOp> deserializeFromFile(mlir::MLIRContext* context
     kj::FdInputStream input(std::move(autoCloseFd));
 #endif
 
-    capnp::MallocMessageBuilder message;
-    capnp::readMessageCopy(input, message);
-    return deserialize(context, capnp::messageToFlatArray(message));
+    auto data = input.readAllBytes();
+    auto bytes = data.asBytes();
+    llvm::ArrayRef<uint8_t> buffer(reinterpret_cast<const uint8_t*>(bytes.begin()), bytes.size());
+    return deserialize(context, buffer);
 }

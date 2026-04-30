@@ -7,9 +7,10 @@
 #include <capnp/serialize.h>
 #include <gtest/gtest.h>
 #include <jeff.capnp.h>
-#include <kj/array.h>
 #include <kj/io.h>
 #include <kj/string-tree.h>
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
@@ -38,7 +39,7 @@ std::ostream& operator<<(std::ostream& os, const RoundTripTestCase& testCase) {
 class RoundTripTest : public ::testing::Test,
                       public ::testing::WithParamInterface<RoundTripTestCase> {};
 
-kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
+llvm::SmallVector<uint8_t> readJeffFile(llvm::StringRef path) {
     llvm::sys::fs::file_t file = 0;
     if (llvm::sys::fs::openFileForRead(path, file)) {
         llvm::errs() << "Failed to open file: " << path << "\n";
@@ -53,9 +54,20 @@ kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
     kj::FdInputStream input(std::move(autoCloseFd));
 #endif
 
+    auto words = input.readAllBytes();
+    auto bytes = words.asBytes();
+    return llvm::SmallVector<uint8_t>(reinterpret_cast<const uint8_t*>(bytes.begin()),
+                                      reinterpret_cast<const uint8_t*>(bytes.end()));
+}
+
+std::string moduleTextFromBytes(llvm::ArrayRef<uint8_t> data) {
+    kj::ArrayPtr<const kj::byte> bytes(reinterpret_cast<const kj::byte*>(data.data()), data.size());
+    kj::ArrayInputStream input(bytes);
+
     capnp::MallocMessageBuilder message;
     capnp::readMessageCopy(input, message);
-    return capnp::messageToFlatArray(message);
+    auto module = message.getRoot<jeff::Module>();
+    return std::string(module.toString().flatten().cStr());
 }
 
 std::vector<RoundTripTestCase> getTestCases() {
@@ -106,16 +118,12 @@ TEST_P(RoundTripTest, RoundTrip) {
     auto serialized = serialize(*mlirModule);
 
     // Compare textual representations
-    capnp::FlatArrayMessageReader originalMessage(original);
-    auto originalModule = originalMessage.getRoot<jeff::Module>();
-    auto originalText = originalModule.toString().flatten();
+    auto originalText = moduleTextFromBytes(original);
 
-    capnp::FlatArrayMessageReader serializedMessage(serialized);
-    auto serializedModule = serializedMessage.getRoot<jeff::Module>();
-    auto serializedText = serializedModule.toString().flatten();
+    auto serializedText = moduleTextFromBytes(serialized);
 
-    llvm::errs() << "Original module:\n" << originalText.cStr() << "\n\n";
-    llvm::errs() << "Serialized module:\n" << serializedText.cStr() << "\n\n";
+    llvm::errs() << "Original module:\n" << originalText << "\n\n";
+    llvm::errs() << "Serialized module:\n" << serializedText << "\n\n";
 
     ASSERT_EQ(originalText, serializedText);
 }

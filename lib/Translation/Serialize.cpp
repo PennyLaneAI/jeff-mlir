@@ -1721,10 +1721,14 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
 
 } // namespace
 
-kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
+llvm::SmallVector<uint8_t> serialize(mlir::ModuleOp module) {
     capnp::MallocMessageBuilder message;
     writeMessage(module, message);
-    return capnp::messageToFlatArray(message);
+
+    auto words = capnp::messageToFlatArray(message);
+    auto bytes = words.asBytes();
+    return llvm::SmallVector<uint8_t>(reinterpret_cast<const uint8_t*>(bytes.begin()),
+                                      reinterpret_cast<const uint8_t*>(bytes.end()));
 }
 
 void serializeToFile(mlir::ModuleOp module, llvm::StringRef path) {
