@@ -4,11 +4,11 @@
 #include "jeff/Translation/Deserialize.hpp"
 #include "jeff/Translation/Serialize.hpp"
 
-#include <capnp/common.h>
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <gtest/gtest.h>
 #include <jeff.capnp.h>
+#include <kj/common.h>
 #include <kj/io.h>
 #include <kj/string-tree.h>
 #include <llvm/ADT/ArrayRef.h>
@@ -25,6 +25,7 @@
 #include <mlir/Transforms/Passes.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <ostream>
 #include <string>
@@ -63,8 +64,8 @@ llvm::SmallVector<uint8_t> readJeffFile(llvm::StringRef path) {
 
     auto words = input.readAllBytes();
     auto bytes = words.asBytes();
-    return llvm::SmallVector<uint8_t>(reinterpret_cast<const uint8_t*>(bytes.begin()),
-                                      reinterpret_cast<const uint8_t*>(bytes.end()));
+    return {reinterpret_cast<const uint8_t*>(bytes.begin()),
+            reinterpret_cast<const uint8_t*>(bytes.end())};
 }
 
 std::string moduleTextFromBytes(llvm::ArrayRef<uint8_t> data) {
@@ -74,7 +75,7 @@ std::string moduleTextFromBytes(llvm::ArrayRef<uint8_t> data) {
     capnp::MallocMessageBuilder message;
     capnp::readMessageCopy(input, message);
     auto module = message.getRoot<jeff::Module>();
-    return std::string(module.toString().flatten().cStr());
+    return module.toString().flatten().cStr();
 }
 
 mlir::LogicalResult convertJeffToNative(mlir::ModuleOp module) {

@@ -4,7 +4,6 @@
 #include "jeff/IR/JeffInterfaces.h"
 #include "jeff/IR/JeffOps.h"
 
-#include <capnp/common.h>
 #include <capnp/list.h>
 #include <capnp/message.h>
 #include <capnp/serialize.h>
@@ -1727,8 +1726,8 @@ llvm::SmallVector<uint8_t> serialize(mlir::ModuleOp module) {
 
     auto words = capnp::messageToFlatArray(message);
     auto bytes = words.asBytes();
-    return llvm::SmallVector<uint8_t>(reinterpret_cast<const uint8_t*>(bytes.begin()),
-                                      reinterpret_cast<const uint8_t*>(bytes.end()));
+    return {reinterpret_cast<const uint8_t*>(bytes.begin()),
+            reinterpret_cast<const uint8_t*>(bytes.end())};
 }
 
 void serializeToFile(mlir::ModuleOp module, llvm::StringRef path) {

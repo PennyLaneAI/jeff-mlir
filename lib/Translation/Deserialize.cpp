@@ -5,9 +5,9 @@
 
 #include <capnp/common.h>
 #include <capnp/list.h>
-#include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
+#include <kj/array.h>
 #include <kj/common.h>
 #include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
@@ -31,6 +31,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <utility>
