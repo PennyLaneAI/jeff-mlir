@@ -139,7 +139,7 @@ TEST_P(NativeRoundTripTest, RoundTrip) {
     auto original = readJeffFile(path.string());
 
     // Deserialize jeff module
-    auto mlirModule = deserialize(&context, path.string());
+    auto mlirModule = deserializeFromFile(&context, path.string());
 
     llvm::errs() << "Input MLIR module:\n";
     mlirModule->print(llvm::errs());
@@ -162,22 +162,8 @@ TEST_P(NativeRoundTripTest, RoundTrip) {
     mlirModule->print(llvm::errs());
     llvm::errs() << "\n\n";
 
-    // Create temporary file
-    llvm::SmallString<128> tempFilePath;
-    if (llvm::sys::fs::createTemporaryFile("test", "jeff", tempFilePath)) {
-        llvm::report_fatal_error("Could not create temporary file");
-    }
-
     // Serialize MLIR module
-    serialize(*mlirModule, tempFilePath.str());
-
-    // Load serialized jeff module
-    auto serialized = readJeffFile(tempFilePath.str());
-
-    // Remove temporary file
-    if (llvm::sys::fs::remove(tempFilePath)) {
-        llvm::errs() << "Failed to remove temporary file\n";
-    }
+    auto serialized = serialize(*mlirModule);
 
     // Compare textual representations
     capnp::FlatArrayMessageReader originalMessage(original);

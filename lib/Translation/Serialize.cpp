@@ -8,6 +8,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
+#include <kj/array.h>
 #include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
@@ -1719,7 +1720,13 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
 
 } // namespace
 
-void serialize(mlir::ModuleOp module, llvm::StringRef path) {
+kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
+    capnp::MallocMessageBuilder message;
+    writeMessage(module, message);
+    return capnp::messageToFlatArray(message);
+}
+
+void serializeToFile(mlir::ModuleOp module, llvm::StringRef path) {
     llvm::sys::fs::file_t file = 0;
     if (llvm::sys::fs::openFileForWrite(path, file)) {
         llvm::errs() << "Failed to open file: " << path << "\n";

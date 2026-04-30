@@ -8,6 +8,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
+#include <kj/array.h>
 #include <kj/io.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
@@ -1579,25 +1580,12 @@ void deserializeFunction(mlir::ImplicitLocOpBuilder& builder, jeff::Function::Re
 
 } // namespace
 
-mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::StringRef path) {
+mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
+                                              kj::ArrayPtr<capnp::word> data) {
     DeserializationContext ctx;
 
-    // Get jeff module from file
-    llvm::sys::fs::file_t file = 0;
-    if (llvm::sys::fs::openFileForRead(path, file)) {
-        llvm::report_fatal_error("Could not open file");
-    }
-
-#ifdef _WIN32
-    kj::AutoCloseHandle autoCloseHandle(file);
-    kj::HandleInputStream input(std::move(autoCloseHandle));
-#else
-    kj::AutoCloseFd autoCloseFd(file);
-    kj::FdInputStream input(std::move(autoCloseFd));
-#endif
-
-    capnp::MallocMessageBuilder message;
-    capnp::readMessageCopy(input, message);
+    // Get jeff module from data
+    capnp::FlatArrayMessageReader message(data);
     jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
     // Create MLIR builder
@@ -1662,4 +1650,25 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context, llvm::
     }
 
     return mlirModule;
+}
+
+mlir::OwningOpRef<mlir::ModuleOp> deserializeFromFile(mlir::MLIRContext* context,
+                                                      llvm::StringRef path) {
+    // Get jeff module from file
+    llvm::sys::fs::file_t file = 0;
+    if (llvm::sys::fs::openFileForRead(path, file)) {
+        llvm::report_fatal_error("Could not open file");
+    }
+
+#ifdef _WIN32
+    kj::AutoCloseHandle autoCloseHandle(file);
+    kj::HandleInputStream input(std::move(autoCloseHandle));
+#else
+    kj::AutoCloseFd autoCloseFd(file);
+    kj::FdInputStream input(std::move(autoCloseFd));
+#endif
+
+    capnp::MallocMessageBuilder message;
+    capnp::readMessageCopy(input, message);
+    return deserialize(context, capnp::messageToFlatArray(message));
 }
