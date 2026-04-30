@@ -120,7 +120,6 @@ TEST_P(RoundTripTest, RoundTrip) {
 
     // Compare textual representations
     auto originalText = moduleTextFromBytes(original);
-
     auto serializedText = moduleTextFromBytes(serialized);
 
     llvm::errs() << "Original module:\n" << originalText << "\n\n";

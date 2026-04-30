@@ -1723,8 +1723,8 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
 llvm::SmallVector<uint8_t> serialize(mlir::ModuleOp module) {
     capnp::MallocMessageBuilder message;
     writeMessage(module, message);
-
     auto words = capnp::messageToFlatArray(message);
+
     auto bytes = words.asBytes();
     return {reinterpret_cast<const uint8_t*>(bytes.begin()),
             reinterpret_cast<const uint8_t*>(bytes.end())};

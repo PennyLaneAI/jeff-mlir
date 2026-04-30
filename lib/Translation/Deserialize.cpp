@@ -1585,10 +1585,10 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
                                               llvm::ArrayRef<uint8_t> data) {
     DeserializationContext ctx;
 
+    // Get jeff module from data
     auto words = kj::heapArray<capnp::word>(data.size() / sizeof(capnp::word));
     std::memcpy(words.begin(), data.data(), data.size());
 
-    // Get jeff module from data
     capnp::FlatArrayMessageReader message(words);
     jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
@@ -1672,8 +1672,7 @@ mlir::OwningOpRef<mlir::ModuleOp> deserializeFromFile(mlir::MLIRContext* context
     kj::FdInputStream input(std::move(autoCloseFd));
 #endif
 
-    auto data = input.readAllBytes();
-    auto bytes = data.asBytes();
-    llvm::ArrayRef<uint8_t> buffer(reinterpret_cast<const uint8_t*>(bytes.begin()), bytes.size());
-    return deserialize(context, buffer);
+    auto bytes = input.readAllBytes();
+    llvm::ArrayRef<uint8_t> data(reinterpret_cast<const uint8_t*>(bytes.begin()), bytes.size());
+    return deserialize(context, data);
 }
