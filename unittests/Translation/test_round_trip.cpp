@@ -2,6 +2,7 @@
 #include "jeff/Translation/Deserialize.hpp"
 #include "jeff/Translation/Serialize.hpp"
 
+#include <capnp/common.h>
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include <gtest/gtest.h>

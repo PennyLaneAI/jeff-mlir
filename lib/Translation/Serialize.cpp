@@ -30,8 +30,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <string>
-#include <system_error>
 #include <utility>
 
 static void checkRank(mlir::RankedTensorType tensorType) {

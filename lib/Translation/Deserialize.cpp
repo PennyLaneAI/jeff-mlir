@@ -7,6 +7,7 @@
 #include <capnp/list.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
+#include <kj/common.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -26,11 +27,11 @@
 #include <mlir/IR/Value.h>
 #include <mlir/IR/Verifier.h>
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <utility>
 
 namespace {
 
