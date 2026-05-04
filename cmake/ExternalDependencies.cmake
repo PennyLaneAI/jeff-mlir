@@ -14,6 +14,8 @@ if(BUILD_JEFF_MLIR_TRANSLATION)
         capnproto
         GIT_REPOSITORY https://github.com/capnproto/capnproto.git
         GIT_TAG v1.3.0
+        PATCH_COMMAND ${CMAKE_COMMAND} -E chdir <SOURCE_DIR> patch --forward -p1 -i
+                      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/capnproto-disable-tests.patch
     )
     list(APPEND FETCH_PACKAGES capnproto)
 endif()

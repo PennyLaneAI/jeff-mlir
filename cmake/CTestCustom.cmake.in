@@ -1,3 +1,0 @@
-set(CTEST_CUSTOM_TESTS_IGNORE kj-tests-run kj-heavy-tests-run capnp-tests-run capnp-heavy-tests-run
-                              capnp-evolution-tests-run
-)
