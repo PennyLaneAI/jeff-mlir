@@ -1,9 +1,8 @@
 #pragma once
 
-#include <llvm/Support/MemoryBuffer.h>
+#include <capnp/common.h>
+#include <kj/array.h>
 #include <mlir/IR/BuiltinOps.h>
-
-#include <memory>
 
 /**
  * @brief Serialize an MLIR module containing a jeff program into a memory buffer.
@@ -15,7 +14,7 @@
  *
  * - Only one-dimensional tensors with dynamic size are supported.
  */
-std::unique_ptr<llvm::MemoryBuffer> serialize(mlir::ModuleOp module);
+kj::Array<capnp::word> serialize(mlir::ModuleOp module);
 
 /**
  * @brief Serialize an MLIR module containing a jeff program into a .jeff file.

@@ -1568,23 +1568,9 @@ void deserializeFunction(mlir::ImplicitLocOpBuilder& builder,
     mlir::func::ReturnOp::create(builder, results);
 }
 
-} // namespace
-
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              llvm::MemoryBufferRef buffer) {
+                                              const jeff::Module::Reader& jeffModule) {
     DeserializationContext ctx;
-
-    // Get jeff module from buffer
-    const auto bytes = buffer.getBuffer();
-    assert(bytes.size() % sizeof(capnp::word) == 0 &&
-           "Serialized module size must be a multiple of capnp::word size");
-    assert(reinterpret_cast<uintptr_t>(bytes.data()) % alignof(capnp::word) == 0 &&
-           "Serialized module buffer must be aligned to capnp::word alignment");
-    auto words = kj::ArrayPtr(reinterpret_cast<const capnp::word*>(bytes.data()),
-                              bytes.size() / sizeof(capnp::word));
-
-    capnp::FlatArrayMessageReader message(words);
-    jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
 
     // Create MLIR builder
     mlir::ImplicitLocOpBuilder builder(mlir::UnknownLoc::get(context), context);
@@ -1649,6 +1635,15 @@ mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
 
     return mlirModule;
 }
+} // namespace
+
+mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
+                                              kj::ArrayPtr<capnp::word> buffer) {
+    DeserializationContext ctx;
+
+    capnp::FlatArrayMessageReader message(buffer);
+    return deserialize(context, message.getRoot<jeff::Module>());
+}
 
 mlir::OwningOpRef<mlir::ModuleOp> deserializeFromFile(mlir::MLIRContext* context,
                                                       llvm::StringRef path) {
@@ -1658,6 +1653,16 @@ mlir::OwningOpRef<mlir::ModuleOp> deserializeFromFile(mlir::MLIRContext* context
         llvm::report_fatal_error("Could not open file");
     }
 
-    const auto ownedBuffer = std::move(*file);
-    return deserialize(context, *ownedBuffer);
+    // Get jeff module from buffer
+    const auto bytes = (*file)->getBuffer();
+    assert(bytes.size() % sizeof(capnp::word) == 0 &&
+           "Serialized module size must be a multiple of capnp::word size");
+    assert(reinterpret_cast<uintptr_t>(bytes.data()) % alignof(capnp::word) == 0 &&
+           "Serialized module buffer must be aligned to capnp::word alignment");
+    const auto words = kj::ArrayPtr(reinterpret_cast<const capnp::word*>(bytes.data()),
+                                    bytes.size() / sizeof(capnp::word));
+
+    capnp::FlatArrayMessageReader message(words);
+    const jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
+    return deserialize(context, jeffModule);
 }

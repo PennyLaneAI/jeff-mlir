@@ -1,6 +1,6 @@
 #pragma once
 
-#include <llvm/Support/MemoryBuffer.h>
+#include <capnp/common.h>
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/OwningOpRef.h>
@@ -12,7 +12,7 @@
  * @return An owning reference to the deserialized MLIR module.
  */
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              llvm::MemoryBufferRef buffer);
+                                              kj::ArrayPtr<capnp::word> buffer);
 
 /**
  * @brief Deserialize a .jeff file into an MLIR module.
