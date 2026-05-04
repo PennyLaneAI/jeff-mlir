@@ -3,16 +3,13 @@ add_mlir_library(
     Deserialize.cpp
     Serialize.cpp
     LINK_LIBS
+    PRIVATE
     MLIRJeff
     MLIRFuncDialect
+    PUBLIC
     CapnProto::capnp
     DISABLE_INSTALL
 )
-
-add_dependencies(MLIRJeffTranslation capnproto_external-install)
-if(TARGET obj.MLIRJeffTranslation)
-    add_dependencies(obj.MLIRJeffTranslation capnproto_external-install)
-endif()
 
 target_include_directories(
     MLIRJeffTranslation PUBLIC ${jeff_SOURCE_DIR}/impl/cpp/src/capnp

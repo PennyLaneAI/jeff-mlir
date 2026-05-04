@@ -24,6 +24,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS
     CACHE BOOL "Export compile commands" FORCE
 )
 
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/CTestCustom.cmake COPYONLY
+)
+
 include(cmake/SetupMLIR.cmake)
 include(cmake/ExternalDependencies.cmake)
 
