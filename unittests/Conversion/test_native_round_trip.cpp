@@ -12,7 +12,6 @@
 #include <kj/io.h>
 #include <kj/string-tree.h>
 #include <llvm/ADT/ArrayRef.h>
-#include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
@@ -25,10 +24,11 @@
 #include <mlir/Transforms/Passes.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -46,25 +46,24 @@ std::ostream& operator<<(std::ostream& os, const NativeRoundTripTestCase& testCa
 class NativeRoundTripTest : public ::testing::Test,
                             public ::testing::WithParamInterface<NativeRoundTripTestCase> {};
 
-llvm::SmallVector<uint8_t> readJeffFile(llvm::StringRef path) {
+std::unique_ptr<llvm::MemoryBuffer> readJeffFile(llvm::StringRef path) {
     auto file = llvm::MemoryBuffer::getFile(path);
     if (!file) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
-    auto bytes = file.get()->getBuffer();
-    return {reinterpret_cast<const uint8_t*>(bytes.begin()),
-            reinterpret_cast<const uint8_t*>(bytes.end())};
+    return std::move(*file);
 }
 
-std::string moduleTextFromBytes(llvm::ArrayRef<uint8_t> data) {
-    kj::ArrayPtr<const kj::byte> bytes(reinterpret_cast<const kj::byte*>(data.data()), data.size());
-    kj::ArrayInputStream input(bytes);
+std::string moduleTextFromBuffer(const llvm::MemoryBufferRef& buffer) {
+    const auto bytes = buffer.getBuffer();
+    const kj::ArrayPtr kjBytes(reinterpret_cast<const kj::byte*>(bytes.data()), bytes.size());
+    kj::ArrayInputStream input(kjBytes);
 
     capnp::MallocMessageBuilder message;
     capnp::readMessageCopy(input, message);
-    auto module = message.getRoot<jeff::Module>();
+    const auto module = message.getRoot<jeff::Module>();
     return module.toString().flatten().cStr();
 }
 
@@ -138,7 +137,7 @@ TEST_P(NativeRoundTripTest, RoundTrip) {
     const auto& path = inputsDir / testCase.filename;
 
     // Load original jeff module
-    auto original = readJeffFile(path.string());
+    const auto original = readJeffFile(path.string());
 
     // Deserialize jeff module
     auto mlirModule = deserializeFromFile(&context, path.string());
@@ -165,11 +164,11 @@ TEST_P(NativeRoundTripTest, RoundTrip) {
     llvm::errs() << "\n\n";
 
     // Serialize MLIR module
-    auto serialized = serialize(*mlirModule);
+    const auto serialized = serialize(*mlirModule);
 
     // Compare textual representations
-    auto originalText = moduleTextFromBytes(original);
-    auto serializedText = moduleTextFromBytes(serialized);
+    const auto originalText = moduleTextFromBuffer(*original);
+    const auto serializedText = moduleTextFromBuffer(*serialized);
 
     llvm::errs() << "Original module:\n" << originalText << "\n\n";
     llvm::errs() << "Serialized module:\n" << serializedText << "\n\n";

@@ -7,7 +7,6 @@
 #include <capnp/list.h>
 #include <capnp/serialize.h>
 #include <jeff.capnp.h>
-#include <kj/array.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -29,9 +28,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace {
 
@@ -1579,12 +1578,17 @@ void deserializeFunction(mlir::ImplicitLocOpBuilder& builder, jeff::Function::Re
 } // namespace
 
 mlir::OwningOpRef<mlir::ModuleOp> deserialize(mlir::MLIRContext* context,
-                                              llvm::ArrayRef<uint8_t> data) {
+                                              llvm::MemoryBufferRef buffer) {
     DeserializationContext ctx;
 
-    // Get jeff module from data
-    auto words = kj::heapArray<capnp::word>(data.size() / sizeof(capnp::word));
-    std::memcpy(words.begin(), data.data(), data.size());
+    // Get jeff module from buffer
+    const auto bytes = buffer.getBuffer();
+    assert(bytes.size() % sizeof(capnp::word) == 0 &&
+           "Serialized module size must be a multiple of capnp::word size");
+    assert(reinterpret_cast<uintptr_t>(bytes.data()) % alignof(capnp::word) == 0 &&
+           "Serialized module buffer must be aligned to capnp::word alignment");
+    auto words = kj::ArrayPtr(reinterpret_cast<const capnp::word*>(bytes.data()),
+                              bytes.size() / sizeof(capnp::word));
 
     capnp::FlatArrayMessageReader message(words);
     jeff::Module::Reader jeffModule = message.getRoot<jeff::Module>();
@@ -1661,7 +1665,6 @@ mlir::OwningOpRef<mlir::ModuleOp> deserializeFromFile(mlir::MLIRContext* context
         llvm::report_fatal_error("Could not open file");
     }
 
-    auto bytes = file.get()->getBuffer();
-    llvm::ArrayRef<uint8_t> data(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-    return deserialize(context, data);
+    const auto ownedBuffer = std::move(*file);
+    return deserialize(context, *ownedBuffer);
 }

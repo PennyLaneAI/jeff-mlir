@@ -1,24 +1,24 @@
 #pragma once
 
+#include <llvm/Support/MemoryBuffer.h>
 #include <mlir/IR/BuiltinOps.h>
-#include <mlir/Support/LLVM.h>
 
-#include <cstdint>
+#include <memory>
 
 /**
- * @brief Serialize an MLIR module into a byte buffer.
+ * @brief Serialize an MLIR module containing a jeff program into a memory buffer.
  * @param module The MLIR module to serialize.
- * @return A byte buffer containing the serialized module.
+ * @return An owned memory buffer containing the serialized jeff module.
  *
  * @details
  * Known limitations:
  *
  * - Only one-dimensional tensors with dynamic size are supported.
  */
-llvm::SmallVector<uint8_t> serialize(mlir::ModuleOp module);
+std::unique_ptr<llvm::MemoryBuffer> serialize(mlir::ModuleOp module);
 
 /**
- * @brief Serialize an MLIR module into a .jeff file.
+ * @brief Serialize an MLIR module containing a jeff program into a .jeff file.
  * @param module The MLIR module to serialize.
  * @param path The path to the .jeff file.
  *

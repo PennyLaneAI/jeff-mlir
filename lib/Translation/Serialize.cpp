@@ -27,7 +27,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <system_error>
+#include <utility>
 
 static void checkRank(mlir::RankedTensorType tensorType) {
     if (tensorType.getRank() != 1) {
@@ -1716,26 +1718,44 @@ void writeMessage(mlir::ModuleOp module, capnp::MallocMessageBuilder& message) {
         llvm::cast<mlir::IntegerAttr>(module->getAttr("jeff.versionPatch")).getUInt());
 }
 
+class CapnpWordMemoryBuffer final : public llvm::MemoryBuffer {
+  public:
+    CapnpWordMemoryBuffer(kj::Array<capnp::word> words, llvm::StringRef bufferIdentifier)
+        : words(std::move(words)), bufferIdentifier(bufferIdentifier.str()) {
+        auto bytes = this->words.asBytes();
+        auto* start = reinterpret_cast<const char*>(bytes.begin());
+        init(start, start + bytes.size(), false);
+    }
+
+    llvm::StringRef getBufferIdentifier() const override { return bufferIdentifier; }
+
+    BufferKind getBufferKind() const override { return MemoryBuffer_Malloc; }
+
+  private:
+    kj::Array<capnp::word> words;
+    std::string bufferIdentifier;
+};
+
 } // namespace
 
-llvm::SmallVector<uint8_t> serialize(mlir::ModuleOp module) {
+std::unique_ptr<llvm::MemoryBuffer> serialize(mlir::ModuleOp module) {
     capnp::MallocMessageBuilder message;
     writeMessage(module, message);
-    auto words = capnp::messageToFlatArray(message);
-
-    auto bytes = words.asBytes();
-    return {reinterpret_cast<const uint8_t*>(bytes.begin()),
-            reinterpret_cast<const uint8_t*>(bytes.end())};
+    return std::make_unique<CapnpWordMemoryBuffer>(capnp::messageToFlatArray(message),
+                                                   "<serialized>");
 }
 
 void serializeToFile(mlir::ModuleOp module, llvm::StringRef path) {
     std::error_code ec;
     llvm::raw_fd_ostream output(path, ec);
     if (ec) {
-        llvm::errs() << "Failed to open file: " << path << "\n";
+        llvm::errs() << "Failed to open file: " << path << '\n';
         llvm::report_fatal_error("Could not open file");
     }
 
-    auto bytes = serialize(module);
-    output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    capnp::MallocMessageBuilder message;
+    writeMessage(module, message);
+    auto words = capnp::messageToFlatArray(message);
+    auto bytes = words.asBytes();
+    output.write(reinterpret_cast<const char*>(bytes.begin()), bytes.size());
 }
