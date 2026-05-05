@@ -7,10 +7,9 @@
 #include <capnp/serialize.h>
 #include <gtest/gtest.h>
 #include <jeff.capnp.h>
-#include <kj/array.h>
+#include <kj/common.h>
 #include <kj/io.h>
 #include <kj/string-tree.h>
-#include <llvm/ADT/SmallString.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
@@ -21,7 +20,6 @@
 #include <filesystem>
 #include <ostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -39,24 +37,31 @@ std::ostream& operator<<(std::ostream& os, const RoundTripTestCase& testCase) {
 class RoundTripTest : public ::testing::Test,
                       public ::testing::WithParamInterface<RoundTripTestCase> {};
 
-kj::Array<capnp::word> readJeffFile(llvm::StringRef path) {
-    llvm::sys::fs::file_t file = 0;
-    if (llvm::sys::fs::openFileForRead(path, file)) {
+std::string readJeffFileToText(llvm::StringRef path) {
+    auto file = llvm::sys::fs::openNativeFileForRead(path);
+    if (!file) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
+    capnp::MallocMessageBuilder message;
 #ifdef _WIN32
-    kj::AutoCloseHandle autoCloseHandle(file);
+    kj::AutoCloseHandle autoCloseHandle(*file);
     kj::HandleInputStream input(std::move(autoCloseHandle));
+    capnp::readMessageCopy(input, message);
 #else
-    kj::AutoCloseFd autoCloseFd(file);
-    kj::FdInputStream input(std::move(autoCloseFd));
+    const kj::AutoCloseFd autoCloseFd(*file);
+    capnp::readMessageCopyFromFd(autoCloseFd, message);
 #endif
 
-    capnp::MallocMessageBuilder message;
-    capnp::readMessageCopy(input, message);
-    return capnp::messageToFlatArray(message);
+    const auto module = message.getRoot<jeff::Module>();
+    return module.toString().flatten().cStr();
+}
+
+std::string moduleTextFromBuffer(const kj::ArrayPtr<capnp::word>& buffer) {
+    capnp::FlatArrayMessageReader message(buffer);
+    const auto module = message.getRoot<jeff::Module>();
+    return module.toString().flatten().cStr();
 }
 
 std::vector<RoundTripTestCase> getTestCases() {
@@ -93,44 +98,22 @@ TEST_P(RoundTripTest, RoundTrip) {
     const fs::path inputsDir = TEST_INPUTS_DIR;
     const auto& path = inputsDir / testCase.filename;
 
-    // Load original jeff module
-    auto original = readJeffFile(path.string());
-
     // Deserialize jeff module
-    auto mlirModule = deserialize(&context, path.string());
+    auto mlirModule = deserializeFromFile(&context, path.string());
 
     llvm::errs() << "Deserialized MLIR module:\n";
     mlirModule->print(llvm::errs());
     llvm::errs() << "\n\n";
 
-    // Create temporary file
-    llvm::SmallString<128> tempFilePath;
-    if (llvm::sys::fs::createTemporaryFile("test", "jeff", tempFilePath)) {
-        llvm::report_fatal_error("Could not create temporary file");
-    }
-
     // Serialize MLIR module
-    serialize(*mlirModule, tempFilePath.str());
-
-    // Load serialized jeff module
-    auto serialized = readJeffFile(tempFilePath.str());
-
-    // Remove temporary file
-    if (llvm::sys::fs::remove(tempFilePath)) {
-        llvm::errs() << "Failed to remove temporary file\n";
-    }
+    auto serialized = serialize(*mlirModule);
 
     // Compare textual representations
-    capnp::FlatArrayMessageReader originalMessage(original);
-    auto originalModule = originalMessage.getRoot<jeff::Module>();
-    auto originalText = originalModule.toString().flatten();
+    const auto originalText = readJeffFileToText(path.string());
+    const auto serializedText = moduleTextFromBuffer(serialized);
 
-    capnp::FlatArrayMessageReader serializedMessage(serialized);
-    auto serializedModule = serializedMessage.getRoot<jeff::Module>();
-    auto serializedText = serializedModule.toString().flatten();
-
-    llvm::errs() << "Original module:\n" << originalText.cStr() << "\n\n";
-    llvm::errs() << "Serialized module:\n" << serializedText.cStr() << "\n\n";
+    llvm::errs() << "Original module:\n" << originalText << "\n\n";
+    llvm::errs() << "Serialized module:\n" << serializedText << "\n\n";
 
     ASSERT_EQ(originalText, serializedText);
 }

@@ -1,0 +1,11 @@
+diff --git a/c++/src/CMakeLists.txt b/c++/src/CMakeLists.txt
+--- a/c++/src/CMakeLists.txt
++++ b/c++/src/CMakeLists.txt
+@@ -1,5 +1,8 @@
+
++# Disable vendored Cap'n Proto tests when consumed through FetchContent.
++set(BUILD_TESTING OFF)
++
+ # Tests ========================================================================
+
+ if(BUILD_TESTING)

@@ -1,4 +1,5 @@
 include(FetchContent)
+
 set(FETCH_PACKAGES "")
 
 if(BUILD_JEFF_MLIR_TRANSLATION)
@@ -9,7 +10,23 @@ if(BUILD_JEFF_MLIR_TRANSLATION)
     )
     list(APPEND FETCH_PACKAGES jeff)
 
-    find_package(CapnProto REQUIRED)
+    if(WIN32)
+        set(WITH_FIBERS
+            OFF
+            CACHE
+                BOOL
+                "Disable fiber support on Windows to avoid a build error due to disabled exceptions"
+                FORCE
+        )
+    endif()
+    FetchContent_Declare(
+        capnproto
+        GIT_REPOSITORY https://github.com/capnproto/capnproto.git
+        GIT_TAG v1.3.0
+        PATCH_COMMAND ${CMAKE_COMMAND} -E chdir <SOURCE_DIR> patch --forward -p1 -i
+                      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/capnproto-disable-tests.patch
+    )
+    list(APPEND FETCH_PACKAGES capnproto)
 endif()
 
 if(BUILD_JEFF_MLIR_TESTS)

@@ -1,10 +1,23 @@
 #pragma once
 
-#include <llvm/ADT/StringRef.h>
+#include <capnp/common.h>
+#include <kj/array.h>
 #include <mlir/IR/BuiltinOps.h>
 
 /**
- * @brief Serialize an MLIR module into a .jeff file.
+ * @brief Serialize an MLIR module containing a jeff program into a memory buffer.
+ * @param module The MLIR module to serialize.
+ * @return An owned memory buffer containing the serialized jeff module.
+ *
+ * @details
+ * Known limitations:
+ *
+ * - Only one-dimensional tensors with dynamic size are supported.
+ */
+kj::Array<capnp::word> serialize(mlir::ModuleOp module);
+
+/**
+ * @brief Serialize an MLIR module containing a jeff program into a .jeff file.
  * @param module The MLIR module to serialize.
  * @param path The path to the .jeff file.
  *
@@ -13,4 +26,4 @@
  *
  * - Only one-dimensional tensors with dynamic size are supported.
  */
-void serialize(mlir::ModuleOp module, llvm::StringRef path);
+void serializeToFile(mlir::ModuleOp module, llvm::StringRef path);
