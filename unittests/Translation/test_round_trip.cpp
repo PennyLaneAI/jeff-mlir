@@ -18,8 +18,8 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <ostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
