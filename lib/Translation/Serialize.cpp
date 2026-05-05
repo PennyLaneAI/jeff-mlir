@@ -28,14 +28,8 @@
 #include <mlir/IR/Types.h>
 #include <mlir/IR/Value.h>
 
-#ifdef _WIN32
-#include <io.h>
-#include <windows.h>
-#endif
-
 #include <cstddef>
 #include <cstdint>
-#include <utility>
 
 static void checkRank(mlir::RankedTensorType tensorType) {
     if (tensorType.getRank() != 1) {
@@ -1261,8 +1255,8 @@ void serializeSwitch(jeff::Op::Builder builder, mlir::jeff::SwitchOp op,
         auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
         const auto numTargets = yieldOp.getNumOperands();
         auto targets = branchBuilder.initTargets(numTargets);
-        for (size_t j = 0; j < numTargets; ++j) {
-            targets.set(j, ctx.getValueId(yieldOp.getOperand(j)));
+        for (size_t t = 0; t < numTargets; ++t) {
+            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
         }
     }
 
@@ -1290,8 +1284,8 @@ void serializeSwitch(jeff::Op::Builder builder, mlir::jeff::SwitchOp op,
         auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
         const auto numTargets = yieldOp.getNumOperands();
         auto targets = defaultBuilder.initTargets(numTargets);
-        for (size_t i = 0; i < numTargets; ++i) {
-            targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+        for (size_t t = 0; t < numTargets; ++t) {
+            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
         }
     }
 }
@@ -1333,8 +1327,8 @@ void serializeFor(jeff::Op::Builder builder, mlir::jeff::ForOp op, Serialization
     auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
     const auto numTargets = yieldOp.getNumOperands();
     auto targets = forBuilder.initTargets(numTargets);
-    for (size_t i = 0; i < numTargets; ++i) {
-        targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+    for (size_t t = 0; t < numTargets; ++t) {
+        targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
     }
 }
 
@@ -1403,8 +1397,8 @@ void serializeWhile(jeff::Op::Builder builder, mlir::jeff::WhileOp op, Serializa
         auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(body.front().back());
         const auto numTargets = yieldOp.getNumOperands();
         auto targets = bodyBuilder.initTargets(numTargets);
-        for (size_t i = 0; i < numTargets; ++i) {
-            targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+        for (size_t t = 0; t < numTargets; ++t) {
+            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
         }
     }
 }
@@ -1475,8 +1469,8 @@ void serializeDoWhile(jeff::Op::Builder builder, mlir::jeff::DoWhileOp op,
         auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(body.front().back());
         const auto numTargets = yieldOp.getNumOperands();
         auto targets = bodyBuilder.initTargets(numTargets);
-        for (size_t i = 0; i < numTargets; ++i) {
-            targets.set(i, ctx.getValueId(yieldOp.getOperand(i)));
+        for (size_t t = 0; t < numTargets; ++t) {
+            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
         }
     }
 }
@@ -1653,8 +1647,8 @@ void serializeFunction(jeff::Function::Builder functionBuilder, mlir::func::Func
     auto returnOp = llvm::cast<mlir::func::ReturnOp>(entryBlock.back());
     const auto numTargets = returnOp.getNumOperands();
     auto targetsBuilder = bodyBuilder.initTargets(numTargets);
-    for (unsigned i = 0; i < numTargets; ++i) {
-        targetsBuilder.set(i, ctx.getValueId(returnOp.getOperand(i)));
+    for (unsigned t = 0; t < numTargets; ++t) {
+        targetsBuilder.set(t, ctx.getValueId(returnOp.getOperand(t)));
     }
 
     // Build values
@@ -1664,10 +1658,10 @@ void serializeFunction(jeff::Function::Builder functionBuilder, mlir::func::Func
     for (auto& pair : ctx.values) {
         values[pair.second] = pair.first;
     }
-    for (size_t i = 0, j = 0; i < numValues; ++i) {
-        auto valueBuilder = valuesBuilder[i];
+    for (size_t v = 0; v < numValues; ++v) {
+        auto valueBuilder = valuesBuilder[v];
         auto typeBuilder = valueBuilder.initType();
-        serializeType(typeBuilder, values[i].getType());
+        serializeType(typeBuilder, values[v].getType());
     }
 }
 
@@ -1737,16 +1731,16 @@ void serializeToFile(mlir::ModuleOp module, llvm::StringRef path) {
     if (llvm::sys::fs::openFileForWrite(path, file)) {
         llvm::report_fatal_error("Could not open file");
     }
-
-#ifdef _WIN32
-    kj::AutoCloseHandle autoCloseHandle(file);
-    kj::HandleOutputStream output(std::move(autoCloseHandle));
-#else
-    kj::AutoCloseFd autoCloseFd(file);
-    kj::FdOutputStream output(std::move(autoCloseFd));
-#endif
-
+    auto fd = llvm::sys::fs::convertFDToNativeFile(file);
     capnp::MallocMessageBuilder message;
     writeMessage(module, message);
+
+#ifdef _WIN32
+    kj::AutoCloseHandle handle(fd);
+    kj::HandleOutputStream output(kj::mv(handle));
     capnp::writeMessage(output, message);
+#else
+    const kj::AutoCloseFd autoCloseFd(fd);
+    capnp::writeMessageToFd(autoCloseFd, message);
+#endif
 }

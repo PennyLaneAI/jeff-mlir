@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,22 +38,22 @@ class RoundTripTest : public ::testing::Test,
                       public ::testing::WithParamInterface<RoundTripTestCase> {};
 
 std::string readJeffFileToText(llvm::StringRef path) {
-    int file = 0;
-    if (llvm::sys::fs::openFileForRead(path, file)) {
+    auto file = llvm::sys::fs::openNativeFileForRead(path);
+    if (!file) {
         llvm::errs() << "Failed to open file: " << path << "\n";
         llvm::report_fatal_error("Could not open file");
     }
 
+    capnp::MallocMessageBuilder message;
 #ifdef _WIN32
-    kj::AutoCloseHandle autoCloseHandle(file);
+    kj::AutoCloseHandle autoCloseHandle(*file);
     kj::HandleInputStream input(std::move(autoCloseHandle));
+    capnp::readMessageCopy(input, message);
 #else
-    kj::AutoCloseFd autoCloseFd(file);
-    kj::FdInputStream input(std::move(autoCloseFd));
+    const kj::AutoCloseFd autoCloseFd(*file);
+    capnp::readMessageCopyFromFd(autoCloseFd, message);
 #endif
 
-    capnp::MallocMessageBuilder message;
-    capnp::readMessageCopy(input, message);
     const auto module = message.getRoot<jeff::Module>();
     return module.toString().flatten().cStr();
 }
