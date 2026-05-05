@@ -10,6 +10,15 @@ if(BUILD_JEFF_MLIR_TRANSLATION)
     )
     list(APPEND FETCH_PACKAGES jeff)
 
+    if(WIN32)
+        set(WITH_FIBERS
+            OFF
+            CACHE
+                BOOL
+                "Disable fiber support on Windows to avoid a build error due to disabled exceptions"
+                FORCE
+        )
+    endif()
     FetchContent_Declare(
         capnproto
         GIT_REPOSITORY https://github.com/capnproto/capnproto.git
