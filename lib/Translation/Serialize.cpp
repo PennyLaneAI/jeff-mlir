@@ -28,6 +28,11 @@
 #include <mlir/IR/Types.h>
 #include <mlir/IR/Value.h>
 
+#ifdef _WIN32
+#include <io.h>
+#include <windows.h>
+#endif
+
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -1728,7 +1733,7 @@ kj::Array<capnp::word> serialize(mlir::ModuleOp module) {
 }
 
 void serializeToFile(mlir::ModuleOp module, llvm::StringRef path) {
-    llvm::sys::fs::file_t file = 0;
+    int file = 0;
     if (llvm::sys::fs::openFileForWrite(path, file)) {
         llvm::report_fatal_error("Could not open file");
     }
