@@ -1882,7 +1882,7 @@ def FloatArrayCreateOp : FloatArray_Op<"float_array_create", []> {
 
 class SCF_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [SCFOperation]>;
 
-def SwitchOp : SCF_Op<"switch", []> {
+def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "";
     let description = [{}];
 
@@ -1905,7 +1905,7 @@ def SwitchOp : SCF_Op<"switch", []> {
     let hasRegionVerifier = 1;
 }
 
-def ForOp : SCF_Op<"for", []> {
+def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "";
     let description = [{}];
 
@@ -1927,7 +1927,7 @@ def ForOp : SCF_Op<"for", []> {
     let hasRegionVerifier = 1;
 }
 
-def WhileOp : SCF_Op<"while", []> {
+def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "";
     let description = [{}];
 
@@ -1949,7 +1949,7 @@ def WhileOp : SCF_Op<"while", []> {
     let hasRegionVerifier = 1;
 }
 
-def DoWhileOp : SCF_Op<"doWhile", []> {
+def DoWhileOp : SCF_Op<"doWhile", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "";
     let description = [{}];
 

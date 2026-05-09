@@ -239,11 +239,7 @@ void ForOp::print(OpAsmPrinter& p) {
         p << " -> (" << inValues.getTypes() << ')';
     }
 
-    if (Type t = inductionVar.getType(); !t.isIndex()) {
-        p << " : " << t << ' ';
-    } else {
-        p << ' ';
-    }
+    p << " : " << inductionVar.getType() << ' ';
 
     p.printRegion(getRegion(),
                   /*printEntryBlockArgs=*/false,
@@ -251,9 +247,86 @@ void ForOp::print(OpAsmPrinter& p) {
     p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult ForOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
-    // TODO: Implement this
-    llvm::report_fatal_error("ForOp::parse is not implemented yet");
+// Adapted from
+// https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L516
+ParseResult ForOp::parse(OpAsmParser& parser, OperationState& result) {
+    auto& builder = parser.getBuilder();
+    Type type;
+
+    OpAsmParser::Argument inductionVar;
+    OpAsmParser::UnresolvedOperand start;
+    OpAsmParser::UnresolvedOperand stop;
+    OpAsmParser::UnresolvedOperand step;
+
+    // Parse the induction variable followed by '='.
+    if (parser.parseOperand(inductionVar.ssaName) || parser.parseEqual() ||
+        // Parse loop bounds.
+        parser.parseOperand(start) || parser.parseKeyword("to") || parser.parseOperand(stop) ||
+        parser.parseKeyword("step") || parser.parseOperand(step)) {
+        return failure();
+    }
+
+    // Parse the optional initial iteration arguments.
+    llvm::SmallVector<OpAsmParser::Argument, 4> regionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 4> operands;
+    regionArgs.push_back(inductionVar);
+
+    bool hasArgs = succeeded(parser.parseOptionalKeyword("args"));
+    if (hasArgs) {
+        // Parse assignment list and result types list.
+        if (parser.parseAssignmentList(regionArgs, operands) ||
+            parser.parseArrowTypeList(result.types)) {
+            return failure();
+        }
+    }
+
+    if (regionArgs.size() != result.types.size() + 1) {
+        return parser.emitError(parser.getNameLoc(),
+                                "mismatch in number of loop-carried values and defined values");
+    }
+
+    // Parse type.
+    if (parser.parseColon() || parser.parseType(type)) {
+        return failure();
+    }
+
+    // Set block argument types so that they are known when parsing the region.
+    regionArgs.front().type = type;
+    for (auto [arg, argType] : llvm::zip_equal(llvm::drop_begin(regionArgs), result.types)) {
+        arg.type = argType;
+    }
+
+    // Parse the body region.
+    Region* body = result.addRegion();
+    if (parser.parseRegion(*body, regionArgs)) {
+        return failure();
+    }
+    ForOp::ensureTerminator(*body, builder, result.location);
+
+    // Resolve input operands. This should be done after parsing the region to
+    // catch invalid IR where operands were defined inside the region.
+    if (parser.resolveOperand(start, type, result.operands) ||
+        parser.resolveOperand(stop, type, result.operands) ||
+        parser.resolveOperand(step, type, result.operands)) {
+        return failure();
+    }
+    if (hasArgs) {
+        for (auto argOperandType :
+             llvm::zip_equal(llvm::drop_begin(regionArgs), operands, result.types)) {
+            Type argOpType = std::get<2>(argOperandType);
+            std::get<0>(argOperandType).type = argOpType;
+            if (parser.resolveOperand(std::get<1>(argOperandType), argOpType, result.operands)) {
+                return failure();
+            }
+        }
+    }
+
+    // Parse the optional attribute list.
+    if (parser.parseOptionalAttrDict(result.attributes)) {
+        return failure();
+    }
+
+    return success();
 }
 
 // Adapted from
