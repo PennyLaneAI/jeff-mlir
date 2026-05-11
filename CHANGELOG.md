@@ -4,7 +4,7 @@ This file tracks the changes to `jeff-mlir`.
 
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2026-04-14
+## [0.2.0] - 2026-05-11
 
 This release renames `serialize()` and `deserialize()` to `serializeToFile()` and `deserializeFromFile()`, respectively.
 The new `serialize()` and `deserialize()` functions serialize to and from a memory buffer instead.
