@@ -24,78 +24,72 @@ class ForOpTest : public ::testing::Test {
 // === Valid tests ===
 
 TEST_F(ForOpTest, BasicFormI32) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
         jeff.for %i = %lo to %hi step %s : i32 {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_TRUE(module);
+    )MLIR";
+    ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 TEST_F(ForOpTest, BasicFormI64) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i64, %hi: i64, %s: i64) {
         jeff.for %i = %lo to %hi step %s : i64 {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_TRUE(module);
+    )MLIR";
+    ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 // Body has no explicit `jeff.yield`.
 // `SingleBlockImplicitTerminator` should auto-insert one
 // via `ForOp::ensureTerminator`.
 TEST_F(ForOpTest, ImplicitYield) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
         jeff.for %i = %lo to %hi step %s : i32 {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_TRUE(module);
+    )MLIR";
+    ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 TEST_F(ForOpTest, WithArgsSingle) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32, %init: i32) -> i32 {
         %r = jeff.for %i = %lo to %hi step %s args(%acc = %init) -> (i32) : i32 {
           jeff.yield %acc : i32
         }
         return %r : i32
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_TRUE(module);
+    )MLIR";
+    ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 TEST_F(ForOpTest, WithArgsMultiple) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32, %a: i32, %b: i64) -> (i32, i64) {
         %r1, %r2 = jeff.for %i = %lo to %hi step %s args(%x = %a, %y = %b) -> (i32, i64) : i32 {
           jeff.yield %x, %y : i32, i64
         }
         return %r1, %r2 : i32, i64
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_TRUE(module);
+    )MLIR";
+    ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 TEST_F(ForOpTest, Nested) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
         jeff.for %i = %lo to %hi step %s : i32 {
           jeff.for %j = %lo to %hi step %s : i32 {}
         }
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_TRUE(module);
+    )MLIR";
+    ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 // `ForOp::print` elides the empty yield,
@@ -105,16 +99,15 @@ TEST_F(ForOpTest, Nested) {
 // handwritten MLIR.
 // The parser must accept this shape.
 TEST_F(ForOpTest, ExplicitEmptyYield) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
         jeff.for %i = %lo to %hi step %s : i32 {
           jeff.yield
         }
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_TRUE(module);
+    )MLIR";
+    ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 // Parse → print → parse → print, then assert idempotent.
@@ -128,7 +121,7 @@ TEST_F(ForOpTest, RoundTripIdempotent) {
         }
         return %r : i32
       }
-  )MLIR";
+    )MLIR";
 
     const auto module1 = parseSourceString<ModuleOp>(src, &ctx);
     ASSERT_TRUE(module1);
@@ -146,88 +139,81 @@ TEST_F(ForOpTest, RoundTripIdempotent) {
 // === Invalid syntax tests (parse-level) ===
 
 TEST_F(ForOpTest, InvalidMissingEquals) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
         jeff.for %i %lo to %hi step %s : i32 {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_FALSE(module);
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 TEST_F(ForOpTest, InvalidMissingTo) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
         jeff.for %i = %lo %hi step %s : i32 {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_FALSE(module);
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 TEST_F(ForOpTest, InvalidMissingType) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
         jeff.for %i = %lo to %hi step %s {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_FALSE(module);
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 TEST_F(ForOpTest, InvalidArgsWithoutArrow) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32, %init: i32) {
         jeff.for %i = %lo to %hi step %s args(%acc = %init) : i32 {
           jeff.yield %acc : i32
         }
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_FALSE(module);
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 // 2 region args, 1 result type.
 // Caught by the explicit size check in `parse`.
 TEST_F(ForOpTest, InvalidArgCountMismatch) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32, %x: i32, %y: i32) {
         jeff.for %i = %lo to %hi step %s args(%a = %x, %b = %y) -> (i32) : i32 {
           jeff.yield %a : i32
         }
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_FALSE(module);
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 // === Invalid semantics tests (verify-level) ===
 
 // `index` is rejected by SupportedIntType.
 TEST_F(ForOpTest, InvalidIndexType) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: index, %hi: index, %s: index) {
         jeff.for %i = %lo to %hi step %s : index {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_FALSE(module);
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
 // Floating-point types are rejected by SupportedIntType.
 TEST_F(ForOpTest, InvalidFloatType) {
-    const auto module = parseSourceString<ModuleOp>(R"MLIR(
+    const std::string src = R"MLIR(
       func.func @f(%lo: f32, %hi: f32, %s: f32) {
         jeff.for %i = %lo to %hi step %s : f32 {}
         return
       }
-  )MLIR",
-                                                    &ctx);
-    ASSERT_FALSE(module);
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }

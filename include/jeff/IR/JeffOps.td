@@ -1883,8 +1883,78 @@ def FloatArrayCreateOp : FloatArray_Op<"float_array_create", []> {
 class SCF_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [SCFOperation]>;
 
 def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
-    let summary = "";
-    let description = [{}];
+    let summary = "Multi-way branch on an integer selector";
+    let description = [{
+      The `jeff.switch` operation dispatches on an integer selector to one of
+      several branch regions or, if no case matches, an optional default
+      region. Branch labels are positional: the i-th branch region runs when
+      `selection` equals `i`. If `selection` does not match any branch label,
+      control flows to the `default` region.
+
+      The selector operand `selection` must be a `SupportedIntType` (one of
+      `i1`, `i8`, `i16`, `i32`, `i64`).
+
+      The op carries a list of in-values (`in_values`) shared across all
+      branches and the default region: each region declares its own local
+      block arguments, bound to the corresponding in-values on entry. Each
+      region must terminate with a `jeff.yield` whose operands provide the
+      op's results for the selected branch.
+
+      The default region is optional. When present, it covers any selector
+      value not matched by an explicit branch.
+
+      Unlike a `for` or `while` loop, a `switch` has no iteration semantics:
+      it dispatches once. The op's result count and types are therefore not
+      required to match the in-value count and types — branches may yield
+      any number of values of any type, provided every branch (and the
+      default, if present) yields the same shape.
+
+      Schematic syntax:
+      ```
+      jeff.switch ( $selection ) : $selection_type -> ( $result_types )
+      ( case $i args ( $assignments ) { $branch_body } )*
+      ( default args ( $assignments ) { $default_body } )?
+      ```
+
+      Example:
+      ```mlir
+      %r1, %r2 = jeff.switch (%sel) : i32 -> (i32, i64)
+      case 0 args(%x = %a, %y = %b) {
+        jeff.yield %x, %y : i32, i64
+      }
+      case 1 args(%x = %a, %y = %b) {
+        // ... compute %next_x, %next_y ...
+        jeff.yield %next_x, %next_y : i32, i64
+      }
+      default args(%x = %a, %y = %b) {
+        jeff.yield %x, %y : i32, i64
+      }
+      ```
+
+      Invariants:
+      - `selection` is a `SupportedIntType`.
+      - For each branch region and the default region (if present), each
+        block argument has the same type as the corresponding in-value.
+      - Every region's yielded values match the op's result types in
+        count and order.
+
+      Underspecified:
+      - The semantics when `selection` does not match any branch label and
+        the default region is absent.
+      - Structurally, the op admits zero branches and an empty default;
+        such a form is legal but meaningless and is not constrained out.
+      - Whether branch labels form a contiguous range starting at 0: the
+        printer emits them positionally, so this is currently implicit in
+        the in-memory representation rather than enforced.
+
+      Differences from `scf.index_switch`:
+      - Selector type is restricted to `SupportedIntType` (no `index`).
+      - Case labels are implicit and positional (`case 0`, `case 1`, ...)
+        rather than arbitrary integer literals.
+      - The default region is optional rather than mandatory.
+      - Supports loop-carried-style in-values shared across regions
+        (`scf.index_switch` has no iter-args mechanism).
+    }];
 
     let arguments = (ins
         SupportedIntType:$selection,
@@ -1906,8 +1976,86 @@ def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]
 }
 
 def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
-    let summary = "";
-    let description = [{}];
+    let summary = "Counted for loop with iteration arguments";
+    let description = [{
+      The `jeff.for` operation represents a counted loop over a half-open
+      integer range `[start, stop)`, advancing by `step` on each iteration.
+      The body executes once for every value the induction variable takes
+      while it remains less than `stop`, starting at `start`.
+
+      The op takes three SSA integer operands — `start`, `stop`, and
+      `step`, each of which must be a `SupportedIntType` (one of `i1`,
+      `i8`, `i16`, `i32`, `i64`). The induction variable has the same
+      type as `start`.
+
+      The op may optionally carry a list of loop-carried values
+      (`in_values`). These are bound to the corresponding body block
+      arguments on entry to each iteration and replaced at the end of
+      each iteration by the operands of the terminating `jeff.yield`.
+      The op's results (`out_values`) hold the final values of the
+      carried variables after the last iteration; their types must match
+      the types of `in_values`.
+
+      The body is a single block whose arguments are the induction
+      variable followed by one argument per loop-carried value. It must
+      terminate with a `jeff.yield` whose operand types and count match
+      `in_values`. When no values are carried, the terminator is inserted
+      implicitly by the parser.
+
+      Schematic syntax:
+      ```
+      jeff.for $induction_variable = $start to $stop step $step
+               ( args ( $assignments ) -> ( $result_types ) )?
+               : $induction_variable_type
+               { $body }
+      ```
+
+      The body's block-argument types are not printed explicitly: they
+      are recovered from `-> ( $result_types )`, which by the verifier
+      must equal the iter-arg types.
+
+      Example without carried values:
+      ```mlir
+      jeff.for %i = %lo to %hi step %s : i32 {
+        // body
+      }
+      ```
+
+      Example with carried values:
+      ```mlir
+      %r1, %r2 = jeff.for %i = %lo to %hi step %s
+                          args(%x = %a, %y = %b) -> (i32, i64) : i32 {
+        // ... compute %next_x, %next_y ...
+        jeff.yield %next_x, %next_y : i32, i64
+      }
+      ```
+
+      Invariants enforced by the verifier:
+      - `start`, `stop`, and `step` are each a `SupportedIntType`.
+      - The induction variable has the same type as `start`.
+      - The number of `in_values` equals the number of results.
+      - Each `in_value`, the corresponding body block argument, and the
+        corresponding result have matching types.
+
+      Underspecified (not currently enforced):
+      - Whether `start`, `stop`, and `step` must share a common type
+        (only `start` is checked against the induction variable).
+      - Comparison signedness (the operand types are signless MLIR
+        integers).
+      - That `step` is non-zero and positive.
+
+      Differences from `scf.for`:
+      - Bounds and step are restricted to `SupportedIntType`
+        (no `index`, no widths outside `{1, 8, 16, 32, 64}`).
+      - Uses the keyword `args` instead of `iter_args`, with a trailing
+        `-> ( result_types )` instead of the SCF arrow placement.
+      - The induction-variable type annotation `:` is always printed,
+        even when no values are carried.
+      - Does not implement `LoopLikeOpInterface`,
+        `RegionBranchOpInterface`, `RecursiveMemoryEffects`, or
+        `AutomaticAllocationScope`, so upstream loop-aware passes
+        (LICM, peeling, generic unrolling) do not apply.
+    }];
 
     let arguments = (ins
         SupportedIntType:$start,
@@ -1928,8 +2076,81 @@ def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
 }
 
 def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
-    let summary = "";
-    let description = [{}];
+    let summary = "While loop with iteration arguments";
+    let description = [{
+      The `jeff.while` operation represents a loop that repeats while a
+      condition holds. It has two regions:
+
+      - The `condition` region computes the loop's continuation predicate.
+        It must terminate with a `jeff.yield` whose only operand is an
+        `i1`. By the Jeff language spec, the condition region may not
+        modify quantum state (qubits or qubit registers); it may only
+        inspect classical metadata.
+      - The `body` region is executed when the condition yields `true`.
+        It must terminate with a `jeff.yield` whose operands become the
+        next iteration's input values, or — on the last iteration — the
+        op's results.
+
+      The op carries a list of `in_values` shared between both regions.
+      Each region declares its own local block arguments, bound to those
+      `in_values` on entry. Because the condition region does not modify
+      state, the same iteration values are visible to the body region
+      (formally, they are forwarded from the condition's inputs).
+
+      The types of `in_values`, the body region's yielded values, and the
+      op's results all match. There is a single signature for the loop.
+
+      Syntax:
+      ```
+      [ $results = ] jeff.while [ : ( $types ) ]
+                                args ( $cond_assignments ) $cond_body
+                                args ( $body_assignments ) $body_body
+      ```
+
+      The `: ( $types )` annotation is present iff `$types` is non-empty.
+      Both `args(...)` clauses are always emitted (possibly empty),
+      serving as a structural separator between the regions. The RHS of
+      both `args(...)` clauses must reference the same op operands in the
+      same order.
+
+      Example with loop-carried values:
+      ```mlir
+      %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
+        // condition
+        jeff.yield %pred : i1
+      } args(%b_x = %a, %b_y = %b) {
+        // body
+        jeff.yield %next_x, %next_y : i32, i64
+      }
+      ```
+
+      Example with no loop-carried values:
+      ```mlir
+      jeff.while args() {
+        jeff.yield %pred : i1
+      } args() {
+        // body (no values to yield)
+      }
+      ```
+
+      Invariants enforced by the verifier:
+      - The number of `in_values` equals the number of results.
+      - Each `in_value`, the corresponding block argument of each region,
+        and the corresponding result have matching types.
+      - Both regions terminate with a `jeff.yield` (per
+        `SingleBlockImplicitTerminator`).
+
+      Differences from `scf.while`:
+      - No `do` keyword between the regions; `args(...)` is the
+        structural separator.
+      - The condition region yields only `i1`; it does not also yield
+        values to the body region (in SCF, `scf.condition` yields an
+        `i1` plus the carried values).
+      - Both regions share a single op-level operand list; in SCF the
+        operand list feeds only the `before` region.
+      - Input types and result types are required to match (single
+        signature), reflecting the Jeff language design choice of T1 = T2.
+    }];
 
     let arguments = (ins
         Variadic<AnyType>:$in_values

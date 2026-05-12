@@ -3,6 +3,7 @@ set(test_name "jeff-mlir-parse-test")
 if(NOT TARGET ${test_name})
     add_executable(${test_name}
         test_parse_for_op.cpp
+        test_parse_while_op.cpp
     )
 
     target_link_libraries(${test_name} PRIVATE
