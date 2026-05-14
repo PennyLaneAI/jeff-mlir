@@ -19,6 +19,7 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/TypeSwitch.h>
 #include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/FormatVariadic.h>
 #include <mlir/IR/Block.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/MLIRContext.h>
@@ -446,9 +447,13 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
     // Sizes are already equal at this point (both equal types.size()), so just compare names.
     for (auto [c, b] : llvm::zip_equal(condOperands, bodyOperands)) {
         if (c.name != b.name || c.number != b.number) {
+            auto cOperand = llvm::formatv("%{0}{1}", c.name,
+                (c.number > 0) ? llvm::formatv("#{0}", c.number).str() : "");
+            auto bOperand = llvm::formatv("%{0}{1}", b.name,
+                (b.number > 0) ? llvm::formatv("#{0}", b.number).str() : "");
             return parser.emitError(parser.getNameLoc())
                    << "condition and body args must bind the same operands "
-                   << "(got " << b.name << ", expected " << c.name << ")";
+                   << "(got " << bOperand << ", expected " << cOperand << ")";
         }
     }
 
@@ -504,26 +509,117 @@ LogicalResult WhileOp::verifyRegions() {
 void DoWhileOp::print(OpAsmPrinter& p) {
     auto inValues = getInValues();
 
+    // Emit `: ( types )` only when there are in-values.
+    if (!inValues.empty()) {
+        p << " : (" << inValues.getTypes() << ")";
+    }
+
+    // Body region: `args ( $assignments )` then the region.
     auto& body = getBody();
     auto bodyArgs = body.getArguments();
     printInitializationList(p, bodyArgs, inValues, " args");
-    p << " -> (" << inValues.getTypes() << ") ";
+    p << ' ';
     p.printRegion(body, /*printEntryBlockArgs=*/false,
                   /*printBlockTerminators=*/!inValues.empty());
 
+    // Condition region: `args ( $assignments )` then the region.
     auto& condition = getCondition();
     auto conditionArgs = condition.getArguments();
     printInitializationList(p, conditionArgs, inValues, " args");
-    p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
+    p << ' ';
     p.printRegion(condition, /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/!inValues.empty());
+                  /*printBlockTerminators=*/true);
 
     p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult DoWhileOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
-    // TODO: Implement this
-    llvm::report_fatal_error("DoWhileOp::parse is not implemented yet");
+ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
+    auto& builder = parser.getBuilder();
+
+    Region* body = result.addRegion();
+    Region* condition = result.addRegion();
+
+    // Parse optional `: ( types )`. Omitted when there are no in-values.
+    llvm::SmallVector<Type, 4> types;
+    if (succeeded(parser.parseOptionalColon())) {
+        if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+                return parser.parseType(types.emplace_back());
+            })) {
+            return failure();
+        }
+    }
+
+    // Parse the body region's `args ( $assignments )`.
+    llvm::SmallVector<OpAsmParser::Argument, 4> bodyRegionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 4> bodyOperands;
+    if (parser.parseKeyword("args") || parser.parseAssignmentList(bodyRegionArgs, bodyOperands)) {
+        return failure();
+    }
+
+    if (bodyRegionArgs.size() != types.size()) {
+        return parser.emitError(parser.getNameLoc())
+               << "expected " << types.size() << " body arguments but got "
+               << bodyRegionArgs.size();
+    }
+
+    for (auto [arg, ty] : llvm::zip_equal(bodyRegionArgs, types)) {
+        arg.type = ty;
+    }
+
+    if (parser.parseRegion(*body, bodyRegionArgs)) {
+        return failure();
+    }
+    WhileOp::ensureTerminator(*body, builder, result.location);
+
+    // Parse the condition region's `args ( $assignments )`.
+    llvm::SmallVector<OpAsmParser::Argument, 4> condRegionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 4> condOperands;
+    if (parser.parseKeyword("args") || parser.parseAssignmentList(condRegionArgs, condOperands)) {
+        return failure();
+    }
+
+    if (condRegionArgs.size() != types.size()) {
+        return parser.emitError(parser.getNameLoc())
+               << "expected " << types.size() << " condition arguments but got "
+               << condRegionArgs.size();
+    }
+
+    // Both args clauses must reference the same operands.
+    // Sizes are already equal at this point (both equal types.size()), so just compare names.
+    for (auto [b, c] : llvm::zip_equal(bodyOperands, condOperands)) {
+        if (b.name != c.name || b.number != c.number) {
+            auto bOperand = llvm::formatv("%{0}{1}", b.name,
+                (b.number > 0) ? llvm::formatv("#{0}", b.number).str() : "");
+            auto cOperand = llvm::formatv("%{0}{1}", c.name,
+                (c.number > 0) ? llvm::formatv("#{0}", c.number).str() : "");
+            return parser.emitError(parser.getNameLoc())
+                   << "body and condition args must bind the same operands "
+                   << "(got " << cOperand << ", expected " << bOperand << ")";
+        }
+    }
+
+    for (auto [arg, ty] : llvm::zip_equal(condRegionArgs, types)) {
+        arg.type = ty;
+    }
+
+    if (parser.parseRegion(*condition, condRegionArgs)) {
+        return failure();
+    }
+    WhileOp::ensureTerminator(*condition, builder, result.location);
+
+    // Resolve operands (condition and body operand lists are equal).
+    if (parser.resolveOperands(condOperands, types, parser.getCurrentLocation(), result.operands)) {
+        return failure();
+    }
+
+    // Op results have the same types as in-values.
+    result.addTypes(types);
+
+    if (parser.parseOptionalAttrDict(result.attributes)) {
+        return failure();
+    }
+
+    return success();
 }
 
 LogicalResult DoWhileOp::verify() {
