@@ -4,6 +4,7 @@ if(NOT TARGET ${test_name})
     add_executable(${test_name}
         test_parse_do_while_op.cpp
         test_parse_for_op.cpp
+        test_parse_switch_op.cpp
         test_parse_while_op.cpp
     )
 

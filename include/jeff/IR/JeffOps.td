@@ -1896,7 +1896,7 @@ def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]
 
       The op carries a list of in-values (`in_values`) shared across all
       branches and the default region: each region declares its own local
-      block arguments, bound to the corresponding in-values on entry. Each
+      block arguments, bound positionally to the in-values on entry. Each
       region must terminate with a `jeff.yield` whose operands provide the
       op's results for the selected branch.
 
@@ -1905,55 +1905,63 @@ def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]
 
       Unlike a `for` or `while` loop, a `switch` has no iteration semantics:
       it dispatches once. The op's result count and types are therefore not
-      required to match the in-value count and types — branches may yield
-      any number of values of any type, provided every branch (and the
-      default, if present) yields the same shape.
+      related to the in-value count and types — branches may yield any
+      number of values of any type, provided every branch (and the default,
+      if present) yields the same shape.
 
       Schematic syntax:
       ```
-      jeff.switch ( $selection ) : $selection_type -> ( $result_types )
-      ( case $i args ( $assignments ) { $branch_body } )*
-      ( default args ( $assignments ) { $default_body } )?
+      jeff.switch ( $selection, $in_values ) : ( $selection_type, $in_value_types )
+                                            -> ( $result_types )
+      ( case $i args ( $local_names ) { $branch_body } )*
+      ( default args ( $local_names ) { $default_body } )?
       ```
 
       Example:
       ```mlir
-      %r1, %r2 = jeff.switch (%sel) : i32 -> (i32, i64)
-      case 0 args(%x = %a, %y = %b) {
+      %r1, %r2 = jeff.switch (%sel, %a, %b) : (i32, i32, i64) -> (i32, i64)
+      case 0 args(%x, %y) {
         jeff.yield %x, %y : i32, i64
       }
-      case 1 args(%x = %a, %y = %b) {
+      case 1 args(%x, %y) {
         // ... compute %next_x, %next_y ...
         jeff.yield %next_x, %next_y : i32, i64
       }
-      default args(%x = %a, %y = %b) {
+      default args(%x, %y) {
         jeff.yield %x, %y : i32, i64
       }
       ```
 
+      Implicit inferences in the syntax:
+      - Each region's `args(%x, %y)` lists *only the local block-argument
+        names*, not assignments. The block arguments are bound positionally
+        to the op's `in_values` (in the example above, `%x` to `%a`, `%y`
+        to `%b`) — the operands are already named in the op's header.
+      - Block-argument types are not written: they are inferred from the
+        in-value types in the header.
+
       Invariants:
       - `selection` is a `SupportedIntType`.
-      - For each branch region and the default region (if present), each
-        block argument has the same type as the corresponding in-value.
-      - Every region's yielded values match the op's result types in
-        count and order.
+      - Case labels are contiguous integers starting at 0: the i-th
+        branch region is labeled `case i`. The parser enforces this so
+        that print-then-parse is faithful.
+      - Every region's block argument count and types match `in_values`.
+      - Every region's yielded value count and types match the op's
+        result types.
 
       Underspecified:
       - The semantics when `selection` does not match any branch label and
         the default region is absent.
       - Structurally, the op admits zero branches and an empty default;
         such a form is legal but meaningless and is not constrained out.
-      - Whether branch labels form a contiguous range starting at 0: the
-        printer emits them positionally, so this is currently implicit in
-        the in-memory representation rather than enforced.
 
       Differences from `scf.index_switch`:
       - Selector type is restricted to `SupportedIntType` (no `index`).
       - Case labels are implicit and positional (`case 0`, `case 1`, ...)
         rather than arbitrary integer literals.
       - The default region is optional rather than mandatory.
-      - Supports loop-carried-style in-values shared across regions
-        (`scf.index_switch` has no iter-args mechanism).
+      - Supports in-values shared across regions, decoupled from the
+        op's results (`scf.index_switch` has no shared-value mechanism).
     }];
 
     let arguments = (ins
@@ -1971,7 +1979,6 @@ def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]
     );
 
     let hasCustomAssemblyFormat = 1;
-    let hasVerifier = 1;
     let hasRegionVerifier = 1;
 }
 
@@ -2113,6 +2120,12 @@ def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> 
       both `args(...)` clauses must reference the same op operands in the
       same order.
 
+      Implicit inferences in the syntax:
+      - Result types are not written: they are the same as the `: (...)`
+        types (Jeff's single-signature design choice, T1 = T2).
+      - Block-argument types inside the `args(...)` clauses are not
+        written: they are inferred from the same `: (...)` annotation.
+
       Example with loop-carried values:
       ```mlir
       %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
@@ -2213,12 +2226,18 @@ def DoWhileOp : SCF_Op<"doWhile", [SingleBlockImplicitTerminator<"jeff::YieldOp"
       both `args(...)` clauses must reference the same op operands in the
       same order.
 
+      Implicit inferences in the syntax:
+      - Result types are not written: they are the same as the `: (...)`
+        types (Jeff's single-signature design choice, T1 = T2).
+      - Block-argument types inside the `args(...)` clauses are not
+        written: they are inferred from the same `: (...)` annotation.
+
       Example with loop-carried values:
       ```mlir
-      %r1, %r2 = jeff.doWhile : (i32, i64) args(%c_x = %a, %c_y = %b) {
+      %r1, %r2 = jeff.doWhile : (i32, i64) args(%b_x = %a, %b_y = %b) {
         // body
         jeff.yield %next_x, %next_y : i32, i64
-      } args(%b_x = %a, %b_y = %b) {
+      } args(%c_x = %a, %c_y = %b) {
         // condition
         jeff.yield %pred : i1
       }
