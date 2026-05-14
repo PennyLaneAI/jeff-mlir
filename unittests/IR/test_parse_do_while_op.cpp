@@ -41,7 +41,7 @@ TEST_F(DoWhileOpTest, WithArgsSingle) {
       func.func @f(%a: i32, %pred: i1) -> i32 {
         %r = jeff.doWhile : (i32) args(%b_x = %a) {
           jeff.yield %b_x : i32
-        } args(%c_x = %a) {
+        } args(%c_x) {
           jeff.yield %pred : i1
         }
         return %r : i32
@@ -55,7 +55,7 @@ TEST_F(DoWhileOpTest, WithArgsMultiple) {
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
         %r1, %r2 = jeff.doWhile : (i32, i64) args(%b_x = %a, %b_y = %b) {
           jeff.yield %b_x, %b_y : i32, i64
-        } args(%c_x = %a, %c_y = %b) {
+        } args(%c_x, %c_y) {
           jeff.yield %pred : i1
         }
         return %r1, %r2 : i32, i64
@@ -70,11 +70,11 @@ TEST_F(DoWhileOpTest, Nested) {
         %r = jeff.doWhile : (i32) args(%b_x = %a) {
           %s = jeff.doWhile : (i32) args(%bb = %b_x) {
             jeff.yield %bb : i32
-          } args(%cc = %b_x) {
+          } args(%cc) {
             jeff.yield %pred : i1
           }
           jeff.yield %s : i32
-        } args(%c_x = %a) {
+        } args(%c_x) {
           jeff.yield %pred : i1
         }
         return %r : i32
@@ -109,7 +109,7 @@ TEST_F(DoWhileOpTest, RoundTripIdempotent) {
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
         %r1, %r2 = jeff.doWhile : (i32, i64) args(%b_x = %a, %b_y = %b) {
           jeff.yield %b_x, %b_y : i32, i64
-        } args(%c_x = %a, %c_y = %b) {
+        } args(%c_x, %c_y) {
           jeff.yield %pred : i1
         }
         return %r1, %r2 : i32, i64
@@ -134,9 +134,9 @@ TEST_F(DoWhileOpTest, RoundTripIdempotent) {
 TEST_F(DoWhileOpTest, InvalidMissingArgsKeyword) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
-        jeff.doWhile : (i32) (%c_x = %a) {
+        jeff.doWhile : (i32) (%b_x = %a) {
           jeff.yield %b_x : i32
-        } args(%b_x = %a) {
+        } args(%c_x) {
           jeff.yield %pred : i1
         }
         return
@@ -149,9 +149,9 @@ TEST_F(DoWhileOpTest, InvalidMissingArgsKeyword) {
 TEST_F(DoWhileOpTest, InvalidArgCountMismatchWithTypes) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
-        jeff.doWhile : (i32, i64) args(%c_x = %a) {
+        jeff.doWhile : (i32, i64) args(%b_x = %a) {
           jeff.yield %b_x : i32
-        } args(%b_x = %a) {
+        } args(%c_x) {
           jeff.yield %pred : i1
         }
         return
@@ -160,31 +160,16 @@ TEST_F(DoWhileOpTest, InvalidArgCountMismatchWithTypes) {
     ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
-// Condition has 2 args but body has 1.
-TEST_F(DoWhileOpTest, InvalidCondBodyArgCountMismatch) {
+// Body has 2 args but condition has 1.
+TEST_F(DoWhileOpTest, InvalidBodyCondArgCountMismatch) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %b: i64, %pred: i1) {
-        jeff.doWhile : (i32, i64) args(%c_x = %a, %c_y = %b) {
-          jeff.yield %b_x : i32
-        } args(%b_x = %a) {
+        jeff.doWhile : (i32, i64) args(%b_x = %a, %b_y = %b) {
+          jeff.yield %b_x, %b_y : i32, i64
+        } args(%c_x) {
           jeff.yield %pred : i1
         }
         return
-      }
-    )MLIR";
-    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
-}
-
-// Condition and body bind to different operand SSA values.
-TEST_F(DoWhileOpTest, InvalidCondBodyOperandsDiffer) {
-    const std::string src = R"MLIR(
-      func.func @f(%a: i32, %b: i32, %pred: i1) -> i32 {
-        %r = jeff.doWhile : (i32) args(%c_x = %a) {
-          jeff.yield %b_x : i32
-        } args(%b_x = %b) {
-          jeff.yield %pred : i1
-        }
-        return %r : i32
       }
     )MLIR";
     ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
@@ -194,9 +179,9 @@ TEST_F(DoWhileOpTest, InvalidCondBodyOperandsDiffer) {
 TEST_F(DoWhileOpTest, InvalidMissingTypeAnnotation) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
-        jeff.doWhile args(%c_x = %a) {
+        jeff.doWhile args(%b_x = %a) {
           jeff.yield %b_x : i32
-        } args(%b_x = %a) {
+        } args(%c_x) {
           jeff.yield %pred : i1
         }
         return

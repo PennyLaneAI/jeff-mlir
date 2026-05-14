@@ -2111,27 +2111,29 @@ def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> 
       ```
       [ $results = ] jeff.while [ : ( $types ) ]
                                 args ( $cond_assignments ) $cond_body
-                                args ( $body_assignments ) $body_body
+                                args ( $body_names ) $body_body
       ```
 
       The `: ( $types )` annotation is present iff `$types` is non-empty.
       Both `args(...)` clauses are always emitted (possibly empty),
-      serving as a structural separator between the regions. The RHS of
-      both `args(...)` clauses must reference the same op operands in the
-      same order.
+      serving as a structural separator between the regions.
 
       Implicit inferences in the syntax:
       - Result types are not written: they are the same as the `: (...)`
         types (Jeff's single-signature design choice, T1 = T2).
       - Block-argument types inside the `args(...)` clauses are not
         written: they are inferred from the same `: (...)` annotation.
+      - The body region's `args(...)` lists only local block-argument
+        names, not assignments. The operands are stated once in the
+        condition's `args(...)`; the body's block arguments are bound
+        positionally to those same operands.
 
       Example with loop-carried values:
       ```mlir
       %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
         // condition
         jeff.yield %pred : i1
-      } args(%b_x = %a, %b_y = %b) {
+      } args(%b_x, %b_y) {
         // body
         jeff.yield %next_x, %next_y : i32, i64
       }
@@ -2216,28 +2218,30 @@ def DoWhileOp : SCF_Op<"doWhile", [SingleBlockImplicitTerminator<"jeff::YieldOp"
       Syntax:
       ```
       [ $results = ] jeff.doWhile [ : ( $types ) ]
-                                args ( $body_assignments ) $body_body
-                                args ( $cond_assignments ) $cond_body
+                                  args ( $body_assignments ) $body_body
+                                  args ( $cond_names ) $cond_body
       ```
 
       The `: ( $types )` annotation is present iff `$types` is non-empty.
       Both `args(...)` clauses are always emitted (possibly empty),
-      serving as a structural separator between the regions. The RHS of
-      both `args(...)` clauses must reference the same op operands in the
-      same order.
+      serving as a structural separator between the regions.
 
       Implicit inferences in the syntax:
       - Result types are not written: they are the same as the `: (...)`
         types (Jeff's single-signature design choice, T1 = T2).
       - Block-argument types inside the `args(...)` clauses are not
         written: they are inferred from the same `: (...)` annotation.
+      - The condition region's `args(...)` lists only local
+        block-argument names, not assignments. The operands are stated
+        once in the body's `args(...)`; the condition's block arguments
+        are bound positionally to those same operands.
 
       Example with loop-carried values:
       ```mlir
       %r1, %r2 = jeff.doWhile : (i32, i64) args(%b_x = %a, %b_y = %b) {
         // body
         jeff.yield %next_x, %next_y : i32, i64
-      } args(%c_x = %a, %c_y = %b) {
+      } args(%c_x, %c_y) {
         // condition
         jeff.yield %pred : i1
       }
@@ -2246,9 +2250,8 @@ def DoWhileOp : SCF_Op<"doWhile", [SingleBlockImplicitTerminator<"jeff::YieldOp"
       Example with no loop-carried values:
       ```mlir
       jeff.doWhile args() {
-        jeff.yield %pred : i1
       } args() {
-        // body (no values to yield)
+        jeff.yield %pred : i1
       }
       ```
 

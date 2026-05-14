@@ -41,7 +41,7 @@ TEST_F(WhileOpTest, WithArgsSingle) {
       func.func @f(%a: i32, %pred: i1) -> i32 {
         %r = jeff.while : (i32) args(%c_x = %a) {
           jeff.yield %pred : i1
-        } args(%b_x = %a) {
+        } args(%b_x) {
           jeff.yield %b_x : i32
         }
         return %r : i32
@@ -55,7 +55,7 @@ TEST_F(WhileOpTest, WithArgsMultiple) {
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
         %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
           jeff.yield %pred : i1
-        } args(%b_x = %a, %b_y = %b) {
+        } args(%b_x, %b_y) {
           jeff.yield %b_x, %b_y : i32, i64
         }
         return %r1, %r2 : i32, i64
@@ -69,10 +69,10 @@ TEST_F(WhileOpTest, Nested) {
       func.func @f(%a: i32, %pred: i1) -> i32 {
         %r = jeff.while : (i32) args(%c_x = %a) {
           jeff.yield %pred : i1
-        } args(%b_x = %a) {
+        } args(%b_x) {
           %s = jeff.while : (i32) args(%cc = %b_x) {
             jeff.yield %pred : i1
-          } args(%bb = %b_x) {
+          } args(%bb) {
             jeff.yield %bb : i32
           }
           jeff.yield %s : i32
@@ -109,7 +109,7 @@ TEST_F(WhileOpTest, RoundTripIdempotent) {
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
         %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
           jeff.yield %pred : i1
-        } args(%b_x = %a, %b_y = %b) {
+        } args(%b_x, %b_y) {
           jeff.yield %b_x, %b_y : i32, i64
         }
         return %r1, %r2 : i32, i64
@@ -136,7 +136,7 @@ TEST_F(WhileOpTest, InvalidMissingArgsKeyword) {
       func.func @f(%a: i32, %pred: i1) {
         jeff.while : (i32) (%c_x = %a) {
           jeff.yield %pred : i1
-        } args(%b_x = %a) {
+        } args(%b_x) {
           jeff.yield %b_x : i32
         }
         return
@@ -151,7 +151,7 @@ TEST_F(WhileOpTest, InvalidArgCountMismatchWithTypes) {
       func.func @f(%a: i32, %pred: i1) {
         jeff.while : (i32, i64) args(%c_x = %a) {
           jeff.yield %pred : i1
-        } args(%b_x = %a) {
+        } args(%b_x) {
           jeff.yield %b_x : i32
         }
         return
@@ -166,25 +166,10 @@ TEST_F(WhileOpTest, InvalidCondBodyArgCountMismatch) {
       func.func @f(%a: i32, %b: i64, %pred: i1) {
         jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
           jeff.yield %pred : i1
-        } args(%b_x = %a) {
+        } args(%b_x) {
           jeff.yield %b_x : i32
         }
         return
-      }
-    )MLIR";
-    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
-}
-
-// Condition and body bind to different operand SSA values.
-TEST_F(WhileOpTest, InvalidCondBodyOperandsDiffer) {
-    const std::string src = R"MLIR(
-      func.func @f(%a: i32, %b: i32, %pred: i1) -> i32 {
-        %r = jeff.while : (i32) args(%c_x = %a) {
-          jeff.yield %pred : i1
-        } args(%b_x = %b) {
-          jeff.yield %b_x : i32
-        }
-        return %r : i32
       }
     )MLIR";
     ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
@@ -196,7 +181,7 @@ TEST_F(WhileOpTest, InvalidMissingTypeAnnotation) {
       func.func @f(%a: i32, %pred: i1) {
         jeff.while args(%c_x = %a) {
           jeff.yield %pred : i1
-        } args(%b_x = %a) {
+        } args(%b_x) {
           jeff.yield %b_x : i32
         }
         return
