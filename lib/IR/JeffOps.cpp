@@ -27,10 +27,10 @@
 #include <mlir/IR/OperationSupport.h>
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/IR/ValueRange.h>
+#include <mlir/Support/LLVM.h>
 #include <mlir/Support/LogicalResult.h>
 
 #include <cassert>
-#include <cstddef>
 #include <cstdint>
 
 using namespace mlir;
@@ -304,10 +304,11 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
     return success();
 }
 
-// `in_values` and `out_values` are independent for switch — no count or type
-// relationship between them. Each region's block args mirror `in_values`, and
-// each region's yield mirrors the op's results, but those are region-level
-// checks done in `verifyRegions`. No op-level `verify` is needed.
+// `in_values` and `out_values` are independent for switch. There is no count or type relationship
+// between them.
+// Each region's block args mirror `in_values`, and each region's yield mirrors the op's results,
+// but those are region-level checks done in `verifyRegions`.
+// No op-level `verify` is needed.
 LogicalResult SwitchOp::verifyRegions() {
     auto inValueTypes = getInValues().getTypes();
     auto resultTypes = getResultTypes();
@@ -320,7 +321,7 @@ LogicalResult SwitchOp::verifyRegions() {
             return success();
         }
 
-        // Block-argument count match the `in_values` count.
+        // Block-argument count matches the `in_values` count.
         auto regionArgs = region.getArguments();
         if (regionArgs.size() != inValueTypes.size()) {
             return emitOpError() << name << " region has " << regionArgs.size()
@@ -340,7 +341,7 @@ LogicalResult SwitchOp::verifyRegions() {
         if (!yield) {
             return emitOpError() << name << " region must terminate with `jeff.yield`";
         }
-        // `jeff.yield` operand count match the op's result count.
+        // `jeff.yield` operand count matches the op's result count.
         if (yield.getNumOperands() != resultTypes.size()) {
             return emitOpError() << name << " region yields " << yield.getNumOperands()
                                  << " values but op has " << resultTypes.size() << " results";
@@ -540,7 +541,8 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
     Region* condition = result.addRegion();
     Region* body = result.addRegion();
 
-    // Parse optional `: ( types )`. Omitted when there are no in-values.
+    // Parse optional `: ( types )`.
+    // Omitted when there are no in-values.
     llvm::SmallVector<Type, 4> types;
     if (succeeded(parser.parseOptionalColon())) {
         if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
@@ -673,7 +675,8 @@ ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
     Region* body = result.addRegion();
     Region* condition = result.addRegion();
 
-    // Parse optional `: ( types )`. Omitted when there are no in-values.
+    // Parse optional `: ( types )`.
+    // Omitted when there are no in-values.
     llvm::SmallVector<Type, 4> types;
     if (succeeded(parser.parseOptionalColon())) {
         if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
