@@ -204,7 +204,7 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
     Region* defaultRegion = result.addRegion();
 
     // Parse `(%sel, %a, %b)` — selector first, then in-values.
-    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 4> operands;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> operands;
     if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
             return parser.parseOperand(operands.emplace_back());
         })) {
@@ -706,7 +706,7 @@ ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
     if (parser.parseRegion(*body, bodyRegionArgs)) {
         return failure();
     }
-    WhileOp::ensureTerminator(*body, builder, result.location);
+    DoWhileOp::ensureTerminator(*body, builder, result.location);
 
     // Parse the condition region's `args ( $names )`.
     // Names only. The operands are inherited from the body's `args(...)`.
@@ -731,7 +731,7 @@ ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
     if (parser.parseRegion(*condition, condRegionArgs)) {
         return failure();
     }
-    WhileOp::ensureTerminator(*condition, builder, result.location);
+    DoWhileOp::ensureTerminator(*condition, builder, result.location);
 
     // Resolve operands from the body's `args(...)`.
     if (parser.resolveOperands(bodyOperands, types, parser.getCurrentLocation(), result.operands)) {
