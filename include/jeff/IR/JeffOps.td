@@ -2018,8 +2018,7 @@ def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
       ```
 
       The body's block-argument types are not printed explicitly: they
-      are recovered from `-> ( $result_types )`, which by the verifier
-      must equal the iter-arg types.
+      are recovered from `-> ( $result_types )` and must equal the iter-arg types.
 
       Example without carried values:
       ```mlir
@@ -2090,7 +2089,7 @@ def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> 
 
       - The `condition` region computes the loop's continuation predicate.
         It must terminate with a `jeff.yield` whose only operand is an
-        `i1`. By the Jeff language spec, the condition region may not
+        `i1`. By the `jeff` language spec, the condition region may not
         modify quantum state (qubits or qubit registers); it may only
         inspect classical metadata.
       - The `body` region is executed when the condition yields `true`.
