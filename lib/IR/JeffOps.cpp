@@ -215,7 +215,7 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
     }
 
     // Parse `: (T_sel, T_in...)` — operand types, in the same order.
-    llvm::SmallVector<Type, 4> operandTypes;
+    llvm::SmallVector<Type> operandTypes;
     if (parser.parseColon() || parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
             return parser.parseType(operandTypes.emplace_back());
         })) {
@@ -228,7 +228,7 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
     }
 
     // Parse `-> (T_out...)` — result types, independent of operand types.
-    llvm::SmallVector<Type, 4> resultTypes;
+    llvm::SmallVector<Type> resultTypes;
     if (parser.parseArrow() || parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
             return parser.parseType(resultTypes.emplace_back());
         })) {
@@ -245,7 +245,7 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
 
     // Helper that parses `args(%x, %y) { ... }` into a region.
     auto parseRegionWithArgs = [&](Region& region) -> ParseResult {
-        llvm::SmallVector<OpAsmParser::Argument, 4> regionArgs;
+        llvm::SmallVector<OpAsmParser::Argument> regionArgs;
         if (parser.parseKeyword("args") ||
             parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
                 return parser.parseArgument(regionArgs.emplace_back());
@@ -412,8 +412,8 @@ ParseResult ForOp::parse(OpAsmParser& parser, OperationState& result) {
     }
 
     // Parse the optional initial iteration arguments.
-    llvm::SmallVector<OpAsmParser::Argument, 4> regionArgs;
-    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 4> operands;
+    llvm::SmallVector<OpAsmParser::Argument> regionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> operands;
     regionArgs.push_back(inductionVar);
 
     // Parse assignment list and result types list.
@@ -543,7 +543,7 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
 
     // Parse optional `: ( types )`.
     // Omitted when there are no in-values.
-    llvm::SmallVector<Type, 4> types;
+    llvm::SmallVector<Type> types;
     if (succeeded(parser.parseOptionalColon())) {
         if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
                 return parser.parseType(types.emplace_back());
@@ -553,8 +553,8 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
     }
 
     // Parse the condition region's `args ( $assignments )`.
-    llvm::SmallVector<OpAsmParser::Argument, 4> condRegionArgs;
-    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 4> condOperands;
+    llvm::SmallVector<OpAsmParser::Argument> condRegionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> condOperands;
     if (parser.parseKeyword("args") || parser.parseAssignmentList(condRegionArgs, condOperands)) {
         return failure();
     }
@@ -576,7 +576,7 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
 
     // Parse the body region's `args ( $names )`.
     // Names only. The operands are inherited from the condition's `args(...)`.
-    llvm::SmallVector<OpAsmParser::Argument, 4> bodyRegionArgs;
+    llvm::SmallVector<OpAsmParser::Argument> bodyRegionArgs;
     if (parser.parseKeyword("args") ||
         parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
             return parser.parseArgument(bodyRegionArgs.emplace_back());
@@ -677,7 +677,7 @@ ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
 
     // Parse optional `: ( types )`.
     // Omitted when there are no in-values.
-    llvm::SmallVector<Type, 4> types;
+    llvm::SmallVector<Type> types;
     if (succeeded(parser.parseOptionalColon())) {
         if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
                 return parser.parseType(types.emplace_back());
@@ -687,8 +687,8 @@ ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
     }
 
     // Parse the body region's `args ( $assignments )`.
-    llvm::SmallVector<OpAsmParser::Argument, 4> bodyRegionArgs;
-    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 4> bodyOperands;
+    llvm::SmallVector<OpAsmParser::Argument> bodyRegionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> bodyOperands;
     if (parser.parseKeyword("args") || parser.parseAssignmentList(bodyRegionArgs, bodyOperands)) {
         return failure();
     }
@@ -710,7 +710,7 @@ ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
 
     // Parse the condition region's `args ( $names )`.
     // Names only. The operands are inherited from the body's `args(...)`.
-    llvm::SmallVector<OpAsmParser::Argument, 4> condRegionArgs;
+    llvm::SmallVector<OpAsmParser::Argument> condRegionArgs;
     if (parser.parseKeyword("args") ||
         parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
             return parser.parseArgument(condRegionArgs.emplace_back());
