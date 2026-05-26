@@ -304,11 +304,13 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
     return success();
 }
 
-// `in_values` and `out_values` are independent for switch. There is no count or type relationship
-// between them.
-// Each region's block args mirror `in_values`, and each region's yield mirrors the op's results,
-// but those are region-level checks done in `verifyRegions`.
-// No op-level `verify` is needed.
+/**
+ * @brief Verifies the 'case' and 'default' regions of a `jeff.switch`.
+ *
+ * `in_values` and `out_values` are independent for switch: there is no count or type relationship
+ * between them. Each region's block arguments mirror `in_values`, and each region's `jeff.yield`
+ * mirrors the op's results - two separate checks.
+ */
 LogicalResult SwitchOp::verifyRegions() {
     auto inValueTypes = getInValues().getTypes();
     auto resultTypes = getResultTypes();
