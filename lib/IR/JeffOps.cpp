@@ -489,8 +489,15 @@ LogicalResult ForOp::verify() {
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L359
 LogicalResult ForOp::verifyRegions() {
     auto inductionVar = getBody().getArgument(0);
-    if (inductionVar.getType() != getStart().getType()) {
-        return emitOpError("expected induction variable to be same type as bounds and step");
+    auto inductionVarType = inductionVar.getType();
+    if (inductionVarType != getStart().getType()) {
+        return emitOpError("expected induction variable to be same type as start");
+    }
+    if (inductionVarType != getStop().getType()) {
+        return emitOpError("expected induction variable to be same type as stop");
+    }
+    if (inductionVarType != getStep().getType()) {
+        return emitOpError("expected induction variable to be same type as step");
     }
 
     auto inValues = getInValues();

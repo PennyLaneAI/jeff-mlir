@@ -1993,7 +1993,7 @@ def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
       The op takes three SSA integer operands — `start`, `stop`, and
       `step`, each of which must be a `SupportedIntType` (one of `i1`,
       `i8`, `i16`, `i32`, `i64`). The induction variable has the same
-      type as `start`.
+      type as `start`, `stop`, and `step`.
 
       The op may optionally carry a list of loop-carried values
       (`in_values`). These are bound to the corresponding body block
@@ -2038,14 +2038,12 @@ def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
 
       Invariants enforced by the verifier:
       - `start`, `stop`, and `step` are each a `SupportedIntType`.
-      - The induction variable has the same type as `start`.
+      - The induction variable has the same type as `start`, `stop`, and `step`.
       - The number of `in_values` equals the number of results.
       - Each `in_value`, the corresponding body block argument, and the
         corresponding result have matching types.
 
       Underspecified (not currently enforced):
-      - Whether `start`, `stop`, and `step` must share a common type
-        (only `start` is checked against the induction variable).
       - Comparison signedness (the operand types are signless MLIR
         integers).
       - That `step` is non-zero and positive.

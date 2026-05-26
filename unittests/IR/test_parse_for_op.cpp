@@ -194,6 +194,32 @@ TEST_F(ForOpTest, InvalidArgCountMismatch) {
     ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
+// === Invalid semantics tests (parse-level) ===
+
+// `stop` is declared with a different type than the loop's type annotation.
+// The parser's `resolveOperand` catches the mismatch.
+TEST_F(ForOpTest, InvalidStopTypeMismatch) {
+    const std::string src = R"MLIR(
+      func.func @f(%lo: i32, %hi: i64, %s: i32) {
+        jeff.for %i = %lo to %hi step %s : i32 {}
+        return
+      }
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
+}
+
+// `step` is declared with a different type than the loop's type annotation.
+// The parser's `resolveOperand` catches the mismatch.
+TEST_F(ForOpTest, InvalidStepTypeMismatch) {
+    const std::string src = R"MLIR(
+      func.func @f(%lo: i32, %hi: i32, %s: i64) {
+        jeff.for %i = %lo to %hi step %s : i32 {}
+        return
+      }
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
+}
+
 // === Invalid semantics tests (verify-level) ===
 
 // `index` is rejected by SupportedIntType.
@@ -212,6 +238,34 @@ TEST_F(ForOpTest, InvalidFloatType) {
     const std::string src = R"MLIR(
       func.func @f(%lo: f32, %hi: f32, %s: f32) {
         jeff.for %i = %lo to %hi step %s : f32 {}
+        return
+      }
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
+}
+
+// Generic form bypasses the custom parser, letting start/stop/step have distinct types.
+// The verifier check in `ForOp::verifyRegions` is the only thing that catches the mismatch.
+TEST_F(ForOpTest, InvalidStopTypeMismatchGenericForm) {
+    const std::string src = R"MLIR(
+      func.func @f(%lo: i32, %hi: i64, %s: i32) {
+        "jeff.for"(%lo, %hi, %s) ({
+        ^bb0(%i: i32):
+          "jeff.yield"() : () -> ()
+        }) : (i32, i64, i32) -> ()
+        return
+      }
+    )MLIR";
+    ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
+}
+
+TEST_F(ForOpTest, InvalidStepTypeMismatchGenericForm) {
+    const std::string src = R"MLIR(
+      func.func @f(%lo: i32, %hi: i32, %s: i64) {
+        "jeff.for"(%lo, %hi, %s) ({
+        ^bb0(%i: i32):
+          "jeff.yield"() : () -> ()
+        }) : (i32, i32, i64) -> ()
         return
       }
     )MLIR";
