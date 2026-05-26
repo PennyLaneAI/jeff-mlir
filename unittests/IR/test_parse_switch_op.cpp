@@ -96,17 +96,20 @@ TEST_F(SwitchOpTest, OnlyDefault) {
     ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
-// In-value types and result types are independent:
-// the in-values are (i32, i64), but the op yields a single i1.
+// In-value types and result types are independent: the in-values are (i32, i64, i1),
+// but the op yields a single i1.
+// The yielded value comes from `%q`, which is the i1 in-value passed in.
+// Regions are isolated from above, so `%p` from the function scope cannot be used directly inside
+// the regions.
 TEST_F(SwitchOpTest, DecoupledInValueAndResultTypes) {
     const std::string src = R"MLIR(
       func.func @f(%sel: i32, %a: i32, %b: i64, %p: i1) -> i1 {
-        %r = jeff.switch (%sel, %a, %b) : (i32, i32, i64) -> (i1)
-        case 0 args(%x, %y) {
-          jeff.yield %p : i1
+        %r = jeff.switch (%sel, %a, %b, %p) : (i32, i32, i64, i1) -> (i1)
+        case 0 args(%x, %y, %q) {
+          jeff.yield %q : i1
         }
-        default args(%x, %y) {
-          jeff.yield %p : i1
+        default args(%x, %y, %q) {
+          jeff.yield %q : i1
         }
         return %r : i1
       }

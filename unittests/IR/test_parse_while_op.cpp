@@ -21,13 +21,22 @@ class WhileOpTest : public ::testing::Test {
     void SetUp() override { ctx.loadDialect<jeff::JeffDialect, func::FuncDialect>(); }
 };
 
+// Jeff SCF regions are isolated from above: every value used inside a region must come
+// from a block argument or be computed locally.
+// Tests with carried values pass the loop predicate through as an additional in-value
+// (idiomatic Jeff).
+// The `NoArgs` and `ExplicitEmptyBodyYield` tests exercise the no-in-values parser path
+// and therefore compute the predicate inside the condition via `jeff.int_const1`,
+// since they have no operands to inherit one from.
+
 // === Valid tests ===
 
 TEST_F(WhileOpTest, NoArgs) {
     const std::string src = R"MLIR(
-      func.func @f(%pred: i1) {
+      func.func @f() {
         jeff.while args() {
-          jeff.yield %pred : i1
+          %c_pred = jeff.int_const1(true) : i1
+          jeff.yield %c_pred : i1
         } args() {
         }
         return
@@ -39,12 +48,12 @@ TEST_F(WhileOpTest, NoArgs) {
 TEST_F(WhileOpTest, WithArgsSingle) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) -> i32 {
-        %r = jeff.while : (i32) args(%c_x = %a) {
-          jeff.yield %pred : i1
-        } args(%b_x) {
-          jeff.yield %b_x : i32
+        %r1, %r2 = jeff.while : (i32, i1) args(%c_x = %a, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_pred) {
+          jeff.yield %b_x, %b_pred : i32, i1
         }
-        return %r : i32
+        return %r1 : i32
       }
     )MLIR";
     ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
@@ -53,10 +62,10 @@ TEST_F(WhileOpTest, WithArgsSingle) {
 TEST_F(WhileOpTest, WithArgsMultiple) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
-        %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
-          jeff.yield %pred : i1
-        } args(%b_x, %b_y) {
-          jeff.yield %b_x, %b_y : i32, i64
+        %r1, %r2, %r3 = jeff.while : (i32, i64, i1) args(%c_x = %a, %c_y = %b, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_y, %b_pred) {
+          jeff.yield %b_x, %b_y, %b_pred : i32, i64, i1
         }
         return %r1, %r2 : i32, i64
       }
@@ -67,31 +76,32 @@ TEST_F(WhileOpTest, WithArgsMultiple) {
 TEST_F(WhileOpTest, Nested) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) -> i32 {
-        %r = jeff.while : (i32) args(%c_x = %a) {
-          jeff.yield %pred : i1
-        } args(%b_x) {
-          %s = jeff.while : (i32) args(%cc = %b_x) {
-            jeff.yield %pred : i1
-          } args(%bb) {
-            jeff.yield %bb : i32
+        %r1, %r2 = jeff.while : (i32, i1) args(%c_x = %a, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_pred) {
+          %s1, %s2 = jeff.while : (i32, i1) args(%cc = %b_x, %ccp = %b_pred) {
+            jeff.yield %ccp : i1
+          } args(%bb, %bbp) {
+            jeff.yield %bb, %bbp : i32, i1
           }
-          jeff.yield %s : i32
+          jeff.yield %s1, %s2 : i32, i1
         }
-        return %r : i32
+        return %r1 : i32
       }
     )MLIR";
     ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
-// `WhileOp::print` elides the empty yield for the body when there are no
-// in-values, but bare `jeff.yield` is still valid input. It can come from
-// `YieldOp`'s own printer, generic-form output (`-mlir-print-op-generic`),
-// or handwritten MLIR. The parser must accept this shape.
+// `WhileOp::print` elides the empty yield for the body when there are no in-values,
+// but bare `jeff.yield` is still valid input. It can come from `YieldOp`'s own printer,
+// generic-form output (`-mlir-print-op-generic`), or handwritten MLIR.
+// The parser must accept this shape.
 TEST_F(WhileOpTest, ExplicitEmptyBodyYield) {
     const std::string src = R"MLIR(
-      func.func @f(%pred: i1) {
+      func.func @f() {
         jeff.while args() {
-          jeff.yield %pred : i1
+          %c_pred = jeff.int_const1(true) : i1
+          jeff.yield %c_pred : i1
         } args() {
           jeff.yield
         }
@@ -107,10 +117,10 @@ TEST_F(WhileOpTest, ExplicitEmptyBodyYield) {
 TEST_F(WhileOpTest, RoundTripIdempotent) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
-        %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
-          jeff.yield %pred : i1
-        } args(%b_x, %b_y) {
-          jeff.yield %b_x, %b_y : i32, i64
+        %r1, %r2, %r3 = jeff.while : (i32, i64, i1) args(%c_x = %a, %c_y = %b, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_y, %b_pred) {
+          jeff.yield %b_x, %b_y, %b_pred : i32, i64, i1
         }
         return %r1, %r2 : i32, i64
       }
@@ -134,10 +144,10 @@ TEST_F(WhileOpTest, RoundTripIdempotent) {
 TEST_F(WhileOpTest, InvalidMissingArgsKeyword) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
-        jeff.while : (i32) (%c_x = %a) {
-          jeff.yield %pred : i1
-        } args(%b_x) {
-          jeff.yield %b_x : i32
+        jeff.while : (i32, i1) (%c_x = %a, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_pred) {
+          jeff.yield %b_x, %b_pred : i32, i1
         }
         return
       }
@@ -145,14 +155,14 @@ TEST_F(WhileOpTest, InvalidMissingArgsKeyword) {
     ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
-// `: (...)` is present but `args(...)` is empty (or vice versa).
+// In-values count and condition args count differ.
 TEST_F(WhileOpTest, InvalidArgCountMismatchWithTypes) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
-        jeff.while : (i32, i64) args(%c_x = %a) {
-          jeff.yield %pred : i1
-        } args(%b_x) {
-          jeff.yield %b_x : i32
+        jeff.while : (i32, i1, i64) args(%c_x = %a, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_pred) {
+          jeff.yield %b_x, %b_pred : i32, i1
         }
         return
       }
@@ -160,14 +170,14 @@ TEST_F(WhileOpTest, InvalidArgCountMismatchWithTypes) {
     ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
-// Condition has 2 args but body has 1.
+// Condition args count and body args count differ.
 TEST_F(WhileOpTest, InvalidCondBodyArgCountMismatch) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %b: i64, %pred: i1) {
-        jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
-          jeff.yield %pred : i1
-        } args(%b_x) {
-          jeff.yield %b_x : i32
+        jeff.while : (i32, i64, i1) args(%c_x = %a, %c_y = %b, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_pred) {
+          jeff.yield %b_x, %b_pred : i64, i1
         }
         return
       }
@@ -175,14 +185,14 @@ TEST_F(WhileOpTest, InvalidCondBodyArgCountMismatch) {
     ASSERT_FALSE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
-// `args(...)` is non-empty but no `: (...)` is provided.
+// Missing in-value types with non-empty condition args.
 TEST_F(WhileOpTest, InvalidMissingTypeAnnotation) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
-        jeff.while args(%c_x = %a) {
-          jeff.yield %pred : i1
-        } args(%b_x) {
-          jeff.yield %b_x : i32
+        jeff.while args(%c_x = %a, %c_pred = %pred) {
+          jeff.yield %c_pred : i1
+        } args(%b_x, %b_pred) {
+          jeff.yield %b_x, %b_pred : i32, i1
         }
         return
       }
