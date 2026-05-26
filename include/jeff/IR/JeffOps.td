@@ -2163,7 +2163,7 @@ def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> 
       - Both regions share a single op-level operand list; in SCF the
         operand list feeds only the `before` region.
       - Input types and result types are required to match (single
-        signature), reflecting the Jeff language design choice of T1 = T2.
+        signature), reflecting the `jeff` language design choice of T1 = T2.
     }];
 
     let arguments = (ins
@@ -2194,7 +2194,7 @@ def DoWhileOp : SCF_Op<"doWhile", [SingleBlockImplicitTerminator<"jeff::YieldOp"
 
       - The `condition` region computes the loop's continuation predicate.
         It must terminate with a `jeff.yield` whose only operand is an
-        `i1`. By the Jeff language spec, the condition region may not
+        `i1`. By the `jeff` language spec, the condition region may not
         modify quantum state (qubits or qubit registers); it may only
         inspect classical metadata.
       - The `body` region executes unconditionally on the first iteration,
