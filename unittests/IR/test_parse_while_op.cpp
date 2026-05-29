@@ -21,13 +21,9 @@ class WhileOpTest : public ::testing::Test {
     void SetUp() override { ctx.loadDialect<jeff::JeffDialect, func::FuncDialect>(); }
 };
 
-// Jeff SCF regions are isolated from above: every value used inside a region must come
+// jeff SCF regions are isolated from above: every value used inside a region must come
 // from a block argument or be computed locally.
-// Tests with carried values pass the loop predicate through as an additional in-value
-// (idiomatic Jeff).
-// The `NoArgs` and `ExplicitEmptyBodyYield` tests exercise the no-in-values parser path
-// and therefore compute the predicate inside the condition via `jeff.int_const1`,
-// since they have no operands to inherit one from.
+// Tests with carried values pass the loop predicate through as an additional in-value.
 
 // === Valid tests ===
 
