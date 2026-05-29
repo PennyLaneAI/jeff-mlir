@@ -26,7 +26,9 @@ class ForOpTest : public ::testing::Test {
 TEST_F(ForOpTest, BasicFormI32) {
     const std::string src = R"MLIR(
       func.func @f(%lo: i32, %hi: i32, %s: i32) {
-        jeff.for %i = %lo to %hi step %s : i32 {}
+        jeff.for %i = %lo to %hi step %s : i32 {
+          jeff.yield
+        }
         return
       }
     )MLIR";
@@ -36,7 +38,9 @@ TEST_F(ForOpTest, BasicFormI32) {
 TEST_F(ForOpTest, BasicFormI64) {
     const std::string src = R"MLIR(
       func.func @f(%lo: i64, %hi: i64, %s: i64) {
-        jeff.for %i = %lo to %hi step %s : i64 {}
+        jeff.for %i = %lo to %hi step %s : i64 {
+          jeff.yield
+        }
         return
       }
     )MLIR";
@@ -80,22 +84,23 @@ TEST_F(ForOpTest, WithArgsMultiple) {
     ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
+// Inner `jeff.for` cannot see %lo, %hi, and %s from the enclosing function,
+// so the outer `jeff.for` has to pass them in as args.
 TEST_F(ForOpTest, Nested) {
     const std::string src = R"MLIR(
-      func.func @f(%lo: i32, %hi: i32, %s: i32) {
-        jeff.for %i = %lo to %hi step %s : i32 {
-          jeff.for %j = %lo to %hi step %s : i32 {}
+      func.func @f(%lo: i32, %hi: i32, %s: i32) -> (i32, i32, i32) {
+        %r1, %r2, %r3 = jeff.for %i = %lo to %hi step %s args(%lo_arg = %lo, %hi_arg = %hi, %s_arg = %s) -> (i32, i32, i32) : i32 {
+          jeff.for %j = %lo_arg to %hi_arg step %s_arg : i32 {}
+          jeff.yield %lo_arg, %hi_arg, %s_arg : i32, i32, i32
         }
-        return
+        return %r1, %r2, %r3 : i32, i32, i32
       }
     )MLIR";
     ASSERT_TRUE(parseSourceString<ModuleOp>(src, &ctx));
 }
 
-// `ForOp::print` elides the empty yield,
-// but bare `jeff.yield` is still valid input.
-// It can come from `YieldOp`'s own printer,
-// generic-form output (`-mlir-print-op-generic`), or
+// `ForOp::print` elides the empty yield, but bare `jeff.yield` is still valid input.
+// It can come from `YieldOp`'s own printer, generic-form output (`-mlir-print-op-generic`), or
 // handwritten MLIR.
 // The parser must accept this shape.
 TEST_F(ForOpTest, ExplicitEmptyYield) {
