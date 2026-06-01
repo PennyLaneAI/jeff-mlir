@@ -27,10 +27,11 @@
 #include <mlir/IR/OperationSupport.h>
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/IR/ValueRange.h>
+#include <mlir/Support/LLVM.h>
 #include <mlir/Support/LogicalResult.h>
 
 #include <cassert>
-#include <cstddef>
+#include <cstdint>
 
 using namespace mlir;
 using namespace mlir::jeff;
@@ -158,68 +159,214 @@ void IntBinaryOp::getCanonicalizationPatterns(RewritePatternSet& results, MLIRCo
 }
 
 void SwitchOp::print(OpAsmPrinter& p) {
-    auto inValues = getInValues();
+    // The op's operand list is `selection` followed by `in_values`, in that
+    // order, so we can stream both together.
+    auto operands = (*this)->getOperands();
+    auto resultTypes = getResultTypes();
 
-    p << '(' << getSelection() << ")";
-    p << " : " << getSelection().getType();
-    p << " -> (" << inValues.getTypes() << ") ";
+    // Header: `(%sel, %a, %b) : (i32, T_in...) -> (T_out...)`.
+    p << " (";
+    llvm::interleaveComma(operands, p);
+    p << ") : (";
+    llvm::interleaveComma(operands.getTypes(), p);
+    p << ") -> (" << resultTypes << ")";
 
-    auto branches = getBranches();
-    for (size_t i = 0; i < branches.size(); ++i) {
+    auto printRegionWithArgs = [&](Region& region) {
+        p << " args(";
+        llvm::interleaveComma(region.getArguments(), p);
+        p << ") ";
+        p.printRegion(region, /*printEntryBlockArgs=*/false,
+                      /*printBlockTerminators=*/!resultTypes.empty());
+    };
+
+    for (auto [i, branch] : llvm::enumerate(getBranches())) {
         p.printNewline();
-        p << "case " << i << ' ';
-        auto& branch = branches[i];
-        auto regionArgs = branch.getArguments();
-        printInitializationList(p, regionArgs, inValues, "args");
-        p << ' ';
-        p.printRegion(branch, /*printEntryBlockArgs=*/false,
-                      /*printBlockTerminators=*/!inValues.empty());
+        p << "case " << i;
+        printRegionWithArgs(branch);
     }
 
     auto& defaultRegion = getDefault();
     if (!defaultRegion.empty()) {
         p.printNewline();
-        p << "default ";
-        auto regionArgs = defaultRegion.getArguments();
-        printInitializationList(p, regionArgs, inValues, "args");
-        p << ' ';
-        p.printRegion(defaultRegion, /*printEntryBlockArgs=*/false,
-                      /*printBlockTerminators=*/!inValues.empty());
+        p << "default";
+        printRegionWithArgs(defaultRegion);
     }
 
     p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult SwitchOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
-    // TODO: Implement this
-    llvm::report_fatal_error("SwitchOp::parse is not implemented yet");
-}
+ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
+    auto& builder = parser.getBuilder();
 
-LogicalResult SwitchOp::verify() {
-    if (getInValues().size() != getNumResults()) {
-        return emitOpError("mismatch in number of input and output values");
+    // The op declares `$default` first and `$branches` after,
+    // so the default region must occupy index 0.
+    // Pre-allocate it; populate later if present.
+    Region* defaultRegion = result.addRegion();
+
+    // Parse `(%sel, %a, %b)` — selector first, then in-values.
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> operands;
+    if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+            return parser.parseOperand(operands.emplace_back());
+        })) {
+        return failure();
+    }
+    if (operands.empty()) {
+        return parser.emitError(parser.getNameLoc(), "expected at least the selector operand");
+    }
+
+    // Parse `: (T_sel, T_in...)` — operand types, in the same order.
+    llvm::SmallVector<Type> operandTypes;
+    if (parser.parseColon() || parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+            return parser.parseType(operandTypes.emplace_back());
+        })) {
+        return failure();
+    }
+    if (operandTypes.size() != operands.size()) {
+        return parser.emitError(parser.getNameLoc())
+               << "expected " << operands.size() << " operand types but got "
+               << operandTypes.size();
+    }
+
+    // Parse `-> (T_out...)` — result types, independent of operand types.
+    llvm::SmallVector<Type> resultTypes;
+    if (parser.parseArrow() || parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+            return parser.parseType(resultTypes.emplace_back());
+        })) {
+        return failure();
+    }
+
+    if (parser.resolveOperands(operands, operandTypes, parser.getCurrentLocation(),
+                               result.operands)) {
+        return failure();
+    }
+
+    // In-value types are everything after the selector.
+    auto inValueTypes = llvm::ArrayRef<Type>(operandTypes).drop_front(1);
+
+    // Helper that parses `args(%x, %y) { ... }` into a region.
+    auto parseRegionWithArgs = [&](Region& region) -> ParseResult {
+        llvm::SmallVector<OpAsmParser::Argument> regionArgs;
+        if (parser.parseKeyword("args") ||
+            parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+                return parser.parseArgument(regionArgs.emplace_back());
+            })) {
+            return failure();
+        }
+        if (regionArgs.size() != inValueTypes.size()) {
+            return parser.emitError(parser.getNameLoc())
+                   << "expected " << inValueTypes.size() << " region arguments but got "
+                   << regionArgs.size();
+        }
+        for (auto [arg, ty] : llvm::zip_equal(regionArgs, inValueTypes)) {
+            arg.type = ty;
+        }
+        if (parser.parseRegion(region, regionArgs)) {
+            return failure();
+        }
+        SwitchOp::ensureTerminator(region, builder, result.location);
+        return success();
+    };
+
+    // Parse `case N args(...) { ... }` while the keyword is present.
+    // Case labels are positional; require them to be 0, 1, 2, ...
+    // so that print-then-parse round-trips faithfully.
+    int64_t expectedCase = 0;
+    while (succeeded(parser.parseOptionalKeyword("case"))) {
+        int64_t caseValue = 0;
+        if (parser.parseInteger(caseValue)) {
+            return failure();
+        }
+        if (caseValue != expectedCase) {
+            return parser.emitError(parser.getNameLoc())
+                   << "expected `case " << expectedCase << "` but got `case " << caseValue << "`";
+        }
+        ++expectedCase;
+
+        Region* branch = result.addRegion();
+        if (parseRegionWithArgs(*branch)) {
+            return failure();
+        }
+    }
+
+    // Optional `default args(...) { ... }`.
+    if (succeeded(parser.parseOptionalKeyword("default"))) {
+        if (parseRegionWithArgs(*defaultRegion)) {
+            return failure();
+        }
+    }
+
+    result.addTypes(resultTypes);
+
+    if (parser.parseOptionalAttrDict(result.attributes)) {
+        return failure();
     }
 
     return success();
 }
 
+/**
+ * @brief Verifies the 'case' and 'default' regions of a `jeff.switch`.
+ *
+ * `in_values` and `out_values` are independent for switch: there is no count or type relationship
+ * between them. Each region's block arguments mirror `in_values`, and each region's `jeff.yield`
+ * mirrors the op's results - two separate checks.
+ */
 LogicalResult SwitchOp::verifyRegions() {
-    llvm::SmallVector<Region*> regions;
-    auto branches = getBranches();
-    regions.reserve(1 + branches.size());
-    regions.push_back(&getDefault());
-    for (auto& branch : branches) {
-        regions.push_back(&branch);
-    }
+    auto inValueTypes = getInValues().getTypes();
+    auto resultTypes = getResultTypes();
 
-    auto inValues = getInValues();
-    auto outValues = getOutValues();
+    // Helper that verifies one region (a `case` body or the `default`).
+    auto verifyRegion = [&](Region& region, const llvm::Twine& name) -> LogicalResult {
+        // The parser always pre-allocates the default region,
+        // leaving it empty when the source has no `default { ... }` clause.
+        if (region.empty()) {
+            return success();
+        }
 
-    for (auto& region : regions) {
-        auto regionArgs = region->getArguments();
-        if (verifyRegionArgs(*this, inValues, outValues, regionArgs).failed()) {
+        // Block-argument count matches the `in_values` count.
+        auto regionArgs = region.getArguments();
+        if (regionArgs.size() != inValueTypes.size()) {
+            return emitOpError() << name << " region has " << regionArgs.size()
+                                 << " block arguments but op has " << inValueTypes.size()
+                                 << " in-values";
+        }
+        // Block-argument types match the `in_values` types.
+        for (auto [i, regionArg, inTy] : llvm::enumerate(regionArgs, inValueTypes)) {
+            if (regionArg.getType() != inTy) {
+                return emitOpError() << name << " region block argument " << i
+                                     << " type does not match the corresponding in-value type";
+            }
+        }
+
+        // `jeff.yield` is present.
+        auto yield = dyn_cast<YieldOp>(region.front().back());
+        if (!yield) {
+            return emitOpError() << name << " region must terminate with `jeff.yield`";
+        }
+        // `jeff.yield` operand count matches the op's result count.
+        if (yield.getNumOperands() != resultTypes.size()) {
+            return emitOpError() << name << " region yields " << yield.getNumOperands()
+                                 << " values but op has " << resultTypes.size() << " results";
+        }
+        // `jeff.yield` operand types match the op's result types.
+        for (auto [i, yieldOp, resTy] : llvm::enumerate(yield.getOperands(), resultTypes)) {
+            if (yieldOp.getType() != resTy) {
+                return emitOpError() << name << " region yield operand " << i
+                                     << " type does not match the corresponding result type";
+            }
+        }
+        return success();
+    };
+
+    // Verify `case` regions.
+    for (auto [i, branch] : llvm::enumerate(getBranches())) {
+        if (verifyRegion(branch, "case " + llvm::Twine(i)).failed()) {
             return failure();
         }
+    }
+    // Verify `default` region.
+    if (verifyRegion(getDefault(), "default").failed()) {
+        return failure();
     }
 
     return success();
@@ -239,11 +386,7 @@ void ForOp::print(OpAsmPrinter& p) {
         p << " -> (" << inValues.getTypes() << ')';
     }
 
-    if (Type t = inductionVar.getType(); !t.isIndex()) {
-        p << " : " << t << ' ';
-    } else {
-        p << ' ';
-    }
+    p << " : " << inductionVar.getType() << ' ';
 
     p.printRegion(getRegion(),
                   /*printEntryBlockArgs=*/false,
@@ -251,9 +394,85 @@ void ForOp::print(OpAsmPrinter& p) {
     p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult ForOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
-    // TODO: Implement this
-    llvm::report_fatal_error("ForOp::parse is not implemented yet");
+// Adapted from
+// https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L516
+ParseResult ForOp::parse(OpAsmParser& parser, OperationState& result) {
+    auto& builder = parser.getBuilder();
+    Type type;
+
+    OpAsmParser::Argument inductionVar;
+    OpAsmParser::UnresolvedOperand start;
+    OpAsmParser::UnresolvedOperand stop;
+    OpAsmParser::UnresolvedOperand step;
+
+    // Parse the induction variable followed by '='.
+    if (parser.parseOperand(inductionVar.ssaName) || parser.parseEqual() ||
+        // Parse loop bounds.
+        parser.parseOperand(start) || parser.parseKeyword("to") || parser.parseOperand(stop) ||
+        parser.parseKeyword("step") || parser.parseOperand(step)) {
+        return failure();
+    }
+
+    // Parse the optional initial iteration arguments.
+    llvm::SmallVector<OpAsmParser::Argument> regionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> operands;
+    regionArgs.push_back(inductionVar);
+
+    // Parse assignment list and result types list.
+    bool hasArgs = succeeded(parser.parseOptionalKeyword("args"));
+    if (hasArgs) {
+        if (parser.parseAssignmentList(regionArgs, operands) ||
+            parser.parseArrowTypeList(result.types)) {
+            return failure();
+        }
+    }
+
+    if (regionArgs.size() != result.types.size() + 1) {
+        return parser.emitError(parser.getNameLoc(),
+                                "mismatch in number of loop-carried values and defined values");
+    }
+
+    // Parse type.
+    if (parser.parseColon() || parser.parseType(type)) {
+        return failure();
+    }
+
+    // Set block argument types so that they are known when parsing the region.
+    regionArgs.front().type = type;
+    for (auto [arg, argType] : llvm::zip_equal(llvm::drop_begin(regionArgs), result.types)) {
+        arg.type = argType;
+    }
+
+    // Parse the body region.
+    Region* body = result.addRegion();
+    if (parser.parseRegion(*body, regionArgs)) {
+        return failure();
+    }
+    ForOp::ensureTerminator(*body, builder, result.location);
+
+    // Resolve input operands.
+    if (parser.resolveOperand(start, type, result.operands) ||
+        parser.resolveOperand(stop, type, result.operands) ||
+        parser.resolveOperand(step, type, result.operands)) {
+        return failure();
+    }
+    if (hasArgs) {
+        for (auto argOperandType :
+             llvm::zip_equal(llvm::drop_begin(regionArgs), operands, result.types)) {
+            Type argOpType = std::get<2>(argOperandType);
+            std::get<0>(argOperandType).type = argOpType;
+            if (parser.resolveOperand(std::get<1>(argOperandType), argOpType, result.operands)) {
+                return failure();
+            }
+        }
+    }
+
+    // Parse the optional attribute list.
+    if (parser.parseOptionalAttrDict(result.attributes)) {
+        return failure();
+    }
+
+    return success();
 }
 
 // Adapted from
@@ -270,8 +489,15 @@ LogicalResult ForOp::verify() {
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L359
 LogicalResult ForOp::verifyRegions() {
     auto inductionVar = getBody().getArgument(0);
-    if (inductionVar.getType() != getStart().getType()) {
-        return emitOpError("expected induction variable to be same type as bounds and step");
+    auto inductionVarType = inductionVar.getType();
+    if (inductionVarType != getStart().getType()) {
+        return emitOpError("expected induction variable to be same type as start");
+    }
+    if (inductionVarType != getStop().getType()) {
+        return emitOpError("expected induction variable to be same type as stop");
+    }
+    if (inductionVarType != getStep().getType()) {
+        return emitOpError("expected induction variable to be same type as step");
     }
 
     auto inValues = getInValues();
@@ -284,29 +510,117 @@ LogicalResult ForOp::verifyRegions() {
     return success();
 }
 
+// Adapted from
+// https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L3343
 void WhileOp::print(OpAsmPrinter& p) {
     auto inValues = getInValues();
 
+    // Emit `: ( types )` only when there are in-values.
+    if (!inValues.empty()) {
+        p << " : (" << inValues.getTypes() << ")";
+    }
+
+    // Condition region: `args ( $assignments )`.
+    // Full assignments, since this is where the op's operands are introduced.
     auto& condition = getCondition();
     auto conditionArgs = condition.getArguments();
     printInitializationList(p, conditionArgs, inValues, " args");
-    p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
+    p << ' ';
     p.printRegion(condition, /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/!inValues.empty());
+                  /*printBlockTerminators=*/true);
 
+    // Body region: `args ( $names )`.
+    // Names only. The operands are already stated in the condition's `args(...)`.
     auto& body = getBody();
     auto bodyArgs = body.getArguments();
-    printInitializationList(p, bodyArgs, inValues, " args");
-    p << " -> (" << inValues.getTypes() << ") ";
+    p << " args(";
+    llvm::interleaveComma(bodyArgs, p);
+    p << ") ";
     p.printRegion(body, /*printEntryBlockArgs=*/false,
                   /*printBlockTerminators=*/!inValues.empty());
 
     p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult WhileOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
-    // TODO: Implement this
-    llvm::report_fatal_error("WhileOp::parse is not implemented yet");
+// Adapted from
+// https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L3303
+ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
+    auto& builder = parser.getBuilder();
+
+    Region* condition = result.addRegion();
+    Region* body = result.addRegion();
+
+    // Parse optional `: ( types )`.
+    // Omitted when there are no in-values.
+    llvm::SmallVector<Type> types;
+    if (succeeded(parser.parseOptionalColon())) {
+        if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+                return parser.parseType(types.emplace_back());
+            })) {
+            return failure();
+        }
+    }
+
+    // Parse the condition region's `args ( $assignments )`.
+    llvm::SmallVector<OpAsmParser::Argument> condRegionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> condOperands;
+    if (parser.parseKeyword("args") || parser.parseAssignmentList(condRegionArgs, condOperands)) {
+        return failure();
+    }
+
+    if (condRegionArgs.size() != types.size()) {
+        return parser.emitError(parser.getNameLoc())
+               << "expected " << types.size() << " condition arguments but got "
+               << condRegionArgs.size();
+    }
+
+    for (auto [arg, ty] : llvm::zip_equal(condRegionArgs, types)) {
+        arg.type = ty;
+    }
+
+    if (parser.parseRegion(*condition, condRegionArgs)) {
+        return failure();
+    }
+    WhileOp::ensureTerminator(*condition, builder, result.location);
+
+    // Parse the body region's `args ( $names )`.
+    // Names only. The operands are inherited from the condition's `args(...)`.
+    llvm::SmallVector<OpAsmParser::Argument> bodyRegionArgs;
+    if (parser.parseKeyword("args") ||
+        parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+            return parser.parseArgument(bodyRegionArgs.emplace_back());
+        })) {
+        return failure();
+    }
+
+    if (bodyRegionArgs.size() != types.size()) {
+        return parser.emitError(parser.getNameLoc())
+               << "expected " << types.size() << " body arguments but got "
+               << bodyRegionArgs.size();
+    }
+
+    for (auto [arg, ty] : llvm::zip_equal(bodyRegionArgs, types)) {
+        arg.type = ty;
+    }
+
+    if (parser.parseRegion(*body, bodyRegionArgs)) {
+        return failure();
+    }
+    WhileOp::ensureTerminator(*body, builder, result.location);
+
+    // Resolve operands from the condition's `args(...)`.
+    if (parser.resolveOperands(condOperands, types, parser.getCurrentLocation(), result.operands)) {
+        return failure();
+    }
+
+    // Op results have the same types as in-values.
+    result.addTypes(types);
+
+    if (parser.parseOptionalAttrDict(result.attributes)) {
+        return failure();
+    }
+
+    return success();
 }
 
 LogicalResult WhileOp::verify() {
@@ -337,26 +651,110 @@ LogicalResult WhileOp::verifyRegions() {
 void DoWhileOp::print(OpAsmPrinter& p) {
     auto inValues = getInValues();
 
+    // Emit `: ( types )` only when there are in-values.
+    if (!inValues.empty()) {
+        p << " : (" << inValues.getTypes() << ")";
+    }
+
+    // Body region: `args ( $assignments )`.
+    // Fll assignments, since this is where the op's operands are introduced.
     auto& body = getBody();
     auto bodyArgs = body.getArguments();
     printInitializationList(p, bodyArgs, inValues, " args");
-    p << " -> (" << inValues.getTypes() << ") ";
+    p << ' ';
     p.printRegion(body, /*printEntryBlockArgs=*/false,
                   /*printBlockTerminators=*/!inValues.empty());
 
+    // Condition region: `args ( $names )`.
+    // Names only. The operands are already stated in the body's `args(...)`.
     auto& condition = getCondition();
     auto conditionArgs = condition.getArguments();
-    printInitializationList(p, conditionArgs, inValues, " args");
-    p << " -> (" << IntegerType::get(getContext(), 1) << ") ";
+    p << " args(";
+    llvm::interleaveComma(conditionArgs, p);
+    p << ") ";
     p.printRegion(condition, /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/!inValues.empty());
+                  /*printBlockTerminators=*/true);
 
     p.printOptionalAttrDict((*this)->getAttrs());
 }
 
-ParseResult DoWhileOp::parse(OpAsmParser& /*parser*/, OperationState& /*result*/) {
-    // TODO: Implement this
-    llvm::report_fatal_error("DoWhileOp::parse is not implemented yet");
+ParseResult DoWhileOp::parse(OpAsmParser& parser, OperationState& result) {
+    auto& builder = parser.getBuilder();
+
+    Region* body = result.addRegion();
+    Region* condition = result.addRegion();
+
+    // Parse optional `: ( types )`.
+    // Omitted when there are no in-values.
+    llvm::SmallVector<Type> types;
+    if (succeeded(parser.parseOptionalColon())) {
+        if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+                return parser.parseType(types.emplace_back());
+            })) {
+            return failure();
+        }
+    }
+
+    // Parse the body region's `args ( $assignments )`.
+    llvm::SmallVector<OpAsmParser::Argument> bodyRegionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> bodyOperands;
+    if (parser.parseKeyword("args") || parser.parseAssignmentList(bodyRegionArgs, bodyOperands)) {
+        return failure();
+    }
+
+    if (bodyRegionArgs.size() != types.size()) {
+        return parser.emitError(parser.getNameLoc())
+               << "expected " << types.size() << " body arguments but got "
+               << bodyRegionArgs.size();
+    }
+
+    for (auto [arg, ty] : llvm::zip_equal(bodyRegionArgs, types)) {
+        arg.type = ty;
+    }
+
+    if (parser.parseRegion(*body, bodyRegionArgs)) {
+        return failure();
+    }
+    DoWhileOp::ensureTerminator(*body, builder, result.location);
+
+    // Parse the condition region's `args ( $names )`.
+    // Names only. The operands are inherited from the body's `args(...)`.
+    llvm::SmallVector<OpAsmParser::Argument> condRegionArgs;
+    if (parser.parseKeyword("args") ||
+        parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+            return parser.parseArgument(condRegionArgs.emplace_back());
+        })) {
+        return failure();
+    }
+
+    if (condRegionArgs.size() != types.size()) {
+        return parser.emitError(parser.getNameLoc())
+               << "expected " << types.size() << " condition arguments but got "
+               << condRegionArgs.size();
+    }
+
+    for (auto [arg, ty] : llvm::zip_equal(condRegionArgs, types)) {
+        arg.type = ty;
+    }
+
+    if (parser.parseRegion(*condition, condRegionArgs)) {
+        return failure();
+    }
+    DoWhileOp::ensureTerminator(*condition, builder, result.location);
+
+    // Resolve operands from the body's `args(...)`.
+    if (parser.resolveOperands(bodyOperands, types, parser.getCurrentLocation(), result.operands)) {
+        return failure();
+    }
+
+    // Op results have the same types as in-values.
+    result.addTypes(types);
+
+    if (parser.parseOptionalAttrDict(result.attributes)) {
+        return failure();
+    }
+
+    return success();
 }
 
 LogicalResult DoWhileOp::verify() {
