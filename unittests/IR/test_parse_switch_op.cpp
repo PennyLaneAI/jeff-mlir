@@ -120,19 +120,19 @@ TEST_F(SwitchOpTest, DecoupledInValueAndResultTypes) {
 TEST_F(SwitchOpTest, Nested) {
     const std::string src = R"MLIR(
       func.func @f(%sel: i32, %a: i32) -> i32 {
-        %r = jeff.switch (%sel, %a) : (i32, i32) -> (i32)
-        case 0 args(%x) {
-          %s = jeff.switch (%sel, %x) : (i32, i32) -> (i32)
-          case 0 args(%xx) {
-            jeff.yield %xx : i32
+        %r = jeff.switch (%sel, %sel, %a) : (i32, i32, i32) -> (i32)
+        case 0 args(%sel_arg, %a_arg) {
+          %s = jeff.switch (%sel_arg, %a_arg) : (i32, i32) -> (i32)
+          case 0 args(%a_arg_arg) {
+            jeff.yield %a_arg_arg : i32
           }
-          default args(%xx) {
-            jeff.yield %xx : i32
+          default args(%a_arg_arg) {
+            jeff.yield %a_arg_arg : i32
           }
           jeff.yield %s : i32
         }
-        default args(%x) {
-          jeff.yield %x : i32
+        default args(%sel_arg, %a_arg) {
+          jeff.yield %a_arg : i32
         }
         return %r : i32
       }
