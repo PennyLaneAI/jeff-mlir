@@ -1882,7 +1882,7 @@ def FloatArrayCreateOp : FloatArray_Op<"float_array_create", []> {
 
 class SCF_Op<string mnemonic, list<Trait> traits = []> : Jeff_Op<mnemonic, traits # [SCFOperation]>;
 
-def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
+def SwitchOp : SCF_Op<"switch", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "Multi-way branch on an integer selector";
     let description = [{
       The `jeff.switch` operation dispatches on an integer selector to one of
@@ -1982,7 +1982,7 @@ def SwitchOp : SCF_Op<"switch", [SingleBlockImplicitTerminator<"jeff::YieldOp">]
     let hasRegionVerifier = 1;
 }
 
-def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
+def ForOp : SCF_Op<"for", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "Counted for loop with iteration arguments";
     let description = [{
       The `jeff.for` operation represents a counted loop over a half-open
@@ -2079,7 +2079,7 @@ def ForOp : SCF_Op<"for", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let hasRegionVerifier = 1;
 }
 
-def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
+def WhileOp : SCF_Op<"while", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "While loop with iteration arguments";
     let description = [{
       The `jeff.while` operation represents a loop that repeats while a
@@ -2182,7 +2182,7 @@ def WhileOp : SCF_Op<"while", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> 
     let hasRegionVerifier = 1;
 }
 
-def DoWhileOp : SCF_Op<"doWhile", [SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
+def DoWhileOp : SCF_Op<"doWhile", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "Do-while loop with iteration arguments";
     let description = [{
       The `jeff.doWhile` operation represents a loop that repeats while a
