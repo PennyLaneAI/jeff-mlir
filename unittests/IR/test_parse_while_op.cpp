@@ -45,7 +45,7 @@ TEST_F(WhileOpTest, WithArgsSingle) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) -> i32 {
         %r1, %r2 = jeff.while : (i32, i1) args(%c_x = %a, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_pred : i1, i32, i1
         } args(%b_x, %b_pred) {
           jeff.yield %b_x, %b_pred : i32, i1
         }
@@ -59,7 +59,7 @@ TEST_F(WhileOpTest, WithArgsMultiple) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
         %r1, %r2, %r3 = jeff.while : (i32, i64, i1) args(%c_x = %a, %c_y = %b, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_y, %c_pred : i1, i32, i64, i1
         } args(%b_x, %b_y, %b_pred) {
           jeff.yield %b_x, %b_y, %b_pred : i32, i64, i1
         }
@@ -73,10 +73,10 @@ TEST_F(WhileOpTest, Nested) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) -> i32 {
         %r1, %r2 = jeff.while : (i32, i1) args(%c_x = %a, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_pred : i1, i32, i1
         } args(%b_x, %b_pred) {
           %s1, %s2 = jeff.while : (i32, i1) args(%cc = %b_x, %ccp = %b_pred) {
-            jeff.yield %ccp : i1
+            jeff.yield %ccp, %cc, %ccp : i1, i32, i1
           } args(%bb, %bbp) {
             jeff.yield %bb, %bbp : i32, i1
           }
@@ -114,7 +114,7 @@ TEST_F(WhileOpTest, RoundTripIdempotent) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %b: i64, %pred: i1) -> (i32, i64) {
         %r1, %r2, %r3 = jeff.while : (i32, i64, i1) args(%c_x = %a, %c_y = %b, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_y, %c_pred : i1, i32, i64, i1
         } args(%b_x, %b_y, %b_pred) {
           jeff.yield %b_x, %b_y, %b_pred : i32, i64, i1
         }
@@ -141,7 +141,7 @@ TEST_F(WhileOpTest, InvalidMissingArgsKeyword) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
         jeff.while : (i32, i1) (%c_x = %a, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_pred : i1, i32, i1
         } args(%b_x, %b_pred) {
           jeff.yield %b_x, %b_pred : i32, i1
         }
@@ -156,7 +156,7 @@ TEST_F(WhileOpTest, InvalidArgCountMismatchWithTypes) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
         jeff.while : (i32, i1, i64) args(%c_x = %a, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_pred : i1, i32, i64, i1
         } args(%b_x, %b_pred) {
           jeff.yield %b_x, %b_pred : i32, i1
         }
@@ -171,7 +171,7 @@ TEST_F(WhileOpTest, InvalidCondBodyArgCountMismatch) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %b: i64, %pred: i1) {
         jeff.while : (i32, i64, i1) args(%c_x = %a, %c_y = %b, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_y, %c_pred : i1, i32, i64, i1
         } args(%b_x, %b_pred) {
           jeff.yield %b_x, %b_pred : i64, i1
         }
@@ -186,7 +186,7 @@ TEST_F(WhileOpTest, InvalidMissingTypeAnnotation) {
     const std::string src = R"MLIR(
       func.func @f(%a: i32, %pred: i1) {
         jeff.while args(%c_x = %a, %c_pred = %pred) {
-          jeff.yield %c_pred : i1
+          jeff.yield %c_pred, %c_x, %c_pred : i1, i32, i1
         } args(%b_x, %b_pred) {
           jeff.yield %b_x, %b_pred : i32, i1
         }

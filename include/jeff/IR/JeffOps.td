@@ -2082,86 +2082,7 @@ def ForOp : SCF_Op<"for", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jef
 def WhileOp : SCF_Op<"while", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "While loop with iteration arguments";
     let description = [{
-      The `jeff.while` operation represents a loop that repeats while a
-      condition holds. It has two regions:
-
-      - The `condition` region computes the loop's continuation predicate.
-        It must terminate with a `jeff.yield` whose only operand is an
-        `i1`. By the `jeff` language spec, the condition region may not
-        modify quantum state (qubits or qubit registers); it may only
-        inspect classical metadata.
-      - The `body` region is executed when the condition yields `true`.
-        It must terminate with a `jeff.yield` whose operands become the
-        next iteration's input values, or — on the last iteration — the
-        op's results.
-
-      The op carries a list of `in_values` shared between both regions.
-      Each region declares its own local block arguments, bound to those
-      `in_values` on entry. Because the condition region does not modify
-      state, the same iteration values are visible to the body region
-      (formally, they are forwarded from the condition's inputs).
-
-      The types of `in_values`, the body region's yielded values, and the
-      op's results all match. There is a single signature for the loop.
-
-      Syntax:
-      ```
-      [ $results = ] jeff.while [ : ( $types ) ]
-                                args ( $cond_assignments ) $cond_body
-                                args ( $body_names ) $body_body
-      ```
-
-      The `: ( $types )` annotation is present iff `$types` is non-empty.
-      Both `args(...)` clauses are always emitted (possibly empty),
-      serving as a structural separator between the regions.
-
-      Implicit inferences in the syntax:
-      - Result types are not written: they are the same as the `: (...)`
-        types (Jeff's single-signature design choice, T1 = T2).
-      - Block-argument types inside the `args(...)` clauses are not
-        written: they are inferred from the same `: (...)` annotation.
-      - The body region's `args(...)` lists only local block-argument
-        names, not assignments. The operands are stated once in the
-        condition's `args(...)`; the body's block arguments are bound
-        positionally to those same operands.
-
-      Example with loop-carried values:
-      ```mlir
-      %r1, %r2 = jeff.while : (i32, i64) args(%c_x = %a, %c_y = %b) {
-        // condition
-        jeff.yield %pred : i1
-      } args(%b_x, %b_y) {
-        // body
-        jeff.yield %next_x, %next_y : i32, i64
-      }
-      ```
-
-      Example with no loop-carried values:
-      ```mlir
-      jeff.while args() {
-        jeff.yield %pred : i1
-      } args() {
-        // body (no values to yield)
-      }
-      ```
-
-      Invariants enforced by the verifier:
-      - The number of `in_values` equals the number of results.
-      - Each `in_value`, the corresponding block argument of each region,
-        and the corresponding result have matching types.
-      - Both regions terminate with a `jeff.yield` (per
-        `SingleBlockImplicitTerminator`).
-
-      Differences from `scf.while`:
-      - No `do` keyword between the regions; `args(...)` is the
-        structural separator.
-      - The condition region yields only `i1`; it does not also yield
-        values to the body region (in SCF, `scf.condition` yields an
-        `i1` plus the carried values).
-      - Both regions share a single op-level operand list; in SCF the
-        operand list feeds only the `before` region.
-      - Input types and result types are required to match (single
-        signature), reflecting the `jeff` language design choice of T1 = T2.
+        TODO.
     }];
 
     let arguments = (ins
@@ -2169,112 +2090,8 @@ def WhileOp : SCF_Op<"while", [IsolatedFromAbove, SingleBlockImplicitTerminator<
     );
 
     let regions = (region
-        SizedRegion<1>:$condition,
-        SizedRegion<1>:$body
-    );
-
-    let results = (outs
-        Variadic<AnyType>:$out_values
-    );
-
-    let hasCustomAssemblyFormat = 1;
-    let hasVerifier = 1;
-    let hasRegionVerifier = 1;
-}
-
-def DoWhileOp : SCF_Op<"doWhile", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
-    let summary = "Do-while loop with iteration arguments";
-    let description = [{
-      The `jeff.doWhile` operation represents a loop that repeats while a
-      condition holds. Unlike the `jeff.while` operation, an initial
-      iteration of the loop occurs before the condition is checked for the
-      first time. It has two regions:
-
-      - The `condition` region computes the loop's continuation predicate.
-        It must terminate with a `jeff.yield` whose only operand is an
-        `i1`. By the `jeff` language spec, the condition region may not
-        modify quantum state (qubits or qubit registers); it may only
-        inspect classical metadata.
-      - The `body` region executes unconditionally on the first iteration,
-        then repeats while the condition yields `true`.
-        It must terminate with a `jeff.yield` whose operands become the
-        next iteration's input values, or — on the last iteration — the
-        op's results.
-
-      The op carries a list of `in_values` shared between both regions.
-      Each region declares its own local block arguments, bound to those
-      `in_values` on entry. On the first iteration the body's block
-      arguments are bound directly from the op's operands; on subsequent
-      iterations they are bound from the body's previous yield. Because
-      the condition region does not modify state, the same iteration
-      values are visible to both regions.
-
-      The types of `in_values`, the body region's yielded values, and the
-      op's results all match. There is a single signature for the loop.
-
-      Syntax:
-      ```
-      [ $results = ] jeff.doWhile [ : ( $types ) ]
-                                  args ( $body_assignments ) $body_body
-                                  args ( $cond_names ) $cond_body
-      ```
-
-      The `: ( $types )` annotation is present iff `$types` is non-empty.
-      Both `args(...)` clauses are always emitted (possibly empty),
-      serving as a structural separator between the regions.
-
-      Implicit inferences in the syntax:
-      - Result types are not written: they are the same as the `: (...)`
-        types (Jeff's single-signature design choice, T1 = T2).
-      - Block-argument types inside the `args(...)` clauses are not
-        written: they are inferred from the same `: (...)` annotation.
-      - The condition region's `args(...)` lists only local
-        block-argument names, not assignments. The operands are stated
-        once in the body's `args(...)`; the condition's block arguments
-        are bound positionally to those same operands.
-
-      Example with loop-carried values:
-      ```mlir
-      %r1, %r2 = jeff.doWhile : (i32, i64) args(%b_x = %a, %b_y = %b) {
-        // body
-        jeff.yield %next_x, %next_y : i32, i64
-      } args(%c_x, %c_y) {
-        // condition
-        jeff.yield %pred : i1
-      }
-      ```
-
-      Example with no loop-carried values:
-      ```mlir
-      jeff.doWhile args() {
-      } args() {
-        jeff.yield %pred : i1
-      }
-      ```
-
-      Invariants enforced by the verifier:
-      - The number of `in_values` equals the number of results.
-      - Each `in_value`, the corresponding block argument of each region,
-        and the corresponding result have matching types.
-      - Both regions terminate with a `jeff.yield` (per
-        `SingleBlockImplicitTerminator`).
-
-      Differences from `jeff.while`:
-      - The body runs unconditionally on the first iteration, before the
-        condition is ever evaluated. The body region is therefore
-        declared before the condition region in the op's region list and
-        in the printed form.
-
-      The differences from `scf.while` are the same as for `jeff.while`.
-    }];
-
-    let arguments = (ins
-        Variadic<AnyType>:$in_values
-    );
-
-    let regions = (region
-        SizedRegion<1>:$body,
-        SizedRegion<1>:$condition
+        SizedRegion<1>:$before,
+        SizedRegion<1>:$after
     );
 
     let results = (outs
@@ -2287,7 +2104,7 @@ def DoWhileOp : SCF_Op<"doWhile", [IsolatedFromAbove, SingleBlockImplicitTermina
 }
 
 def YieldOp : SCF_Op<"yield", [Pure, ReturnLike, Terminator,
-    ParentOneOf<["SwitchOp", "ForOp", "WhileOp", "DoWhileOp"]>]> {
+    ParentOneOf<["SwitchOp", "ForOp", "WhileOp"]>]> {
   let summary = "Return results from SCF regions";
   let description = [{}];
 

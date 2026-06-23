@@ -1237,9 +1237,8 @@ void deserializeFor(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader&
     }
 }
 
-template <typename MLIR_WHILE_OP_TYPE, typename JEFF_WHILE_OP_READER_TYPE>
 void deserializeWhile(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader& operation,
-                      JEFF_WHILE_OP_READER_TYPE reader, DeserializationContext& ctx) {
+                      jeff::ScfOp::While::Reader reader, DeserializationContext& ctx) {
     auto loc = builder.getUnknownLoc();
     const auto inputs = operation.getInputs();
 
@@ -1252,48 +1251,53 @@ void deserializeWhile(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reade
         outTypes.push_back(ctx.getValue(input).getType());
     }
 
-    auto op = MLIR_WHILE_OP_TYPE::create(builder, outTypes, inValues);
+    auto op = mlir::jeff::WhileOp::create(builder, outTypes, inValues);
 
     {
-        auto& block = op.getCondition().emplaceBlock();
+        auto& block = op.getBefore().emplaceBlock();
         mlir::OpBuilder::InsertionGuard guard(builder);
         builder.setInsertionPointToStart(&block);
 
-        const auto condition = reader.getCondition();
+        const auto before = reader.getBefore();
 
         // Add sources to map
-        for (size_t i = 0; i < condition.getSources().size(); ++i) {
+        for (size_t i = 0; i < before.getSources().size(); ++i) {
             auto arg = block.addArgument(inValues[i].getType(), loc);
-            ctx.setValue(condition.getSources()[i], arg);
+            ctx.setValue(before.getSources()[i], arg);
         }
 
-        deserializeOperations(builder, condition.getOperations(), ctx);
-
-        // Retrieve target from map
-        auto result = ctx.getValue(condition.getTargets()[0]);
-        mlir::jeff::YieldOp::create(builder, result);
-    }
-
-    {
-        auto& block = op.getBody().emplaceBlock();
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        builder.setInsertionPointToStart(&block);
-
-        const auto body = reader.getBody();
-
-        // Add sources to map
-        for (size_t i = 0; i < body.getSources().size(); ++i) {
-            auto arg = block.addArgument(inValues[i].getType(), loc);
-            ctx.setValue(body.getSources()[i], arg);
-        }
-
-        deserializeOperations(builder, body.getOperations(), ctx);
+        deserializeOperations(builder, before.getOperations(), ctx);
 
         // Retrieve targets from map
         llvm::SmallVector<mlir::Value> targetValues;
-        targetValues.reserve(body.getTargets().size());
-        for (size_t i = 0; i < body.getTargets().size(); ++i) {
-            targetValues.push_back(ctx.getValue(body.getTargets()[i]));
+        targetValues.reserve(before.getTargets().size());
+        for (size_t i = 0; i < before.getTargets().size(); ++i) {
+            targetValues.push_back(ctx.getValue(before.getTargets()[i]));
+        }
+
+        mlir::jeff::YieldOp::create(builder, targetValues);
+    }
+
+    {
+        auto& block = op.getAfter().emplaceBlock();
+        mlir::OpBuilder::InsertionGuard guard(builder);
+        builder.setInsertionPointToStart(&block);
+
+        const auto after = reader.getAfter();
+
+        // Add sources to map
+        for (size_t i = 0; i < after.getSources().size(); ++i) {
+            auto arg = block.addArgument(inValues[i].getType(), loc);
+            ctx.setValue(after.getSources()[i], arg);
+        }
+
+        deserializeOperations(builder, after.getOperations(), ctx);
+
+        // Retrieve targets from map
+        llvm::SmallVector<mlir::Value> targetValues;
+        targetValues.reserve(after.getTargets().size());
+        for (size_t i = 0; i < after.getTargets().size(); ++i) {
+            targetValues.push_back(ctx.getValue(after.getTargets()[i]));
         }
 
         mlir::jeff::YieldOp::create(builder, targetValues);
@@ -1316,12 +1320,7 @@ void deserializeScf(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader&
         deserializeFor(builder, operation, ctx);
         break;
     case jeff::ScfOp::WHILE:
-        deserializeWhile<mlir::jeff::WhileOp, jeff::ScfOp::While::Reader>(builder, operation,
-                                                                          scf.getWhile(), ctx);
-        break;
-    case jeff::ScfOp::DO_WHILE:
-        deserializeWhile<mlir::jeff::DoWhileOp, jeff::ScfOp::DoWhile::Reader>(
-            builder, operation, scf.getDoWhile(), ctx);
+        deserializeWhile(builder, operation, scf.getWhile(), ctx);
         break;
     default:
         llvm::errs() << "Cannot deserialize scf instruction " << scf.which() << "\n";

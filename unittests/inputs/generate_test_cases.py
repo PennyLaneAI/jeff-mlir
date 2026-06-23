@@ -27,7 +27,6 @@ from jeff import (
     QuregType,
     WhileSCF,
     IntArrayType,
-    DoWhileSCF,
     FloatArrayType,
     schema,
 )
@@ -1425,6 +1424,7 @@ def generate_scf_while() -> None:
     alloc = qubit_alloc()
     counter = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 0)
 
+    qubit = JeffValue(QubitType())
     three = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
     int_lt = JeffOp(
         "int",
@@ -1432,9 +1432,9 @@ def generate_scf_while() -> None:
         [JeffValue(IntType(32)), three.outputs[0]],
         [JeffValue(IntType(1))],
     )
-    condition = JeffRegion(
-        sources=[JeffValue(QubitType()), int_lt.inputs[0]],
-        targets=[int_lt.outputs[0]],
+    before = JeffRegion(
+        sources=[qubit, int_lt.inputs[0]],
+        targets=[int_lt.outputs[0], qubit, int_lt.outputs[0]],
         operations=[three, int_lt],
     )
 
@@ -1443,13 +1443,13 @@ def generate_scf_while() -> None:
     int_add = JeffOp(
         "int", "add", [JeffValue(IntType(32)), one.outputs[0]], [JeffValue(IntType(32))]
     )
-    body = JeffRegion(
+    after = JeffRegion(
         sources=[h.inputs[0], int_add.inputs[0]],
         targets=[h.outputs[0], int_add.outputs[0]],
         operations=[h, one, int_add],
     )
 
-    while_scf = WhileSCF(condition=condition, body=body)
+    while_scf = WhileSCF(before=before, after=after)
     while_ = JeffOp(
         "scf",
         "while",
@@ -1461,52 +1461,6 @@ def generate_scf_while() -> None:
     free = qubit_free(while_.outputs[0])
 
     _create_and_write_module([alloc, counter, while_, free], "unit_scf_while.jeff")
-
-
-@register_generator
-def generate_scf_do_while() -> None:
-    alloc = qubit_alloc()
-    counter = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 0)
-
-    three = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 3)
-    int_lt = JeffOp(
-        "int",
-        "ltS",
-        [JeffValue(IntType(32)), three.outputs[0]],
-        [JeffValue(IntType(1))],
-    )
-    condition = JeffRegion(
-        sources=[JeffValue(QubitType()), int_lt.inputs[0]],
-        targets=[int_lt.outputs[0]],
-        operations=[three, int_lt],
-    )
-
-    h = quantum_gate("h", qubits=[JeffValue(QubitType())])
-    one = JeffOp("int", "const32", [], [JeffValue(IntType(32))], 1)
-    int_add = JeffOp(
-        "int", "add", [JeffValue(IntType(32)), one.outputs[0]], [JeffValue(IntType(32))]
-    )
-    body = JeffRegion(
-        sources=[h.inputs[0], int_add.inputs[0]],
-        targets=[h.outputs[0], int_add.outputs[0]],
-        operations=[h, one, int_add],
-    )
-
-    do_while_scf = DoWhileSCF(body=body, condition=condition)
-    do_while = JeffOp(
-        "scf",
-        "do_while",
-        [alloc.outputs[0], counter.outputs[0]],
-        [JeffValue(QubitType()), JeffValue(IntType(32))],
-        do_while_scf,
-    )
-
-    free = qubit_free(do_while.outputs[0])
-
-    _create_and_write_module(
-        [alloc, counter, do_while, free],
-        "unit_scf_do_while.jeff",
-    )
 
 
 # ===----------------------------------------------------------------------=== #
