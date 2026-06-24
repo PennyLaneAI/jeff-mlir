@@ -1170,7 +1170,6 @@ void deserializeSwitch(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Read
 
 void deserializeFor(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader& operation,
                     DeserializationContext& ctx) {
-    auto loc = builder.getUnknownLoc();
     const auto inputs = operation.getInputs();
     const auto forInstr = operation.getInstruction().getScf().getFor();
 
