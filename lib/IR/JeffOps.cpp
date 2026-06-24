@@ -521,7 +521,7 @@ void WhileOp::print(OpAsmPrinter& p) {
     }
 
     // before region: `args ( $assignments )`.
-    // Full assignments, since this is where the op's operands are introduced.
+    // Define the mapping between operands and block arguments.
     auto& before = getBefore();
     auto beforeArgs = before.getArguments();
     printInitializationList(p, beforeArgs, inValues, " args");
@@ -530,7 +530,7 @@ void WhileOp::print(OpAsmPrinter& p) {
                   /*printBlockTerminators=*/true);
 
     // after region: `args ( $names )`.
-    // Names only. The operands are already stated in the condition's `args(...)`.
+    // Block arguments only. The operands are already stated in the before region's `args(...)`.
     auto& after = getAfter();
     auto afterArgs = after.getArguments();
     p << " args(";
@@ -585,7 +585,7 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
     WhileOp::ensureTerminator(*before, builder, result.location);
 
     // Parse the after region's `args ( $names )`.
-    // Names only. The operands are inherited from the condition's `args(...)`.
+    // Names only. The operands are inherited from the before region's `args(...)`.
     llvm::SmallVector<OpAsmParser::Argument> afterRegionArgs;
     if (parser.parseKeyword("args") ||
         parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
@@ -609,7 +609,7 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
     }
     WhileOp::ensureTerminator(*after, builder, result.location);
 
-    // Resolve operands from the condition's `args(...)`.
+    // Resolve operands from the before region's `args(...)`.
     if (parser.resolveOperands(beforeOperands, types, parser.getCurrentLocation(),
                                result.operands)) {
         return failure();
