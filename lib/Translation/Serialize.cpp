@@ -1212,129 +1212,32 @@ void serializeFloatArray(jeff::Op::Builder builder, mlir::jeff::FloatArrayOperat
 void serializeOperation(jeff::Op::Builder builder, mlir::Operation* operation,
                         SerializationContext& ctx);
 
-void serializeSwitch(jeff::Op::Builder builder, mlir::jeff::SwitchOp op,
+void serializeRegion(jeff::Region::Builder builder, mlir::Region& region,
                      SerializationContext& ctx) {
-    auto switchBuilder = builder.initInstruction().initScf().initSwitch();
-
-    const auto numInputs = op.getNumOperands();
-    auto inputs = builder.initInputs(numInputs);
-    for (size_t i = 0; i < numInputs; ++i) {
-        inputs.set(i, ctx.getValueId(op.getOperand(i)));
-    }
-
-    const auto numOutputs = op.getNumResults();
-    auto outputs = builder.initOutputs(numOutputs);
-    for (size_t i = 0; i < numOutputs; ++i) {
-        outputs.set(i, ctx.getValueId(op.getResult(i)));
-    }
-
-    auto branches = op.getBranches();
-    const auto numBranches = branches.size();
-    auto branchBuilders = switchBuilder.initBranches(numBranches);
-    for (size_t i = 0; i < numBranches; ++i) {
-        auto& block = branches[i].front();
-        auto branchBuilder = branchBuilders[i];
-
-        const auto numSources = block.getNumArguments();
-        auto sources = branchBuilder.initSources(numSources);
-        for (size_t j = 0; j < numSources; ++j) {
-            sources.set(j, ctx.getValueId(block.getArgument(j)));
-        }
-
-        const auto numOperations = block.getOperations().size() - 1;
-        auto operationBuilders = branchBuilder.initOperations(numOperations);
-        size_t j = 0;
-        for (auto& operation : block.getOperations()) {
-            if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
-                continue;
-            }
-            serializeOperation(operationBuilders[j], &operation, ctx);
-            ++j;
-        }
-
-        auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
-        const auto numTargets = yieldOp.getNumOperands();
-        auto targets = branchBuilder.initTargets(numTargets);
-        for (size_t t = 0; t < numTargets; ++t) {
-            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
-        }
-    }
-
-    {
-        auto& block = op.getDefault().front();
-        auto defaultBuilder = switchBuilder.initDefault();
-
-        const auto numSources = block.getNumArguments();
-        auto sources = defaultBuilder.initSources(numSources);
-        for (size_t i = 0; i < numSources; ++i) {
-            sources.set(i, ctx.getValueId(block.getArgument(i)));
-        }
-
-        const auto numOperations = block.getOperations().size() - 1;
-        auto operationBuilders = defaultBuilder.initOperations(numOperations);
-        size_t i = 0;
-        for (auto& operation : block.getOperations()) {
-            if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
-                continue;
-            }
-            serializeOperation(operationBuilders[i], &operation, ctx);
-            ++i;
-        }
-
-        auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
-        const auto numTargets = yieldOp.getNumOperands();
-        auto targets = defaultBuilder.initTargets(numTargets);
-        for (size_t t = 0; t < numTargets; ++t) {
-            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
-        }
-    }
-}
-
-void serializeFor(jeff::Op::Builder builder, mlir::jeff::ForOp op, SerializationContext& ctx) {
-    auto forBuilder = builder.initInstruction().initScf().initFor();
-
-    const auto numInputs = op.getNumOperands();
-    auto inputs = builder.initInputs(numInputs);
-    for (size_t i = 0; i < numInputs; ++i) {
-        inputs.set(i, ctx.getValueId(op.getOperand(i)));
-    }
-
-    const auto numOutputs = op.getNumResults();
-    auto outputs = builder.initOutputs(numOutputs);
-    for (size_t i = 0; i < numOutputs; ++i) {
-        outputs.set(i, ctx.getValueId(op.getResult(i)));
-    }
-
-    auto& block = op.getBody().front();
-
-    const auto numSources = block.getNumArguments();
-    auto sources = forBuilder.initSources(numSources);
+    const auto numSources = region.getNumArguments();
+    auto sources = builder.initSources(numSources);
     for (size_t i = 0; i < numSources; ++i) {
-        sources.set(i, ctx.getValueId(block.getArgument(i)));
+        sources.set(i, ctx.getValueId(region.getArgument(i)));
     }
 
-    const auto numOperations = block.getOperations().size() - 1;
-    auto operationBuilders = forBuilder.initOperations(numOperations);
+    const auto numOperations = region.front().getOperations().size() - 1;
+    auto operationBuilders = builder.initOperations(numOperations);
     size_t i = 0;
-    for (auto& operation : block.getOperations()) {
-        if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
-            continue;
-        }
+    for (auto& operation : region.front().without_terminator()) {
         serializeOperation(operationBuilders[i], &operation, ctx);
         ++i;
     }
 
-    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(block.back());
+    auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(region.front().back());
     const auto numTargets = yieldOp.getNumOperands();
-    auto targets = forBuilder.initTargets(numTargets);
+    auto targets = builder.initTargets(numTargets);
     for (size_t t = 0; t < numTargets; ++t) {
         targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
     }
 }
 
-void serializeWhile(jeff::Op::Builder builder, mlir::jeff::WhileOp op, SerializationContext& ctx) {
-    auto whileBuilder = builder.initInstruction().initScf().initWhile();
-
+void serializeSwitch(jeff::Op::Builder builder, mlir::jeff::SwitchOp op,
+                     SerializationContext& ctx) {
     const auto numInputs = op.getNumOperands();
     auto inputs = builder.initInputs(numInputs);
     for (size_t i = 0; i < numInputs; ++i) {
@@ -1347,63 +1250,50 @@ void serializeWhile(jeff::Op::Builder builder, mlir::jeff::WhileOp op, Serializa
         outputs.set(i, ctx.getValueId(op.getResult(i)));
     }
 
-    {
-        auto& before = op.getBefore();
-        auto beforeBuilder = whileBuilder.initBefore();
+    auto switchBuilder = builder.initInstruction().initScf().initSwitch();
 
-        const auto numSources = before.getNumArguments();
-        auto sources = beforeBuilder.initSources(numSources);
-        for (size_t i = 0; i < numSources; ++i) {
-            sources.set(i, ctx.getValueId(before.getArgument(i)));
-        }
-
-        const auto numOperations = before.front().getOperations().size() - 1;
-        auto operationBuilders = beforeBuilder.initOperations(numOperations);
-        size_t i = 0;
-        for (auto& operation : before.front().getOperations()) {
-            if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
-                continue;
-            }
-            serializeOperation(operationBuilders[i], &operation, ctx);
-            ++i;
-        }
-
-        auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(before.front().back());
-        const auto numTargets = yieldOp.getNumOperands();
-        auto targets = beforeBuilder.initTargets(numTargets);
-        for (size_t t = 0; t < numTargets; ++t) {
-            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
-        }
+    auto branches = op.getBranches();
+    const auto numBranches = branches.size();
+    auto branchBuilders = switchBuilder.initBranches(numBranches);
+    for (size_t i = 0; i < numBranches; ++i) {
+        serializeRegion(branchBuilders[i], branches[i], ctx);
     }
 
-    {
-        auto& after = op.getAfter();
-        auto afterBuilder = whileBuilder.initAfter();
+    serializeRegion(switchBuilder.initDefault(), op.getDefault(), ctx);
+}
 
-        const auto numSources = after.getNumArguments();
-        auto sources = afterBuilder.initSources(numSources);
-        for (size_t i = 0; i < numSources; ++i) {
-            sources.set(i, ctx.getValueId(after.getArgument(i)));
-        }
-
-        const auto numOperations = after.front().getOperations().size() - 1;
-        auto operationBuilders = afterBuilder.initOperations(numOperations);
-        size_t i = 0;
-        for (auto& operation : after.front().getOperations()) {
-            if (llvm::isa<mlir::jeff::YieldOp>(operation)) {
-                continue;
-            }
-            serializeOperation(operationBuilders[i], &operation, ctx);
-            ++i;
-        }
-
-        auto yieldOp = llvm::cast<mlir::jeff::YieldOp>(after.front().back());
-        const auto numTargets = yieldOp.getNumOperands();
-        auto targets = afterBuilder.initTargets(numTargets);
-        for (size_t t = 0; t < numTargets; ++t) {
-            targets.set(t, ctx.getValueId(yieldOp.getOperand(t)));
-        }
+void serializeFor(jeff::Op::Builder builder, mlir::jeff::ForOp op, SerializationContext& ctx) {
+    const auto numInputs = op.getNumOperands();
+    auto inputs = builder.initInputs(numInputs);
+    for (size_t i = 0; i < numInputs; ++i) {
+        inputs.set(i, ctx.getValueId(op.getOperand(i)));
     }
+
+    const auto numOutputs = op.getNumResults();
+    auto outputs = builder.initOutputs(numOutputs);
+    for (size_t i = 0; i < numOutputs; ++i) {
+        outputs.set(i, ctx.getValueId(op.getResult(i)));
+    }
+
+    serializeRegion(builder.initInstruction().initScf().initFor(), op.getBody(), ctx);
+}
+
+void serializeWhile(jeff::Op::Builder builder, mlir::jeff::WhileOp op, SerializationContext& ctx) {
+    const auto numInputs = op.getNumOperands();
+    auto inputs = builder.initInputs(numInputs);
+    for (size_t i = 0; i < numInputs; ++i) {
+        inputs.set(i, ctx.getValueId(op.getOperand(i)));
+    }
+
+    const auto numOutputs = op.getNumResults();
+    auto outputs = builder.initOutputs(numOutputs);
+    for (size_t i = 0; i < numOutputs; ++i) {
+        outputs.set(i, ctx.getValueId(op.getResult(i)));
+    }
+
+    auto whileBuilder = builder.initInstruction().initScf().initWhile();
+    serializeRegion(whileBuilder.initBefore(), op.getBefore(), ctx);
+    serializeRegion(whileBuilder.initAfter(), op.getAfter(), ctx);
 }
 
 void serializeSCF(jeff::Op::Builder builder, mlir::jeff::SCFOperation operation,
