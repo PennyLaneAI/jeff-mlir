@@ -1109,9 +1109,32 @@ void deserializeOperations(mlir::ImplicitLocOpBuilder& builder,
                            const capnp::List<jeff::Op>::Reader& operations,
                            DeserializationContext& ctx);
 
+void deserializeBlock(mlir::ImplicitLocOpBuilder& builder, mlir::Block& block,
+                      mlir::TypeRange argTypes, const jeff::Region::Reader& region,
+                      DeserializationContext& ctx) {
+    mlir::OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToStart(&block);
+
+    // Add sources to map
+    for (size_t i = 0; i < region.getSources().size(); ++i) {
+        auto arg = block.addArgument(argTypes[i], builder.getUnknownLoc());
+        ctx.setValue(region.getSources()[i], arg);
+    }
+
+    deserializeOperations(builder, region.getOperations(), ctx);
+
+    // Retrieve targets from map
+    llvm::SmallVector<mlir::Value> targetValues;
+    targetValues.reserve(region.getTargets().size());
+    for (size_t i = 0; i < region.getTargets().size(); ++i) {
+        targetValues.push_back(ctx.getValue(region.getTargets()[i]));
+    }
+
+    mlir::jeff::YieldOp::create(builder, targetValues);
+}
+
 void deserializeSwitch(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader& operation,
                        DeserializationContext& ctx) {
-    auto loc = builder.getUnknownLoc();
     const auto inputs = operation.getInputs();
     const auto switchInstr = operation.getInstruction().getScf().getSwitch();
     const auto branches = switchInstr.getBranches();
@@ -1121,61 +1144,21 @@ void deserializeSwitch(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Read
     inValues.reserve(inputs.size() - 1);
     outTypes.reserve(inputs.size() - 1);
     for (size_t i = 1; i < inputs.size(); ++i) {
-        inValues.push_back(ctx.getValue(inputs[i]));
-        outTypes.push_back(ctx.getValue(inputs[i]).getType());
+        auto value = ctx.getValue(inputs[i]);
+        inValues.push_back(value);
+        outTypes.push_back(value.getType());
     }
 
     auto op = mlir::jeff::SwitchOp::create(builder, outTypes, ctx.getValue(inputs[0]), inValues,
                                            branches.size());
 
     for (size_t i = 0; i < branches.size(); ++i) {
-        auto& block = op.getBranches()[i].emplaceBlock();
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        builder.setInsertionPointToStart(&block);
-
-        const auto& branch = branches[i];
-
-        // Add sources to map
-        for (size_t j = 0; j < branch.getSources().size(); ++j) {
-            auto arg = block.addArgument(inValues[j].getType(), loc);
-            ctx.setValue(branch.getSources()[j], arg);
-        }
-
-        deserializeOperations(builder, branches[i].getOperations(), ctx);
-
-        // Retrieve targets from map
-        llvm::SmallVector<mlir::Value> targetValues;
-        targetValues.reserve(branch.getTargets().size());
-        for (size_t j = 0; j < branch.getTargets().size(); ++j) {
-            targetValues.push_back(ctx.getValue(branch.getTargets()[j]));
-        }
-
-        mlir::jeff::YieldOp::create(builder, targetValues);
+        deserializeBlock(builder, op.getBranches()[i].emplaceBlock(), outTypes, branches[i], ctx);
     }
 
     if (switchInstr.hasDefault()) {
-        auto& block = op.getDefault().emplaceBlock();
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        builder.setInsertionPointToStart(&block);
-
-        const auto& defaultRegion = switchInstr.getDefault();
-
-        // Add sources to map
-        for (size_t i = 0; i < defaultRegion.getSources().size(); ++i) {
-            auto arg = block.addArgument(inValues[i].getType(), loc);
-            ctx.setValue(defaultRegion.getSources()[i], arg);
-        }
-
-        deserializeOperations(builder, defaultRegion.getOperations(), ctx);
-
-        // Retrieve targets from map
-        llvm::SmallVector<mlir::Value> targetValues;
-        targetValues.reserve(defaultRegion.getTargets().size());
-        for (size_t i = 0; i < defaultRegion.getTargets().size(); ++i) {
-            targetValues.push_back(ctx.getValue(defaultRegion.getTargets()[i]));
-        }
-
-        mlir::jeff::YieldOp::create(builder, targetValues);
+        deserializeBlock(builder, op.getDefault().emplaceBlock(), outTypes,
+                         switchInstr.getDefault(), ctx);
     }
 
     llvm::SmallVector<mlir::Value> outValues;
@@ -1196,39 +1179,19 @@ void deserializeFor(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader&
     inValues.reserve(inputs.size() - 3);
     outTypes.reserve(inputs.size() - 3);
     for (size_t i = 3; i < inputs.size(); ++i) {
-        inValues.push_back(ctx.getValue(inputs[i]));
-        outTypes.push_back(ctx.getValue(inputs[i]).getType());
+        auto value = ctx.getValue(inputs[i]);
+        inValues.push_back(value);
+        outTypes.push_back(value.getType());
     }
 
     auto op = mlir::jeff::ForOp::create(builder, outTypes, ctx.getValue(inputs[0]),
                                         ctx.getValue(inputs[1]), ctx.getValue(inputs[2]), inValues);
 
-    {
-        auto& bodyBlock = op.getBody().emplaceBlock();
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        builder.setInsertionPointToStart(&bodyBlock);
-
-        // Add induction variable to map
-        auto i = bodyBlock.addArgument(ctx.getValue(inputs[0]).getType(), loc);
-        ctx.setValue(forInstr.getSources()[0], i);
-
-        // Add sources to map
-        for (size_t i = 1; i < forInstr.getSources().size(); ++i) {
-            auto arg = bodyBlock.addArgument(inValues[i - 1].getType(), loc);
-            ctx.setValue(forInstr.getSources()[i], arg);
-        }
-
-        deserializeOperations(builder, forInstr.getOperations(), ctx);
-
-        // Retrieve targets from map
-        llvm::SmallVector<mlir::Value> outValues;
-        outValues.reserve(forInstr.getTargets().size());
-        for (size_t i = 0; i < forInstr.getTargets().size(); ++i) {
-            outValues.push_back(ctx.getValue(forInstr.getTargets()[i]));
-        }
-
-        mlir::jeff::YieldOp::create(builder, outValues);
-    }
+    llvm::SmallVector<mlir::Type> argTypes;
+    argTypes.reserve(inputs.size() - 2);
+    argTypes.push_back(ctx.getValue(inputs[0]).getType());
+    argTypes.append(outTypes.begin(), outTypes.end());
+    deserializeBlock(builder, op.getBody().emplaceBlock(), argTypes, forInstr, ctx);
 
     llvm::SmallVector<mlir::Value> outValues;
     outValues.reserve(operation.getOutputs().size());
@@ -1239,7 +1202,6 @@ void deserializeFor(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader&
 
 void deserializeWhile(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reader& operation,
                       jeff::ScfOp::While::Reader reader, DeserializationContext& ctx) {
-    auto loc = builder.getUnknownLoc();
     const auto inputs = operation.getInputs();
 
     llvm::SmallVector<mlir::Value> inValues;
@@ -1247,61 +1209,15 @@ void deserializeWhile(mlir::ImplicitLocOpBuilder& builder, const jeff::Op::Reade
     inValues.reserve(inputs.size());
     outTypes.reserve(inputs.size());
     for (const auto input : inputs) {
-        inValues.push_back(ctx.getValue(input));
-        outTypes.push_back(ctx.getValue(input).getType());
+        auto value = ctx.getValue(input);
+        inValues.push_back(value);
+        outTypes.push_back(value.getType());
     }
 
     auto op = mlir::jeff::WhileOp::create(builder, outTypes, inValues);
 
-    {
-        auto& block = op.getBefore().emplaceBlock();
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        builder.setInsertionPointToStart(&block);
-
-        const auto before = reader.getBefore();
-
-        // Add sources to map
-        for (size_t i = 0; i < before.getSources().size(); ++i) {
-            auto arg = block.addArgument(inValues[i].getType(), loc);
-            ctx.setValue(before.getSources()[i], arg);
-        }
-
-        deserializeOperations(builder, before.getOperations(), ctx);
-
-        // Retrieve targets from map
-        llvm::SmallVector<mlir::Value> targetValues;
-        targetValues.reserve(before.getTargets().size());
-        for (size_t i = 0; i < before.getTargets().size(); ++i) {
-            targetValues.push_back(ctx.getValue(before.getTargets()[i]));
-        }
-
-        mlir::jeff::YieldOp::create(builder, targetValues);
-    }
-
-    {
-        auto& block = op.getAfter().emplaceBlock();
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        builder.setInsertionPointToStart(&block);
-
-        const auto after = reader.getAfter();
-
-        // Add sources to map
-        for (size_t i = 0; i < after.getSources().size(); ++i) {
-            auto arg = block.addArgument(inValues[i].getType(), loc);
-            ctx.setValue(after.getSources()[i], arg);
-        }
-
-        deserializeOperations(builder, after.getOperations(), ctx);
-
-        // Retrieve targets from map
-        llvm::SmallVector<mlir::Value> targetValues;
-        targetValues.reserve(after.getTargets().size());
-        for (size_t i = 0; i < after.getTargets().size(); ++i) {
-            targetValues.push_back(ctx.getValue(after.getTargets()[i]));
-        }
-
-        mlir::jeff::YieldOp::create(builder, targetValues);
-    }
+    deserializeBlock(builder, op.getBefore().emplaceBlock(), outTypes, reader.getBefore(), ctx);
+    deserializeBlock(builder, op.getAfter().emplaceBlock(), outTypes, reader.getAfter(), ctx);
 
     llvm::SmallVector<mlir::Value> outValues;
     outValues.reserve(operation.getOutputs().size());
