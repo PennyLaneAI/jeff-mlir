@@ -128,30 +128,6 @@ void printInitializationList(OpAsmPrinter& p, Block::BlockArgListType blocksArgs
     p << ")";
 }
 
-template <typename OpType>
-LogicalResult verifyRegionArgs(OpType op, ValueRange inValues, ValueRange outValues,
-                               Block::BlockArgListType regionArgs) {
-    if (regionArgs.size() != outValues.size()) {
-        return op.emitOpError("mismatch in number of basic block args and output values");
-    }
-
-    unsigned i = 0;
-    for (auto e : llvm::zip(inValues, regionArgs, outValues)) {
-        if (std::get<0>(e).getType() != std::get<2>(e).getType()) {
-            return op.emitOpError()
-                   << "types mismatch between " << i << "th iter operand and output value";
-        }
-        if (std::get<1>(e).getType() != std::get<2>(e).getType()) {
-            return op.emitOpError()
-                   << "types mismatch between " << i << "th iter region arg and output value";
-        }
-
-        ++i;
-    }
-
-    return success();
-}
-
 } // namespace
 
 void IntBinaryOp::getCanonicalizationPatterns(RewritePatternSet& results, MLIRContext* context) {
@@ -201,7 +177,7 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
     // The op declares `$default` first and `$branches` after,
     // so the default region must occupy index 0.
     // Pre-allocate it; populate later if present.
-    Region* defaultRegion = result.addRegion();
+    auto* defaultRegion = result.addRegion();
 
     // Parse `(%sel, %a, %b)` — selector first, then in-values.
     llvm::SmallVector<OpAsmParser::UnresolvedOperand> operands;
@@ -282,7 +258,7 @@ ParseResult SwitchOp::parse(OpAsmParser& parser, OperationState& result) {
         }
         ++expectedCase;
 
-        Region* branch = result.addRegion();
+        auto* branch = result.addRegion();
         if (parseRegionWithArgs(*branch)) {
             return failure();
         }
@@ -444,7 +420,7 @@ ParseResult ForOp::parse(OpAsmParser& parser, OperationState& result) {
     }
 
     // Parse the body region.
-    Region* body = result.addRegion();
+    auto* body = result.addRegion();
     if (parser.parseRegion(*body, regionArgs)) {
         return failure();
     }
@@ -503,8 +479,22 @@ LogicalResult ForOp::verifyRegions() {
     auto inValues = getInValues();
     auto outValues = getOutValues();
     auto regionArgs = getBody().getArguments().drop_front(1);
-    if (verifyRegionArgs(*this, inValues, outValues, regionArgs).failed()) {
-        return failure();
+
+    if (regionArgs.size() != inValues.size()) {
+        return emitOpError("mismatch in number of block arguments and input values");
+    }
+
+    unsigned i = 0;
+    for (auto e : llvm::zip(inValues, outValues, regionArgs)) {
+        if (std::get<0>(e).getType() != std::get<1>(e).getType()) {
+            return emitOpError() << "types mismatch between " << i
+                                 << "th output value and input value";
+        }
+        if (std::get<0>(e).getType() != std::get<2>(e).getType()) {
+            return emitOpError() << "types mismatch between " << i
+                                 << "th block argument and input value";
+        }
+        ++i;
     }
 
     return success();
@@ -514,11 +504,18 @@ LogicalResult ForOp::verifyRegions() {
 // https://github.com/llvm/llvm-project/blob/a58268a77cdbfeb0b71f3e76d169ddd7edf7a4df/mlir/lib/Dialect/SCF/IR/SCF.cpp#L3343
 void WhileOp::print(OpAsmPrinter& p) {
     auto inValues = getInValues();
+    auto outValues = getOutValues();
 
-    // Emit `: ( types )` only when there are in-values.
+    // Emit `: (in_value_types) -> ( out_value_types )`
+    p << " : (";
     if (!inValues.empty()) {
-        p << " : (" << inValues.getTypes() << ")";
+        p << inValues.getTypes();
     }
+    p << ") -> (";
+    if (!outValues.empty()) {
+        p << outValues.getTypes();
+    }
+    p << ')';
 
     // before region: `args ( $assignments )`.
     // Define the mapping between operands and block arguments.
@@ -550,73 +547,79 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
     auto* before = result.addRegion();
     auto* after = result.addRegion();
 
-    // Parse optional `: ( types )`.
-    // Omitted when there are no in-values.
-    llvm::SmallVector<Type> types;
-    if (succeeded(parser.parseOptionalColon())) {
-        if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
-                return parser.parseType(types.emplace_back());
-            })) {
-            return failure();
-        }
+    // Parse `: (in_value_types) -> (out_value_types)`
+    llvm::SmallVector<Type> inValueTypes;
+    llvm::SmallVector<Type> outValueTypes;
+    if (parser.parseColon()) {
+        return failure();
     }
-
-    // Parse the before region's `args ( $assignments )`.
-    llvm::SmallVector<OpAsmParser::Argument> beforeRegionArgs;
-    llvm::SmallVector<OpAsmParser::UnresolvedOperand> beforeOperands;
-    if (parser.parseKeyword("args") ||
-        parser.parseAssignmentList(beforeRegionArgs, beforeOperands)) {
+    if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+            return parser.parseType(inValueTypes.emplace_back());
+        })) {
+        return failure();
+    }
+    if (parser.parseArrow()) {
+        return failure();
+    }
+    if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+            return parser.parseType(outValueTypes.emplace_back());
+        })) {
         return failure();
     }
 
-    if (beforeRegionArgs.size() != types.size()) {
+    // Parse before region
+    llvm::SmallVector<OpAsmParser::Argument> beforeRegionArgs;
+    llvm::SmallVector<OpAsmParser::UnresolvedOperand> beforeOperands;
+    if (parser.parseKeyword("args")) {
+        return failure();
+    }
+    if (parser.parseAssignmentList(beforeRegionArgs, beforeOperands)) {
+        return failure();
+    }
+    if (beforeRegionArgs.size() != inValueTypes.size()) {
         return parser.emitError(parser.getNameLoc())
-               << "expected " << types.size() << " before arguments but got "
+               << "expected " << inValueTypes.size() << " before arguments but got "
                << beforeRegionArgs.size();
     }
-
-    for (auto [arg, ty] : llvm::zip_equal(beforeRegionArgs, types)) {
+    for (auto [arg, ty] : llvm::zip_equal(beforeRegionArgs, inValueTypes)) {
         arg.type = ty;
     }
-
     if (parser.parseRegion(*before, beforeRegionArgs)) {
         return failure();
     }
     WhileOp::ensureTerminator(*before, builder, result.location);
 
-    // Parse the after region's `args ( $names )`.
-    // Names only. The operands are inherited from the before region's `args(...)`.
+    // Resolve operands
+    if (parser.resolveOperands(beforeOperands, inValueTypes, parser.getCurrentLocation(),
+                               result.operands)) {
+        return failure();
+    }
+
+    // Parse after region
     llvm::SmallVector<OpAsmParser::Argument> afterRegionArgs;
-    if (parser.parseKeyword("args") ||
-        parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
+    if (parser.parseKeyword("args")) {
+        return failure();
+    }
+    if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Paren, [&]() {
             return parser.parseArgument(afterRegionArgs.emplace_back());
         })) {
         return failure();
     }
-
-    if (afterRegionArgs.size() != types.size()) {
+    if (afterRegionArgs.size() != outValueTypes.size()) {
         return parser.emitError(parser.getNameLoc())
-               << "expected " << types.size() << " after arguments but got "
+               << "expected " << outValueTypes.size() << " after arguments but got "
                << afterRegionArgs.size();
     }
-
-    for (auto [arg, ty] : llvm::zip_equal(afterRegionArgs, types)) {
+    for (auto [arg, ty] : llvm::zip_equal(afterRegionArgs, outValueTypes)) {
         arg.type = ty;
     }
-
     if (parser.parseRegion(*after, afterRegionArgs)) {
         return failure();
     }
     WhileOp::ensureTerminator(*after, builder, result.location);
 
-    // Resolve operands from the before region's `args(...)`.
-    if (parser.resolveOperands(beforeOperands, types, parser.getCurrentLocation(),
-                               result.operands)) {
-        return failure();
-    }
-
-    // Op results have the same types as in-values.
-    result.addTypes(types);
+    // Set result types
+    result.addTypes(outValueTypes);
 
     if (parser.parseOptionalAttrDict(result.attributes)) {
         return failure();
@@ -625,26 +628,29 @@ ParseResult WhileOp::parse(OpAsmParser& parser, OperationState& result) {
     return success();
 }
 
-LogicalResult WhileOp::verify() {
-    if (getInValues().size() != getNumResults()) {
-        return emitOpError("mismatch in number of input and output values");
-    }
-
-    return success();
-}
-
 LogicalResult WhileOp::verifyRegions() {
     auto inValues = getInValues();
-    auto outValues = getOutValues();
-
     auto beforeArgs = getBefore().getArguments();
-    if (verifyRegionArgs(*this, inValues, outValues, beforeArgs).failed()) {
-        return failure();
+    if (beforeArgs.size() != inValues.size()) {
+        return emitOpError("mismatch in number of block arguments and input values");
+    }
+    for (size_t i = 0; i < beforeArgs.size(); ++i) {
+        if (inValues[i].getType() != beforeArgs[i].getType()) {
+            return emitOpError() << "type mismatch between " << i
+                                 << "th block argument and output value";
+        }
     }
 
+    auto outValues = getOutValues();
     auto afterArgs = getAfter().getArguments();
-    if (verifyRegionArgs(*this, inValues, outValues, afterArgs).failed()) {
-        return failure();
+    if (afterArgs.size() != outValues.size()) {
+        return emitOpError("mismatch in number of block arguments and output values");
+    }
+    for (size_t i = 0; i < afterArgs.size(); ++i) {
+        if (outValues[i].getType() != afterArgs[i].getType()) {
+            return emitOpError() << "type mismatch between " << i
+                                 << "th block argument and output value";
+        }
     }
 
     return success();

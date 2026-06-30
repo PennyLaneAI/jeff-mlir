@@ -2082,7 +2082,36 @@ def ForOp : SCF_Op<"for", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jef
 def WhileOp : SCF_Op<"while", [IsolatedFromAbove, SingleBlockImplicitTerminator<"jeff::YieldOp">]> {
     let summary = "While loop with iteration arguments";
     let description = [{
-        TODO.
+      The `jeff.while` operation represents a loop that repeats while a condition holds.
+      It has two regions:
+
+      - The `before` region evaluates whether the condition is met.
+        It must terminate with a `jeff.yield` operation that yields the condition followed by the input values for the `after` region.
+        If the condition is not met, the latter values represent the op's results.
+      - The `after` region is only executed if the condition is `true`.
+        It must terminate with a `jeff.yield` operation that yields the input values for the next iteration.
+
+      Syntax:
+      ```
+      [ $out_values = ] jeff.while : ( $in_value_types ) -> ( $out_value_types )
+        args ( $before_assignments ) $before
+        args ( $after_assignments ) $after
+      ```
+
+      Implicit inferences in the syntax:
+      - Block-argument types inside the `args(...)` clauses are not written.
+        They are inferred from the operation's type annotation.
+
+      Example:
+      ```mlir
+      %r1, %r2 = jeff.while : (i32, i64) -> (i32, i64) args(%before_a = %a, %before_b = %b) {
+        // Evaluate condition
+        jeff.yield %condition, %result_a, %result_b : i1, i32, i64
+      } args(%after_a, %after_b) {
+        // Evaluate body
+        jeff.yield %next_a, %next_b : i32, i64
+      }
+      ```
     }];
 
     let arguments = (ins
@@ -2099,7 +2128,6 @@ def WhileOp : SCF_Op<"while", [IsolatedFromAbove, SingleBlockImplicitTerminator<
     );
 
     let hasCustomAssemblyFormat = 1;
-    let hasVerifier = 1;
     let hasRegionVerifier = 1;
 }
 
