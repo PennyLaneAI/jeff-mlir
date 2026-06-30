@@ -13,7 +13,7 @@ add_test(
     NAME uv_pip_install_jeff_format
     COMMAND
         ${UV_EXECUTABLE} pip install
-        "git+https://github.com/unitaryfoundation/jeff.git@8f8bebe8269baf84d0c01687691623a8c5a2fdd1#subdirectory=impl/py"
+        "git+https://github.com/unitaryfoundation/jeff.git@9e15d25ddfab27a8f2bd6b21a86d069f9a39d660#subdirectory=impl/py"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 set_tests_properties(
