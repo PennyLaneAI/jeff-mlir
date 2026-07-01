@@ -634,7 +634,7 @@ LogicalResult WhileOp::verifyRegions() {
     if (beforeArgs.size() != inValues.size()) {
         return emitOpError("mismatch in number of block arguments and input values");
     }
-    for (size_t i = 0; i < beforeArgs.size(); ++i) {
+    for (auto i = 0; i < beforeArgs.size(); ++i) {
         if (inValues[i].getType() != beforeArgs[i].getType()) {
             return emitOpError() << "type mismatch between " << i
                                  << "th block argument and output value";
@@ -646,7 +646,7 @@ LogicalResult WhileOp::verifyRegions() {
     if (afterArgs.size() != outValues.size()) {
         return emitOpError("mismatch in number of block arguments and output values");
     }
-    for (size_t i = 0; i < afterArgs.size(); ++i) {
+    for (auto i = 0; i < afterArgs.size(); ++i) {
         if (outValues[i].getType() != afterArgs[i].getType()) {
             return emitOpError() << "type mismatch between " << i
                                  << "th block argument and output value";
