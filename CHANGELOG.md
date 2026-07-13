@@ -14,7 +14,7 @@ the new implementation covers the functionalit of a do-while operation,
 
 Furthermore, this release marks `SwitchOp`, `ForOp`, and `WhileOp` as
 `IsolatedFromAbove`, ensuring that their regions are checked to be isolated from
-above.
+above. All three operations now also have a parser.
 
 This release is compatible with `jeff-v0.3.0`.
 
