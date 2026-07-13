@@ -16,5 +16,7 @@ if(NOT TARGET ${test_name})
 
     set_target_properties(${test_name} PROPERTIES FOLDER unittests)
 
-    gtest_discover_tests(${test_name} DISCOVERY_TIMEOUT 60)
+    gtest_discover_tests(
+        ${test_name} DISCOVERY_TIMEOUT 60 PROPERTIES FIXTURES_REQUIRED generate_test_cases_success
+    )
 endif()
