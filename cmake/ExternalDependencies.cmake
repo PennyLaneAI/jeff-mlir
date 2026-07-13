@@ -6,7 +6,7 @@ if(BUILD_JEFF_MLIR_TRANSLATION)
     FetchContent_Declare(
         jeff
         GIT_REPOSITORY https://github.com/unitaryfoundation/jeff/
-        GIT_TAG 9e15d25ddfab27a8f2bd6b21a86d069f9a39d660
+        GIT_TAG jeff-v0.3.0
     )
     list(APPEND FETCH_PACKAGES jeff)
 
@@ -22,9 +22,7 @@ if(BUILD_JEFF_MLIR_TRANSLATION)
     FetchContent_Declare(
         capnproto
         GIT_REPOSITORY https://github.com/capnproto/capnproto.git
-        GIT_TAG v1.3.0
-        PATCH_COMMAND ${CMAKE_COMMAND} -E chdir <SOURCE_DIR> patch --forward -p1 -i
-                      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/capnproto-disable-tests.patch
+        GIT_TAG v1.5.0
     )
     list(APPEND FETCH_PACKAGES capnproto)
 endif()

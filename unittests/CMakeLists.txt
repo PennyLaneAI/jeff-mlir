@@ -11,9 +11,8 @@ set_tests_properties(uv_venv PROPERTIES FIXTURES_SETUP uv_venv_success)
 # Install jeff-format
 add_test(
     NAME uv_pip_install_jeff_format
-    COMMAND
-        ${UV_EXECUTABLE} pip install
-        "git+https://github.com/unitaryfoundation/jeff.git@9e15d25ddfab27a8f2bd6b21a86d069f9a39d660#subdirectory=impl/py"
+    COMMAND ${UV_EXECUTABLE} pip install
+            "git+https://github.com/unitaryfoundation/jeff.git@jeff-v0.3.0#subdirectory=impl/py"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 set_tests_properties(
