@@ -1,24 +1,60 @@
+# To run all pre-commit checks, use:
+#
+#     uvx prek run -a
+#
+# To install pre-commit hooks that run every time you commit:
+#
+#     uv tool install prek
+#     prek install
+#
+
 repos:
+  ## Standard hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: check-merge-conflict
+        args: [--assume-in-merge]
+        fail_fast: true
+        priority: 0
       - id: end-of-file-fixer
+        priority: 1
       - id: trailing-whitespace
+        priority: 2
+
+  ## Check JSON schemata
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.36.1
+    rev: 0.37.4
     hooks:
       - id: check-github-workflows
+        priority: 0
+
+  ## Check for typos
+  - repo: https://github.com/adhtruong/mirrors-typos
+    rev: v1.48.0
+    hooks:
+      - id: typos
+        priority: 3
+
+  ## Format configuration files with prettier
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.8.1
+    rev: v3.9.4
     hooks:
       - id: prettier
-        types_or: [yaml, markdown, html, css, scss, javascript, json]
-  - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v21.1.8
+        types_or: [yaml, html, css, scss, javascript, json, json5]
+        priority: 4
+
+    ## Format Markdown files with rumdl
+  - repo: https://github.com/rvben/rumdl-pre-commit
+    rev: v0.2.28
     hooks:
-      - id: clang-format
-        types_or: [c++, c, cuda]
+      - id: rumdl
+        args: [--fix]
+        priority: 4
+      - id: rumdl-fmt
+        priority: 5
+
+  ## Format CMake files with cmake-format
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
     hooks:
@@ -26,10 +62,23 @@ repos:
         additional_dependencies: [pyyaml]
         types: [file]
         files: (\.cmake|CMakeLists.txt)(.in)?$
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.0
+        priority: 4
+
+  ## Format C++ files with clang-format
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v22.1.5
     hooks:
-      - id: ruff-format
+      - id: clang-format
+        types_or: [c++, c, cuda]
+        priority: 4
+
+  ## Format and lint Python files with ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
       - id: ruff-check
         require_serial: true
-        args: [--fix, --unsafe-fixes]
+        priority: 4
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
+        priority: 5

@@ -1,0 +1,13 @@
+[per-file-ignores]
+# The README may include HTML
+"README.md" = ["MD033"]
+
+[MD013]
+line-length = 80
+code-blocks = false
+headings = false
+reflow = true
+reflow-mode = "normalize"
+
+[MD060]
+enabled = true
